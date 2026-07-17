@@ -59,14 +59,25 @@ aginiti-redteam/
 ### Prerequisites
 * Python 3.10+
 * A valid API key for any LiteLLM-supported provider (e.g., `GEMINI_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, etc.) as the attack loop and LLM-as-a-judge classification are fully provider-agnostic.
+* **Windows Users:** It is highly recommended to run inside **WSL2** (Windows Subsystem for Linux). Running native binary dependencies like `onnxruntime` under native Windows can cause DLL loading errors or crashes.
 
-### Install
-Clone the repository and install in editable mode with development dependencies:
+### Install & Configure
+Clone the repository, set up a virtual environment, and install the library in editable mode:
 
 ```bash
-git clone https://github.com/aginiti/aginiti-redteam.git
+# 1. Clone and navigate to the project
+git clone https://github.com/MuhammadHammadIrfan/Aginiti-redteam.git
 cd aginiti-redteam
+
+# 2. Create and activate a clean virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# 3. Install development dependencies
 pip install -e ".[dev]"
+
+# 4. Copy environment template and add your API key(s)
+cp .env.example .env
 ```
 
 ### 1. Seed & Start Reference Agents
