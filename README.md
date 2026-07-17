@@ -66,7 +66,7 @@ Clone the repository, set up a virtual environment, and install the library in e
 
 ```bash
 # 1. Clone and navigate to the project
-git clone https://github.com/MuhammadHammadIrfan/Aginiti-redteam.git
+git clone https://github.com/dev-devneuron/aginiti-redteam.git
 cd aginiti-redteam
 
 # 2. Create and activate a clean virtual environment
