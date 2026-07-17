@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aginiti-redteam"
+version = "0.1.0"
+description = "Red-teaming library for enterprise agentic AI systems — data leak evaluation"
+readme = "docs/dev_setup.md"
+requires-python = ">=3.10"
+dependencies = [
+    "litellm>=1.40",
+    # openai is already a hard transitive dependency of litellm (litellm
+    # normalizes every provider's errors into openai's exception hierarchy —
+    # e.g. litellm.RateLimitError subclasses openai.RateLimitError). Declared
+    # directly here because aginiti/attacks/dra/ikea.py imports
+    # openai.APIError explicitly, as the one common base class that actually
+    # covers every litellm-raised provider exception (rate limits, timeouts,
+    # connection errors, ...) for graceful degradation — not to make calls
+    # through it directly, which stays exclusively through litellm.
+    "openai",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+    "faker>=25",
+    # chromadb is the vector store AND the default (local, ONNX) embedding
+    # provider — it pulls onnxruntime/numpy/tokenizers transitively. Do NOT add
+    # onnxruntime, sentence-transformers, or torch explicitly (chromadb manages
+    # its own ONNX runtime; PyTorch is never a dependency of this project).
+    #
+    # Native-binary troubleshooting (some Windows/older-CPU machines — do NOT
+    # hard-pin these globally, they are per-machine workarounds; see
+    # docs/how-it-works.md §3.10):
+    #   * onnxruntime "DLL load failed": pin `onnxruntime==1.17.0` (needs
+    #     `numpy==1.26.4`, i.e. NumPy 1.x — 1.17.0 is built against NumPy 1.x).
+    #   * chromadb `add()`/`query()` SIGSEGV: the 1.x Rust core can crash on
+    #     such machines — pin `chromadb>=0.5,<0.6` (older Python+hnswlib core).
+    "chromadb>=0.5.0",
+    # numpy stays: chromadb requires it transitively and pure-python cosine
+    # helpers elsewhere are unaffected. Not tied to the (removed) JSON store.
+    "numpy>=1.24",
+    "opentelemetry-api>=1.24",
+    "opentelemetry-sdk>=1.24",
+    "requests>=2.31",
+    "pydantic>=2.0",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "responses>=0.25",
+]
+# Public-dataset benchmarking layer only (benchmarks/scaled_evals/). NOT required to
+# use the library — `pip install aginiti-redteam` stays lean. Install with
+# `pip install -e ".[benchmarks]"`.
+benchmarks = [
+    "datasets>=2.19",
+    "rouge-score>=0.1.2",
+]
+# Placeholder — cloud embeddings (Gemini/OpenAI/Mistral/...) need no extra
+# package beyond litellm, which is already a hard dependency. Pass
+# embed_model="gemini/..." (etc.) and the relevant provider API key.
+cloud-embeddings = []
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aginiti*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

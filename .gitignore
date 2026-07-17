@@ -1,0 +1,69 @@
+# JS (should not be here — prevent accidental re-creation)
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Legacy JSON vector stores (superseded by ChromaDB — kept locally until
+# manually removed, never committed)
+benchmarks/dev_fixtures/agents/reference_agent_blackbox/vector_store.json
+benchmarks/dev_fixtures/agents/reference_agent_otel/vector_store.json
+
+# ChromaDB persistent stores (seeded locally via seed.py, not committed)
+benchmarks/dev_fixtures/agents/reference_agent_blackbox/.chroma/
+benchmarks/dev_fixtures/agents/reference_agent_otel/.chroma/
+benchmarks/dev_fixtures/agents/reference_agent_otel/.chroma_test_probe/
+benchmarks/scaled_evals/agents/healthcare_agent/.chroma/
+
+# Scaled benchmark layer (benchmarks/scaled_evals/) — downloaded dataset, local vector
+# store, and per-run results are all generated locally, never committed.
+benchmarks/scaled_evals/datasets/*.json
+benchmarks/scaled_evals/agents/healthcare_agent/vector_store.json
+benchmarks/scaled_evals/results/
+
+# Attack run output (scripts/run_ikea.py) — one timestamped file per run
+scripts/results/
+findings.json
+
+# IKEAAttack anchor-candidate cache (aginiti/attacks/dra/ikea.py
+# _init_anchors) — local, per-machine, regenerated automatically
+.cache/
+
+# Environment / secrets
+.env
+*.env
+
+# IDE
+.vscode/
+.idea/
+
+# Claude Code — settings.json (shared/team config) is fine to commit if it
+# ever exists; settings.local.json is per-developer tool permissions, never
+# meant to be shared.
+.claude/settings.local.json
+
+# Local planning / scratch documents (not for public repo)
+plans/
+docs/issues.md
+docs/how-it-works.md
+docs/feature-implementation.md
+aginiti/attacks/dra/ikea-methodology.md
