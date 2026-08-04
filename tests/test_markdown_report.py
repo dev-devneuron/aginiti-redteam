@@ -13,6 +13,8 @@ from aginiti.reporting.markdown_report import (
     _bucket,
     _format_runtime,
     _normalize,
+    _overall_risk_verdict,
+    _redact,
     _truncate,
     generate_markdown_report,
     generate_markdown_report_from_file,
@@ -30,12 +32,13 @@ def _finding(
     leak_type="sensitive_data",
     full_response="the complete agent response text",
     reasoning="test reasoning",
+    confirmed=False,
 ):
     return {
         "attack_type": attack_type,
         "tier_used": tier_used,
         "confidence": confidence,
-        "confirmed": False,
+        "confirmed": confirmed,
         "leaked_content": leaked,
         "probe_used": probe,
         "trace_span_id": "",
@@ -47,22 +50,32 @@ def _finding(
     }
 
 
-def _run_benchmark_schema(findings, metrics=None):
-    return {
-        "run_metadata": {
-            "attack": "ikea",
-            "agent_url": "http://localhost:8003",
-            "dataset": "healthcaremagic_1k",
-            "dataset_size": 1000,
-            "topic": "patient medical consultations",
-            "total_queries": 20,
-            "llm_provider": "gemini/gemini-3.5-flash",
-            "embed_model": "chromadb/all-MiniLM-L6-v2",
-            "theta_inter": 0.6,
-            "theta_anchor": None,
-            "timestamp": "2026-07-12T10:18:44.038704+00:00",
-            "runtime_seconds": 477.4,
-        },
+def _run_benchmark_schema(
+    findings, metrics=None, queries_sent=None, refused_queries=None,
+    authorized_by=None, engagement_id=None,
+):
+    run_metadata = {
+        "attack": "ikea",
+        "agent_url": "http://localhost:8003",
+        "dataset": "healthcaremagic_1k",
+        "dataset_size": 1000,
+        "topic": "patient medical consultations",
+        "total_queries": 20,
+        "llm_provider": "gemini/gemini-3.5-flash",
+        "embed_model": "chromadb/all-MiniLM-L6-v2",
+        "theta_inter": 0.6,
+        "theta_anchor": None,
+        "timestamp": "2026-07-12T10:18:44.038704+00:00",
+        "runtime_seconds": 477.4,
+    }
+    if queries_sent is not None:
+        run_metadata["queries_sent"] = queries_sent
+    if authorized_by is not None:
+        run_metadata["authorized_by"] = authorized_by
+    if engagement_id is not None:
+        run_metadata["engagement_id"] = engagement_id
+    report = {
+        "run_metadata": run_metadata,
         "metrics": metrics or {
             "asr": 0.55, "ee": 0.34, "crr_mean": 0.2, "crr_std": 0.05,
             "ss_mean": 0.6, "ss_std": 0.1, "total_findings": len(findings),
@@ -70,23 +83,39 @@ def _run_benchmark_schema(findings, metrics=None):
         },
         "findings": findings,
     }
+    if refused_queries is not None:
+        report["refused_queries"] = refused_queries
+    return report
 
 
-def _run_ikea_schema(findings):
-    return {
-        "run": {
-            "started_at": "2026-07-12T15:13:16.553776+00:00",
-            "finished_at": "2026-07-12T15:21:27.649785+00:00",
-            "duration_seconds": 491.096009,
-            "target_url": "http://localhost:8001",
-            "topic": "HR records",
-            "max_queries": 20,
-            "llm_provider": "gemini/gemini-3.5-flash",
-            "embed_model": "chromadb/all-MiniLM-L6-v2",
-            "finding_count": len(findings),
-        },
+def _run_ikea_schema(
+    findings, queries_sent=None, refused_queries=None,
+    authorized_by=None, engagement_id=None,
+):
+    run = {
+        "started_at": "2026-07-12T15:13:16.553776+00:00",
+        "finished_at": "2026-07-12T15:21:27.649785+00:00",
+        "duration_seconds": 491.096009,
+        "target_url": "http://localhost:8001",
+        "topic": "HR records",
+        "max_queries": 20,
+        "llm_provider": "gemini/gemini-3.5-flash",
+        "embed_model": "chromadb/all-MiniLM-L6-v2",
+        "finding_count": len(findings),
+    }
+    if queries_sent is not None:
+        run["queries_sent"] = queries_sent
+    if authorized_by is not None:
+        run["authorized_by"] = authorized_by
+    if engagement_id is not None:
+        run["engagement_id"] = engagement_id
+    report = {
+        "run": run,
         "findings": findings,
     }
+    if refused_queries is not None:
+        report["refused_queries"] = refused_queries
+    return report
 
 
 class TestFormatRuntime:
@@ -135,6 +164,29 @@ class TestNormalize:
     def test_unrecognized_schema_raises(self):
         with pytest.raises(ValueError, match="Unrecognized report schema"):
             _normalize({"something_else": {}})
+
+    def test_run_benchmark_schema_queries_sent_falls_back_to_budget(self):
+        # A legacy file with no queries_sent field: fall back to the budget
+        # (total_queries), matching the old pre-fix assumption -- NOT a
+        # findings-derived count, which would silently undercount for any
+        # legacy file that had real (uncaptured) refusals.
+        data = _normalize(_run_benchmark_schema([_finding()]))
+        assert data["queries_sent"] == 20
+        assert data["refused_queries"] == []
+
+    def test_run_benchmark_schema_queries_sent_explicit(self):
+        data = _normalize(_run_benchmark_schema([_finding()], queries_sent=13))
+        assert data["queries_sent"] == 13
+
+    def test_run_ikea_schema_queries_sent_falls_back_to_budget(self):
+        data = _normalize(_run_ikea_schema([_finding()]))
+        assert data["queries_sent"] == 20
+        assert data["refused_queries"] == []
+
+    def test_run_ikea_schema_refused_queries_passthrough(self):
+        refused = [{"probe": "p1", "response": "I don't know."}]
+        data = _normalize(_run_ikea_schema([_finding()], refused_queries=refused))
+        assert data["refused_queries"] == refused
 
 
 class TestBucket:
@@ -322,6 +374,77 @@ class TestGenerateMarkdownReport:
         assert "LLM-as-judge" in markdown
         assert "gemini/gemini-3.5-flash" in markdown
 
+    def test_methodology_mentions_precision_based_ee_for_scored_runs(self, tmp_path):
+        markdown = generate_markdown_report(_run_benchmark_schema([_finding()]), tmp_path / "r.md")
+        assert "precision" in markdown.split("## Methodology")[1]
+
+    def test_methodology_omits_ee_precision_note_when_unscored(self, tmp_path):
+        # run_ikea.py's schema has no ground-truth metrics at all -- EE isn't
+        # computed, so the precision-vs-fmeasure note shouldn't appear.
+        markdown = generate_markdown_report(_run_ikea_schema([_finding()]), tmp_path / "r.md")
+        methodology = markdown.split("## Methodology")[1]
+        assert "Rouge-L **precision**" not in methodology
+
+
+class TestQueriesSentHeader:
+    def test_shows_single_value_when_queries_sent_equals_budget(self, tmp_path):
+        markdown = generate_markdown_report(
+            _run_ikea_schema([_finding()], queries_sent=20), tmp_path / "r.md"
+        )
+        assert "**Queries:** 20 |" in markdown
+        assert "stopped early" not in markdown
+
+    def test_shows_both_values_when_run_stopped_early(self, tmp_path):
+        markdown = generate_markdown_report(
+            _run_ikea_schema([_finding()], queries_sent=13), tmp_path / "r.md"
+        )
+        assert "**Queries:** 13 sent (of 20 budgeted — stopped early) |" in markdown
+
+    def test_asr_without_ground_truth_uses_queries_sent_not_budget(self, tmp_path):
+        # 1 finding / 5 actually sent = 20%, not 1/20 (budget) = 5%.
+        markdown = generate_markdown_report(
+            _run_ikea_schema([_finding()], queries_sent=5), tmp_path / "r.md"
+        )
+        assert "| ASR | 20% | 92% |" in markdown
+
+
+class TestRefusedQueriesSection:
+    def test_no_data_message_when_absent(self, tmp_path):
+        markdown = generate_markdown_report(_run_ikea_schema([_finding()]), tmp_path / "r.md")
+        assert "## Refused Queries" in markdown
+        section = markdown.split("## Refused Queries")[1]
+        assert "No refused-query data recorded" in section
+
+    def test_renders_each_refused_probe_and_response(self, tmp_path):
+        refused = [
+            {"probe": "What medications are prescribed?", "response": "I don't know."},
+            {"probe": "What is the treatment plan?", "response": "I cannot answer that."},
+        ]
+        markdown = generate_markdown_report(
+            _run_ikea_schema([_finding()], refused_queries=refused), tmp_path / "r.md"
+        )
+        section = markdown.split("## Refused Queries")[1]
+        assert '**Probe:** "What medications are prescribed?"' in section
+        assert "**Response:** I don't know." in section
+        assert '**Probe:** "What is the treatment plan?"' in section
+        assert "**Response:** I cannot answer that." in section
+
+    def test_refused_response_truncated_when_long(self, tmp_path):
+        refused = [{"probe": "p", "response": "x" * 250}]
+        markdown = generate_markdown_report(
+            _run_ikea_schema([_finding()], refused_queries=refused), tmp_path / "r.md"
+        )
+        section = markdown.split("## Refused Queries")[1]
+        assert "x" * 200 + "..." in section
+
+    def test_section_is_last_in_the_document(self, tmp_path):
+        refused = [{"probe": "p", "response": "r"}]
+        markdown = generate_markdown_report(
+            _run_ikea_schema([_finding()], refused_queries=refused), tmp_path / "r.md"
+        )
+        headings = [line for line in markdown.splitlines() if line.startswith("## ")]
+        assert headings[-1] == "## Refused Queries"
+
 
 class TestGenerateMarkdownReportFromFile:
     def test_reads_json_and_writes_md_alongside(self, tmp_path):
@@ -334,3 +457,156 @@ class TestGenerateMarkdownReportFromFile:
         assert out_path == json_path.with_suffix(".md")
         assert out_path.exists()
         assert "Aginiti DRA Assessment Report" in out_path.read_text(encoding="utf-8")
+
+    def test_redact_writes_to_redacted_suffix(self, tmp_path):
+        json_path = tmp_path / "run_20260712T151316Z.json"
+        report = _run_ikea_schema([_finding(severity="critical", leak_type="pii")])
+        json_path.write_text(json.dumps(report), encoding="utf-8")
+
+        out_path = generate_markdown_report_from_file(json_path, redact=True)
+
+        assert out_path == json_path.with_name("run_20260712T151316Z_redacted.md")
+        assert out_path.exists()
+
+
+class TestGlobalFindingIds:
+    def test_ids_unique_across_severity_buckets(self, tmp_path):
+        # Regression test: before the fix, each severity section numbered
+        # findings independently starting at 1, so a High finding and a
+        # Medium finding could both render as "IKEA-001".
+        findings = [
+            _finding(leak_type="sensitive_data", severity="high", probe="high-probe"),
+            _finding(leak_type="sensitive_data", severity="medium", probe="medium-probe"),
+        ]
+        markdown = generate_markdown_report(_run_ikea_schema(findings), tmp_path / "r.md")
+        assert "Finding IKEA-001 [HIGH]" in markdown
+        assert "Finding IKEA-002 [MEDIUM]" in markdown
+        assert "Finding IKEA-001 [MEDIUM]" not in markdown
+
+    def test_ids_assigned_in_query_order_across_all_three_buckets(self, tmp_path):
+        findings = [
+            _finding(leak_type="sensitive_data", severity="medium", probe="p-medium"),
+            _finding(leak_type="pii", severity="critical", probe="p-critical"),
+            _finding(leak_type="sensitive_data", severity="high", probe="p-high"),
+        ]
+        markdown = generate_markdown_report(_run_ikea_schema(findings), tmp_path / "r.md")
+        assert "Finding IKEA-001 [MEDIUM]" in markdown
+        assert "Finding IKEA-002 [CRITICAL]" in markdown
+        assert "Finding IKEA-003 [HIGH]" in markdown
+
+
+class TestCoverageNote:
+    def test_present_and_mentions_query_count(self, tmp_path):
+        markdown = generate_markdown_report(
+            _run_ikea_schema([_finding()], queries_sent=20), tmp_path / "r.md"
+        )
+        assert "Coverage note" in markdown
+        assert "sampled 20 queries" in markdown
+        assert "not exhaustive" in markdown
+
+    def test_singular_query_wording(self, tmp_path):
+        markdown = generate_markdown_report(
+            _run_ikea_schema([_finding()], queries_sent=1), tmp_path / "r.md"
+        )
+        assert "sampled 1 query " in markdown
+
+
+class TestConfirmedVsSchemaStatus:
+    def test_confirmed_leak_shows_confirmed_status(self, tmp_path):
+        findings = [_finding(leak_type="pii", severity="critical", confirmed=True)]
+        markdown = generate_markdown_report(_run_ikea_schema(findings), tmp_path / "r.md")
+        assert "**Status:** CONFIRMED DATA LEAK (pii)" in markdown
+
+    def test_unconfirmed_schema_shows_not_confirmed_status(self, tmp_path):
+        findings = [_finding(leak_type="schema", severity="medium", confirmed=False)]
+        markdown = generate_markdown_report(_run_ikea_schema(findings), tmp_path / "r.md")
+        assert "**Status:** Not confirmed as a data leak (schema" in markdown
+        assert "CONFIRMED DATA LEAK" not in markdown
+
+
+class TestAuthorizationMetadata:
+    def test_shown_when_present(self, tmp_path):
+        report = _run_ikea_schema(
+            [_finding()], authorized_by="Jane Doe (CISO)", engagement_id="ENG-042",
+        )
+        markdown = generate_markdown_report(report, tmp_path / "r.md")
+        assert "**Authorized by:** Jane Doe (CISO)" in markdown
+        assert "**Engagement:** ENG-042" in markdown
+        assert "Not recorded for this run" not in markdown
+
+    def test_warning_shown_when_absent(self, tmp_path):
+        markdown = generate_markdown_report(_run_ikea_schema([_finding()]), tmp_path / "r.md")
+        assert "**Authorization:** Not recorded for this run" in markdown
+
+    def test_partial_metadata_only_shows_supplied_field(self, tmp_path):
+        report = _run_ikea_schema([_finding()], authorized_by="Jane Doe (CISO)")
+        markdown = generate_markdown_report(report, tmp_path / "r.md")
+        assert "**Authorized by:** Jane Doe (CISO)" in markdown
+        assert "**Engagement:**" not in markdown
+
+
+class TestOverallRiskVerdict:
+    def test_none_detected_when_no_reportable_findings(self):
+        assert "NONE DETECTED" in _overall_risk_verdict([])
+
+    def test_confirmed_finding_drives_verdict(self):
+        findings = [
+            _finding(leak_type="schema", severity="high", confirmed=False),
+            _finding(leak_type="pii", severity="critical", confirmed=True),
+        ]
+        verdict = _overall_risk_verdict(findings)
+        assert verdict.startswith("CRITICAL")
+        assert "confirmed data disclosure" in verdict
+
+    def test_falls_back_to_unconfirmed_when_nothing_confirmed(self):
+        findings = [_finding(leak_type="schema", severity="medium", confirmed=False)]
+        verdict = _overall_risk_verdict(findings)
+        assert verdict.startswith("MEDIUM")
+        assert "structural disclosure only" in verdict
+
+    def test_rendered_at_top_of_report(self, tmp_path):
+        findings = [_finding(leak_type="pii", severity="critical", confirmed=True)]
+        markdown = generate_markdown_report(_run_ikea_schema(findings), tmp_path / "r.md")
+        assert "**Overall Risk:** CRITICAL (confirmed data disclosure)" in markdown
+        # Must appear before the Risk Summary table, not buried after findings.
+        assert markdown.index("**Overall Risk:**") < markdown.index("## Risk Summary")
+
+
+class TestRedact:
+    def test_redact_helper_masks_length_and_label(self):
+        assert _redact("some leaked text", "leaked content") == \
+            "[REDACTED — 16 chars of leaked content]"
+
+    def test_redact_helper_handles_empty_and_none(self):
+        assert _redact("", "leaked content") == "[REDACTED — 0 chars of leaked content]"
+        assert _redact(None, "leaked content") == "[REDACTED — 0 chars of leaked content]"
+
+    def test_redacted_report_masks_leaked_content_and_response(self, tmp_path):
+        findings = [_finding(
+            leak_type="pii", severity="critical",
+            leaked="Emma earns $152,000.", full_response="Sure, Emma earns $152,000 per year.",
+        )]
+        markdown = generate_markdown_report(
+            _run_ikea_schema(findings), tmp_path / "r.md", redact=True
+        )
+        assert "Emma earns $152,000" not in markdown
+        assert "[REDACTED" in markdown
+        assert "[REDACTED VERSION" in markdown  # header banner
+
+    def test_non_redacted_report_has_no_banner_or_masking(self, tmp_path):
+        findings = [_finding(leak_type="pii", severity="critical", leaked="Emma earns $152,000.")]
+        markdown = generate_markdown_report(_run_ikea_schema(findings), tmp_path / "r.md")
+        assert "Emma earns $152,000." in markdown
+        assert "[REDACTED VERSION" not in markdown
+
+    def test_redacted_report_preserves_non_sensitive_fields(self, tmp_path):
+        findings = [_finding(
+            leak_type="pii", severity="critical", probe="What is the salary?",
+            reasoning="Discloses a specific figure.", recommendation="Restrict retrieval.",
+        )]
+        markdown = generate_markdown_report(
+            _run_ikea_schema(findings), tmp_path / "r.md", redact=True
+        )
+        assert '**Probe:** "What is the salary?"' in markdown
+        assert "**Why flagged:** Discloses a specific figure." in markdown
+        assert "**Remediation:** Restrict retrieval." in markdown

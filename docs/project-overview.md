@@ -106,7 +106,8 @@ aginiti-redteam/
 ├── scripts/
 │   ├── run_ikea.py                     ← zero-arg IKEA run vs fixture agent (port 8001)
 │   ├── run_benchmark.py                ← flexible benchmark CLI (any attack/agent) + EE/ASR/CRR/SS metrics
-│   └── run_healthcare_benchmark.py     ← zero-arg preset: IKEA vs healthcare_agent (port 8003)
+│   ├── run_healthcare_benchmark.py     ← zero-arg preset: IKEA vs healthcare_agent (port 8003)
+│   └── compare_benchmark_runs.py       ← side-by-side metrics table across 2+ saved results JSONs (generic, not Onyx-specific)
 │
 ├── tests/
 │   ├── test_base.py                    ← 11 tests: LeakFinding + BaseAttack
@@ -212,6 +213,22 @@ as `self.endpoint` on the class. `BaseAttack` stores only `self.target_url`
 (the URL string), not an endpoint object. New attack modules (MIA, FIA) must
 also construct their own `AgentEndpoint` locally in their `execute_black_box`.
 
+**`headers` / `send_fn` (added 2026-07-23):** two additional optional
+constructor params, both defaulting to `None` (every existing caller
+unaffected). `headers` sends static extra headers (e.g. `Authorization:
+Bearer ...`) on every request. `send_fn` fully overrides how a chat request
+is made/parsed — signature `(session, url, message, timeout) -> str`, still
+wrapped in the existing retry/backoff loop, must raise the same
+`requests.exceptions.HTTPError`/`ConnectionError`/`Timeout` types for
+retry behavior to match the default path. Added to support authenticated
+and/or non-flat-JSON targets — `IKEAAttack` gained a matching additive
+`endpoint_kwargs` constructor param (passed straight through to
+`AgentEndpoint(base_url=self.target_url, **self._endpoint_kwargs)` in
+`execute_black_box`) so a caller can point it at such a target with zero
+other code changes (intended for a currently-paused, not-yet-merged
+external-target integration — see `CLAUDE.md` §3's sign-off history for the
+full reasoning; this touches a locked-adjacent file).
+
 ---
 
 ### `aginiti/connectors/embedding.py` — provider-aware embedding client
@@ -289,6 +306,30 @@ large portions of the knowledge base — without ever issuing suspicious queries
 | `execute_black_box(**kwargs)` | Main ERS+TRDM loop; returns `list[LeakFinding]` |
 | `execute_with_traces(**kwargs)` | Calls `execute_black_box`, then upgrades findings using OTel spans |
 
+> **Note (2026-07-2x):** this table and `_is_refusal`'s description below
+> predate the 2026-07-13 `_classify_leak` (LLM-as-judge) rewrite —
+> `theta_refusal`'s actual current default is `0.90`, not `0.78`, and
+> `_classify_leak`/`_mutate_and_generate_query` aren't listed. Flagged as
+> pre-existing staleness in this doc, not something introduced or fixed by
+> the refused-queries/EE work below — a full sync of this section is a
+> separate, not-yet-scoped cleanup.
+
+**`refused_queries` (public instance attribute, added 2026-07-2x):** every
+`{"probe": q, "response": y}` pair `_is_refusal` classifies as a refusal
+during `execute_black_box` is recorded here (reset at the start of each
+run), instead of being discarded as before. This data was always computed
+internally (it drives `_er_sample`'s penalty weighting) — capturing it for
+reporting costs no extra LLM/API calls. Not part of `execute()`'s locked
+return type (`list[LeakFinding]`, CLAUDE.md §3) — read as
+`attack.refused_queries` after `execute()`/`execute_black_box()` returns,
+same pattern as `prefilter_skips`. `scripts/run_ikea.py` and
+`scripts/run_benchmark.py` both read it and record it (alongside a derived
+`queries_sent = len(findings) + len(refused_queries)`) in their output
+JSON and Markdown report — see `docs/how-it-works.md` §7 for why this
+mattered enough to add: it was the exact data needed to fix a real bug
+where ASR/EE were computed against the query *budget* instead of queries
+actually sent, badly understating both for any run that stopped early.
+
 **Progress logging:** `execute_black_box` logs each ERS sample, each query/
 response outcome, and refusals via the standard `logging` module (module-
 level `logger = logging.getLogger(__name__)`), silent by default per
@@ -348,16 +389,23 @@ internal path.
 
 ---
 
-### `aginiti/instrument/` and `aginiti/reporting/` — stubs
+### `aginiti/instrument/` — stub; `aginiti/reporting/` — done
 
-Both are empty `__init__.py` files. They mark the location of future modules:
-
-- **`instrument/`** — will contain the OTel span ingester that Tier 2 attacks
-  use to match findings against retrieval spans.
-- **`reporting/`** — will contain the structured report generator (HTML/JSON/
-  PDF output of a completed attack run).
-
-Neither is implemented yet. Do not add code here until explicitly instructed.
+- **`instrument/`** — still an empty `__init__.py`. Will contain the OTel
+  span ingester that Tier 2 attacks use to match findings against retrieval
+  spans. Not implemented yet — do not add code here until explicitly
+  instructed.
+- **`reporting/`** — implemented (`markdown_report.py`,
+  `generate_markdown_report()`/`generate_markdown_report_from_file()`).
+  Turns either JSON schema this repo produces into a CISO-facing Markdown
+  report: risk summary, key metrics vs. paper baseline, OWASP LLM Top
+  10-mapped findings with a confirmed-vs-schema-only status line, a
+  top-line overall-risk verdict, coverage/authorization notes, and an
+  optional `redact=True` mode that masks literal leaked content while
+  keeping severity/reasoning/remediation intact. Wired into both
+  `scripts/run_ikea.py` and `scripts/run_benchmark.py`, each of which now
+  writes both a full and a `_redacted` Markdown report alongside the JSON.
+  See `docs/how-it-works.md` §11 for the fix-by-fix detail.
 
 ---
 
@@ -663,10 +711,30 @@ live system.
 
 | Metric | Formula | Interpretation |
 |---|---|---|
-| **EE** (Extraction Efficiency) | unique extracted docs / (k × queries) | How efficiently the attack uses its query budget |
-| **ASR** (Attack Success Rate) | non-refused queries / total queries | Whether the target responds, or consistently refuses |
-| **CRR** (Chunk Recovery Rate) | Rouge-L(response, ground-truth doc) | Literal text overlap — how much verbatim content leaked |
+| **EE** (Extraction Efficiency) | unique extracted docs (Rouge-L **precision** > threshold, confirmed leak type) / (k × queries actually sent) | How efficiently the attack uses its query budget |
+| **ASR** (Attack Success Rate) | non-refused queries / queries actually sent | Whether the target responds, or consistently refuses |
+| **CRR** (Chunk Recovery Rate) | Rouge-L **F-measure**(finding, ground-truth doc) | Literal text overlap — how much verbatim content leaked |
 | **SS** (Semantic Similarity) | cosine(embed(response), embed(doc)) | Semantic overlap — how much knowledge leaked even without verbatim extraction |
+
+**Fixed 2026-07-2x:** EE previously used Rouge-L F-measure (same as CRR)
+for its hit test, which structurally under-scored short evidence quotes
+against long ground-truth documents and produced `ee: 0.0` on every scored
+run to date, including runs with real, classifier-confirmed leaks.
+Switched to precision for EE specifically (CRR is unchanged); denominators
+switched from the query budget to queries actually sent (tracked via the
+new `IKEAAttack.refused_queries`, see above). Full root-cause analysis and
+verification against real saved data in `docs/how-it-works.md` §7.
+
+**Follow-up fix, same 2026-07-2x session:** CRR/SS were still averaging
+over *every* finding, including `leak_type="none"` non-answers that
+shouldn't be expected to match any document — now restricted to
+`leak_type != "none"` findings (matches `markdown_report.py`'s existing
+Risk Summary filter). Also, `_MUTATION_PROMPT`/`_COMBINED_MUTATION_QUERY_PROMPT`
+in `ikea.py` were rewritten to bias TRDM mutation toward drilling into
+concrete facts a response revealed rather than drifting to new, unrelated
+topics — see `docs/how-it-works.md` §8 for the live-run evidence and full
+upgrade-plan context (explicitly reframed around real-world/defended-target
+impact, not paper parity).
 
 The IKEA paper reports CRR ~0.27–0.29 and SS ~0.45–0.55 against their
 baseline (no guardrails, MPNet embeddings). The fixture reference agents here
@@ -847,7 +915,7 @@ pyproject.toml
 | Component | Status | Note |
 |---|---|---|
 | `aginiti/instrument/` | Stub | OTel span ingester — needed for `execute_with_traces` to work |
-| `aginiti/reporting/` | **Done (2026-07-13)** | `generate_markdown_report()` — human-readable CISO-facing Markdown report (risk summary, key metrics vs. paper baseline, OWASP LLM Top 10-mapped findings, methodology). Handles both `scripts/run_ikea.py`'s and `scripts/run_benchmark.py`'s JSON schemas; wired into both scripts so a `.md` is written alongside every run's JSON |
+| `aginiti/reporting/` | **Done (2026-07-13, extended 2026-07-25)** | `generate_markdown_report()` — human-readable CISO-facing Markdown report (risk summary, key metrics vs. paper baseline, OWASP LLM Top 10-mapped findings, methodology). Handles both `scripts/run_ikea.py`'s and `scripts/run_benchmark.py`'s JSON schemas; wired into both scripts so a `.md` (and, since 2026-07-25, a `_redacted.md`) is written alongside every run's JSON. 2026-07-25 additions: globally-unique finding IDs, coverage caveat, confirmed-vs-schema-only status line, authorization/engagement metadata, `redact=True` mode, top-line overall-risk verdict — see `docs/how-it-works.md` §11 |
 | MIA module | Not started | Membership Inference Attack |
 | FIA module | Not started | Feature/Attribute Inference Attack |
 | SECRET (second DRA) | Documented, not started | arXiv:2510.02964, jailbreak-based DRA |
@@ -856,6 +924,8 @@ pyproject.toml
 | Full benchmark dataset + agent | **Done (single domain)** | `benchmarks/scaled_evals/` — HealthCareMagic-1k prep + `healthcare_agent` (port 8003). Multi-domain 500+ record expansion still roadmap |
 | `RandomDRAAttack` baseline attacker | Documented, not started | `aginiti/attacks/dra/random_baseline.py` — measures ERS+TRDM's marginal value |
 | Guardrails config dimension | Not started | Defensive system prompt as a *parameter on the existing fixture agents*. Distinct from the healthcare agent's fixed soft guardrail, which is already built |
+| Onyx benchmark target (second, independently-built target) | **Paused** | Tooling was built and is gitignored/untracked on `main` pending live verification — not yet resumed. Will land on a dedicated feature branch once resumed, not merged to `main` until verified against a live instance. |
+| Vanilla/upgraded target agent (more enterprise-realistic than `healthcare_agent`) | Not started | Planned next — see project history for the keep-vs-replace decision relative to `healthcare_agent` |
 
 **Do not start any of these without an explicit instruction from devneuron.**
 

@@ -1,0 +1,166 @@
+# Full-stack Docker setup for aginiti-redteam: the three reference agents,
+# their one-shot seeding jobs, and the two attack scripts — all built from the
+# single shared Dockerfile at the repo root. See docs/docker.md for usage.
+#
+# Design notes:
+#   - .chroma/ stores, run results, and the prepared HealthCareMagic dataset
+#     are bind-mounted to the same host paths .gitignore already treats as
+#     local/regenerable — inspectable and deletable from the host directly,
+#     no `docker volume` commands needed.
+#   - Seed jobs are idempotent (seed.py skips if the collection is already
+#     populated) and gate their agent via `condition: service_completed_successfully`,
+#     so agents never start against an unseeded (and therefore crashing,
+#     per ReferenceAgent's fail-fast __init__) ChromaDB collection.
+#   - Attack services are behind the "attack" profile so a plain
+#     `docker compose up` only brings up the three agents (seeded, healthy,
+#     idle) — it never fires an LLM-cost-incurring attack run by accident.
+
+services:
+  # ------------------------------------------------------------------
+  # Seeding — one-shot jobs, `restart: "no"` (the default).
+  # ------------------------------------------------------------------
+  seed-blackbox:
+    image: aginiti-redteam:latest
+    env_file: [.env]
+    command: python -m benchmarks.dev_fixtures.agents.reference_agent_blackbox.seed
+    volumes:
+      - ./benchmarks/dev_fixtures/agents/reference_agent_blackbox/.chroma:/app/benchmarks/dev_fixtures/agents/reference_agent_blackbox/.chroma
+
+  seed-otel:
+    image: aginiti-redteam:latest
+    env_file: [.env]
+    command: python -m benchmarks.dev_fixtures.agents.reference_agent_otel.seed
+    volumes:
+      - ./benchmarks/dev_fixtures/agents/reference_agent_otel/.chroma:/app/benchmarks/dev_fixtures/agents/reference_agent_otel/.chroma
+
+  prepare-healthcare:
+    image: aginiti-redteam:latest
+    command: python benchmarks/scaled_evals/datasets/prepare_healthcare.py
+    volumes:
+      - ./benchmarks/scaled_evals/datasets:/app/benchmarks/scaled_evals/datasets
+
+  seed-healthcare:
+    image: aginiti-redteam:latest
+    env_file: [.env]
+    command: python -m benchmarks.scaled_evals.agents.healthcare_agent.seed
+    depends_on:
+      prepare-healthcare:
+        condition: service_completed_successfully
+    volumes:
+      - ./benchmarks/scaled_evals/datasets:/app/benchmarks/scaled_evals/datasets
+      - ./benchmarks/scaled_evals/agents/healthcare_agent/.chroma:/app/benchmarks/scaled_evals/agents/healthcare_agent/.chroma
+
+  # ------------------------------------------------------------------
+  # Reference agents — long-running FastAPI services. Default profile:
+  # started by a plain `docker compose up`.
+  # ------------------------------------------------------------------
+  reference_agent_blackbox:
+    # Only THIS service declares `build: .` — every other service below just
+    # references `image: aginiti-redteam:latest` with no `build:` key of its
+    # own. Giving every service its own `build:` targeting the same image
+    # tag was tried first and is broken: `docker compose build`/`up` builds
+    # all `build:`-bearing services in parallel, and they race to write the
+    # same tag — reproduced live as an outright failure ("failed to receive
+    # status: ... EOF"), not just a harmless duplicate. One canonical builder
+    # + everyone else referencing its tag avoids the race entirely. Run
+    # `docker compose build` once (or just `docker compose up`, which builds
+    # automatically) before starting other services on a fresh checkout.
+    build: .
+    image: aginiti-redteam:latest
+    env_file: [.env]
+    command: uvicorn benchmarks.dev_fixtures.agents.reference_agent_blackbox.main:app --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./benchmarks/dev_fixtures/agents/reference_agent_blackbox/.chroma:/app/benchmarks/dev_fixtures/agents/reference_agent_blackbox/.chroma
+    depends_on:
+      seed-blackbox:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  reference_agent_otel:
+    image: aginiti-redteam:latest
+    env_file: [.env]
+    command: uvicorn benchmarks.dev_fixtures.agents.reference_agent_otel.main:app --host 0.0.0.0 --port 8002
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./benchmarks/dev_fixtures/agents/reference_agent_otel/.chroma:/app/benchmarks/dev_fixtures/agents/reference_agent_otel/.chroma
+    depends_on:
+      seed-otel:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  healthcare_agent:
+    image: aginiti-redteam:latest
+    env_file: [.env]
+    command: uvicorn benchmarks.scaled_evals.agents.healthcare_agent.main:app --host 0.0.0.0 --port 8003
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./benchmarks/scaled_evals/agents/healthcare_agent/.chroma:/app/benchmarks/scaled_evals/agents/healthcare_agent/.chroma
+    depends_on:
+      seed-healthcare:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ------------------------------------------------------------------
+  # Attacks — one-shot jobs, gated behind the "attack" profile. Invoke
+  # explicitly (this also starts the target agent + its seed job first,
+  # since `run` starts declared dependencies):
+  #   docker compose --profile attack run --rm attack-ikea
+  #   docker compose --profile attack run --rm attack-healthcare
+  #
+  # IKEA_TARGET_URL / HEALTHCARE_AGENT_URL override the scripts' hardcoded
+  # localhost defaults so they resolve the target agent by its Docker Compose
+  # service name over the compose network instead (see scripts/run_ikea.py
+  # and scripts/run_healthcare_benchmark.py — additive env var override,
+  # falls back to the original localhost default when unset, e.g. when run
+  # on the host against a `docker compose up`-started agent).
+  # ------------------------------------------------------------------
+  attack-ikea:
+    image: aginiti-redteam:latest
+    env_file: [.env]
+    environment:
+      IKEA_TARGET_URL: http://reference_agent_blackbox:8001
+    command: python scripts/run_ikea.py
+    volumes:
+      - ./scripts/results:/app/scripts/results
+      - ./.cache:/app/.cache
+    depends_on:
+      reference_agent_blackbox:
+        condition: service_healthy
+    profiles: ["attack"]
+
+  attack-healthcare:
+    image: aginiti-redteam:latest
+    env_file: [.env]
+    environment:
+      HEALTHCARE_AGENT_URL: http://healthcare_agent:8003
+    command: python scripts/run_healthcare_benchmark.py
+    volumes:
+      - ./benchmarks/scaled_evals/datasets:/app/benchmarks/scaled_evals/datasets
+      - ./benchmarks/scaled_evals/results:/app/benchmarks/scaled_evals/results
+      - ./.cache:/app/.cache
+    depends_on:
+      healthcare_agent:
+        condition: service_healthy
+    profiles: ["attack"]

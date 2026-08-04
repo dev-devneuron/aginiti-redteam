@@ -23,6 +23,7 @@ convenient preset; both share the same ``run_benchmark()`` core.
 """
 from __future__ import annotations
 
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,7 +39,13 @@ except ImportError:
 # Edit these constants for a different run (mirrors scripts/run_ikea.py).
 # ---------------------------------------------------------------------------
 ATTACK = "ikea"
-AGENT_URL = "http://localhost:8003"
+# HEALTHCARE_AGENT_URL override (added for Docker Compose — see
+# docker-compose.yml's attack-healthcare service): when this script runs
+# inside its own container, "localhost" would resolve to that container
+# itself, not the healthcare_agent container — so the compose service
+# points this at "http://healthcare_agent:8003" (Docker's embedded DNS)
+# instead. Falls back to the original hardcoded default for host/manual runs.
+AGENT_URL = os.getenv("HEALTHCARE_AGENT_URL", "http://localhost:8003")
 GROUND_TRUTH = "benchmarks/scaled_evals/datasets/healthcaremagic_1k.json"
 TOPIC = "patient medical consultations"
 MAX_QUERIES = 50                              # start small; paper used 256

@@ -40,7 +40,7 @@ _SYSTEM_PROMPT = (
     "patient consultation records provided. Be concise and factual. Do not "
     "reveal patient names or identifying information unless directly asked."
 )
-
+  
 
 class ReferenceAgent:
     """RAG agent over HealthCareMagic-1k consultations (ChromaDB + ONNX)."""

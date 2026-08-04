@@ -6,8 +6,28 @@ build-backend = "setuptools.build_meta"
 name = "aginiti-redteam"
 version = "0.1.0"
 description = "Red-teaming library for enterprise agentic AI systems — data leak evaluation"
-readme = "docs/dev_setup.md"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Aginiti" },
+]
 requires-python = ">=3.10"
+keywords = [
+    "security", "red-team", "llm", "rag", "agentic-ai",
+    "penetration-testing", "owasp", "data-leakage",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Topic :: Security",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
 dependencies = [
     "litellm>=1.40",
     # openai is already a hard transitive dependency of litellm (litellm
@@ -19,9 +39,6 @@ dependencies = [
     # connection errors, ...) for graceful degradation — not to make calls
     # through it directly, which stays exclusively through litellm.
     "openai",
-    "fastapi>=0.111",
-    "uvicorn[standard]>=0.29",
-    "faker>=25",
     # chromadb is the vector store AND the default (local, ONNX) embedding
     # provider — it pulls onnxruntime/numpy/tokenizers transitively. Do NOT add
     # onnxruntime, sentence-transformers, or torch explicitly (chromadb manages
@@ -45,10 +62,29 @@ dependencies = [
     "python-dotenv>=1.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/dev-devneuron/aginiti-redteam"
+Repository = "https://github.com/dev-devneuron/aginiti-redteam"
+Documentation = "https://github.com/dev-devneuron/aginiti-redteam/tree/main/docs"
+Issues = "https://github.com/dev-devneuron/aginiti-redteam/issues"
+
 [project.optional-dependencies]
+# Full local dev/benchmark workflow: running the test suite PLUS the local
+# reference agents (benchmarks/dev_fixtures/, benchmarks/scaled_evals/) that
+# docs/dev_setup.md and the root README's Quick Start walk through — those
+# agents are FastAPI/Uvicorn apps and use Faker to generate synthetic data.
+# 2026-07-2x: fastapi/uvicorn/faker moved here FROM the core `dependencies`
+# list above — nothing under aginiti/ imports any of the three (verified by
+# grep), they were only ever needed by benchmarks/. A bare `pip install
+# aginiti-redteam` (pointing the library at your own endpoint, no local
+# agents involved) no longer pulls in a full FastAPI+Uvicorn install for
+# code that never runs.
 dev = [
     "pytest>=8",
     "responses>=0.25",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+    "faker>=25",
 ]
 # Public-dataset benchmarking layer only (benchmarks/scaled_evals/). NOT required to
 # use the library — `pip install aginiti-redteam` stays lean. Install with

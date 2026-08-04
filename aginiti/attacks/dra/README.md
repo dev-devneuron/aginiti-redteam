@@ -35,7 +35,14 @@ Two mechanisms guide query generation:
 2. **Trust Region Directed Mutation (TRDM, Sec 3.4):** after a productive
    response, generates new anchor concepts inside a cosine-similarity trust
    region around the response embedding, steering toward unexplored nearby
-   knowledge.
+   knowledge. **Mutation prompt rewritten 2026-07-2x** to prefer drilling
+   into specific facts/entities the response actually revealed (a named
+   individual, case, diagnosis, measurement) over drifting to new,
+   unrelated territory — see the `_MUTATION_PROMPT`/
+   `_COMBINED_MUTATION_QUERY_PROMPT` comments in `ikea.py` and
+   `docs/how-it-works.md` §8 for the live-run evidence this was based on.
+   The trust-region filter itself (Eq. 6, applied after generation) is
+   unchanged.
 
 ### Quick start
 
@@ -110,7 +117,7 @@ and can be overridden at construction time.
 | `delta_o` | 0.7 | Table 5 | Similarity threshold triggering the outlier penalty |
 | `delta_u` | 0.7 | Table 5 | Similarity threshold triggering the unrelated penalty |
 | `beta` | 1.0 | Table 5 | ERS softmax temperature |
-| `gamma` | 0.5 | Table 5 | TRDM trust region scale factor |
+| `gamma` | 0.5 | Table 5 | TRDM trust region scale factor. **Instrumented but not recalibrated for MiniLM** (2026-07-2x) — `[TRDM-TRUST]` DEBUG logging added to both `_trdm_mutate`/`_mutate_and_generate_query` (same pattern as `theta_anchor`'s recalibration), but the default is intentionally left unchanged pending real measured data — see `docs/how-it-works.md` §8.2 |
 | `tau_q` | 0.6 | Table 5 | TRDM stop: max query similarity in local chain |
 | `tau_y` | 0.6 | Table 5 | TRDM stop: max response similarity in local chain |
 | `theta_refusal` | 0.78 | *project judgment call* | Refusal-exemplar cosine similarity fallback threshold in `_is_refusal` (see below) |
@@ -136,12 +143,26 @@ two-stage approach in `_is_refusal`:
    similarity to any exemplar exceeds `theta_refusal`.
 
 A hardcoded phrase list alone cannot enumerate every way a target LLM might
-phrase a refusal; this generalizes to unseen paraphrases without an extra
-LLM completion call (an LLM-as-judge classifier would be more accurate
-still, at the cost of one more completion call per response — not
-implemented, since the response is already embedded for confidence scoring
-in `_make_finding` whenever it isn't a refusal, so the fallback here adds
-close to zero marginal embedding cost on the non-refusal path).
+phrase a refusal — this two-stage check remains the fast, free, always-on
+first pass (used internally by `_er_sample`/`_trdm_stop` for algorithm
+steering, unchanged since before 2026-07-2x), but it does not fully solve
+the generalization problem on its own.
+
+**LLM-as-judge upgrade, 2026-07-2x (Tier C1):** the *final*, user-facing
+classification (what actually becomes a finding vs. a refused query) now
+runs through `_classify_response`, which independently re-verifies refusal
+status via an LLM call for any response this two-stage check doesn't
+already confidently resolve — see `_COMBINED_CLASSIFIER_PROMPT` and
+`plans/tier-c1-combined-refusal-leak-classifier.md`. This does not cost
+extra LLM calls: the population that reaches the LLM already required
+exactly one call for leak classification before this change; the same call
+now also determines refusal status. `_is_refusal` itself is intentionally
+left untouched — it's still what `_er_sample`/`_trdm_stop` use for their
+own cheap internal steering, deliberately not upgraded to avoid multiplying
+LLM cost across repeated re-examination of the same history entries. See
+`docs/how-it-works.md` §9 for the full design record, including a
+correction made during implementation to an earlier chat-discussed design
+that had a real generalization gap.
 
 **Measured limitation (2026-07-07):** a live run against
 `benchmarks/dev_fixtures/datasets/ground_truth.json` found 8 refusals recorded as
@@ -207,13 +228,39 @@ against known ground truth (see `benchmarks/`):
 
 | Metric | Formula | Interpretation |
 |---|---|---|
-| **EE** (Extraction Efficiency) | unique extracted docs / (k × queries) | Efficiency per query |
-| **ASR** (Attack Success Rate) | non-refused queries / total queries | How often the target responds |
-| **CRR** (Chunk Recovery Rate) | Rouge-L(response, ground-truth doc) | Literal overlap |
+| **EE** (Extraction Efficiency) | unique extracted docs (Rouge-L **precision** > threshold, confirmed leak type) / (k × queries actually sent) | Efficiency per query |
+| **ASR** (Attack Success Rate) | non-refused queries / queries actually sent | How often the target responds |
+| **CRR** (Chunk Recovery Rate) | Rouge-L **F-measure**(finding, ground-truth doc) | Literal overlap |
 | **SS** (Semantic Similarity) | cosine(embed(response), embed(doc)) | Semantic overlap |
 
 IKEA is designed for low CRR (~0.27–0.29 per the paper) and moderate-to-high
 SS — it extracts semantic knowledge, not verbatim text.
+
+**Precision, not F-measure, for EE (2026-07-2x):** EE's hit test uses Rouge-L
+precision — F-measure's recall term is computed against the whole
+ground-truth document's length, which structurally punishes a short (but
+accurate) extracted evidence quote against a much longer source document.
+CRR keeps F-measure, for comparability with the paper's own reported
+numbers. Root-cause writeup, including a verified real example, in
+`docs/how-it-works.md` §7.
+
+**"Queries actually sent," not the query budget:** a run that stops early
+(rate limit, endpoint failure) shouldn't have ASR/EE computed against
+queries it never got to send. `IKEAAttack.refused_queries` (a public
+instance attribute, populated during `execute_black_box`, reset per run)
+exposes exactly which queries were refused, so callers can compute the
+real count — `scripts/run_benchmark.py` and `scripts/run_ikea.py` both do
+this and record it (`queries_sent`, alongside `refused_queries` itself) in
+their output JSON and Markdown report.
+
+**CRR/SS scope, fixed 2026-07-2x:** both are averaged only over findings
+with `leak_type != "none"` — previously they averaged over *every*
+finding, including generic non-answers ("there is no information regarding
+X") that were never expected to match any ground-truth document, dragging
+both metrics down with content that isn't a leak at all. Matches the same
+filter `aginiti/reporting/markdown_report.py`'s Risk Summary already
+applies. Measured impact on a real run: SS rose 21% (0.4534 → 0.5485) once
+restricted to confirmed-leak findings only.
 
 These metrics are computed for you by **`scripts/run_benchmark.py`** (or the
 zero-arg preset `scripts/run_healthcare_benchmark.py`), which runs the attack

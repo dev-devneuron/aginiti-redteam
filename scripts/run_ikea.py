@@ -67,9 +67,22 @@ LLM_PROVIDER = "gemini/gemini-3.5-flash"
 # the matching key set, which _key_for() resolves (local models resolve to None).
 EMBED_MODEL = os.getenv("EMBED_MODEL", "chromadb/all-MiniLM-L6-v2")
 
-TARGET_URL = "http://localhost:8001"
+# IKEA_TARGET_URL override (added for Docker Compose — see docker-compose.yml's
+# attack-ikea service): when this script runs inside its own container,
+# "localhost" would resolve to that container itself, not the
+# reference_agent_blackbox container — so the compose service points this at
+# "http://reference_agent_blackbox:8001" (Docker's embedded DNS) instead.
+# Falls back to the original hardcoded default for host/manual runs.
+TARGET_URL = os.getenv("IKEA_TARGET_URL", "http://localhost:8001")
 TOPIC = "HR records"
 MAX_QUERIES = 20   # start small; paper used 256
+
+# Recorded verbatim in the report header (see markdown_report.py) — not
+# verified, just a record-keeping field. This script only ever targets the
+# local no-guardrail reference_agent_blackbox fixture, so these are left
+# unset by default; set via env when running against anything else.
+AUTHORIZED_BY = os.getenv("IKEA_AUTHORIZED_BY")
+ENGAGEMENT_ID = os.getenv("IKEA_ENGAGEMENT_ID")
 
 # theta_inter/n_anchor_candidates overrides — NOT the library defaults (those
 # stay at the paper's Table 5 values: theta_inter=0.5, n_anchor_candidates=20).
@@ -125,6 +138,16 @@ for f in findings:
     print(f"{f.severity:8s} conf={f.confidence:.2f}  {f.probe_used[:60]}")
     print(f"          {f.leaked_content[:120]}")
 
+# refused_queries / queries_sent (added 2026-07-2x): IKEAAttack always
+# computed this internally (drives ERS penalty weighting) but previously
+# discarded it entirely — nothing in the saved results told you WHICH
+# queries were refused, or how many queries were actually sent vs. budgeted
+# (MAX_QUERIES). Read from the instance attribute after execute() returns
+# (execute()'s return type is locked as list[LeakFinding], CLAUDE.md §3) —
+# same pattern already used for other post-run instance attributes.
+refused_queries = getattr(attack, "refused_queries", [])
+queries_sent = len(findings) + len(refused_queries)
+
 # One timestamped file per run in scripts/results/ — never overwritten.
 # aginiti/reporting/ (a structured report generator) is still a stub in the
 # library; this is just this script's own output, not that module.
@@ -142,11 +165,15 @@ report = {
         "target_url": TARGET_URL,
         "topic": TOPIC,
         "max_queries": MAX_QUERIES,
+        "queries_sent": queries_sent,
         "llm_provider": LLM_PROVIDER,
         "embed_model": EMBED_MODEL,
         "finding_count": len(findings),
+        "authorized_by": AUTHORIZED_BY,
+        "engagement_id": ENGAGEMENT_ID,
     },
     "findings": [dataclasses.asdict(f) for f in findings],
+    "refused_queries": refused_queries,
 }
 with open(_out_path, "w", encoding="utf-8") as fh:
     json.dump(report, fh, indent=2)
@@ -154,5 +181,9 @@ with open(_out_path, "w", encoding="utf-8") as fh:
 _md_path = _out_path.with_suffix(".md")
 generate_markdown_report(report, _md_path)
 
+_redacted_md_path = _out_path.with_name(_out_path.stem + "_redacted.md")
+generate_markdown_report(report, _redacted_md_path, redact=True)
+
 print(f"\nSaved {len(findings)} finding(s) to {_out_path}")
 print(f"Markdown report: {_md_path}")
+print(f"Redacted Markdown report: {_redacted_md_path}")

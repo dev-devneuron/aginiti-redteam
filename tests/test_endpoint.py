@@ -1,4 +1,5 @@
 import pytest
+import requests
 import responses as resp_lib
 from requests.exceptions import HTTPError
 
@@ -108,3 +109,82 @@ def test_close_does_not_raise():
     ep = AgentEndpoint(base_url=BASE)
     ep.close()
     ep.close()  # double-close should be safe
+
+
+# ---------------------------------------------------------------------------
+# headers / send_fn (added 2026-07-23 — generic auth + pluggable request/
+# response shape, first real caller is the Onyx connector; see
+# aginiti/attacks/dra/ikea.py's endpoint_kwargs and
+# benchmarks/scaled_evals/agents/onyx_target/connector.py)
+# ---------------------------------------------------------------------------
+
+@resp_lib.activate
+def test_headers_sent_on_every_request():
+    def _callback(request):
+        assert request.headers.get("Authorization") == "Bearer secret-key"
+        return (200, {}, '{"response": "ok"}')
+
+    resp_lib.add_callback(resp_lib.POST, f"{BASE}/chat", callback=_callback,
+                          content_type="application/json")
+
+    ep = AgentEndpoint(base_url=BASE, headers={"Authorization": "Bearer secret-key"})
+    assert ep.chat("hello") == "ok"
+
+
+@resp_lib.activate
+def test_headers_applied_to_check_reachable_too():
+    def _callback(request):
+        assert request.headers.get("Authorization") == "Bearer secret-key"
+        return (200, {}, "{}")
+
+    resp_lib.add_callback(resp_lib.GET, f"{BASE}/health", callback=_callback,
+                          content_type="application/json")
+
+    ep = AgentEndpoint(base_url=BASE, headers={"Authorization": "Bearer secret-key"})
+    assert ep.check_reachable() is True
+
+
+def test_send_fn_overrides_default_request_shape():
+    calls = []
+
+    def _send_fn(session, url, message, timeout):
+        calls.append((url, message, timeout))
+        return f"echo: {message}"
+
+    ep = AgentEndpoint(base_url=BASE, send_fn=_send_fn)
+    result = ep.chat("hello")
+
+    assert result == "echo: hello"
+    assert calls == [(f"{BASE}/chat", "hello", 30)]
+
+
+def test_send_fn_4xx_http_error_not_retried():
+    attempts = []
+
+    def _send_fn(session, url, message, timeout):
+        attempts.append(1)
+        response = requests.Response()
+        response.status_code = 400
+        raise HTTPError(response=response)
+
+    ep = AgentEndpoint(base_url=BASE, send_fn=_send_fn, max_retries=3, backoff_factor=0)
+    with pytest.raises(HTTPError):
+        ep.chat("hello")
+
+    assert len(attempts) == 1  # no retry on 4xx, same contract as the default path
+
+
+def test_send_fn_5xx_retried_then_raises():
+    attempts = []
+
+    def _send_fn(session, url, message, timeout):
+        attempts.append(1)
+        response = requests.Response()
+        response.status_code = 500
+        raise HTTPError(response=response)
+
+    ep = AgentEndpoint(base_url=BASE, send_fn=_send_fn, max_retries=2, backoff_factor=0)
+    with pytest.raises(HTTPError):
+        ep.chat("hello")
+
+    assert len(attempts) == 3  # initial + 2 retries, same contract as the default path

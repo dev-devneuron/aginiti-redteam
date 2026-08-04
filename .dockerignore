@@ -1,0 +1,38 @@
+# Keep the build context small and never bake secrets or local-generated
+# artifacts into the image. Mirrors .gitignore's "local, regenerable, not
+# committed" list — those same paths are bind-mounted at runtime instead.
+
+.git
+.gitignore
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+dist/
+build/
+.eggs/
+
+.venv/
+venv/
+env/
+
+node_modules/
+
+# Secrets — never in the image; passed in via docker-compose's env_file.
+.env
+*.env
+
+# Local-only generated data (bind-mounted by docker-compose.yml instead).
+.cache/
+scripts/results/
+benchmarks/scaled_evals/results/
+benchmarks/scaled_evals/datasets/*.json
+benchmarks/dev_fixtures/agents/reference_agent_blackbox/.chroma/
+benchmarks/dev_fixtures/agents/reference_agent_otel/.chroma/
+benchmarks/dev_fixtures/agents/reference_agent_otel/.chroma_test_probe/
+benchmarks/scaled_evals/agents/healthcare_agent/.chroma/
+findings.json
+
+# Gitignored local planning/scratch docs — not needed inside the image.
+plans/

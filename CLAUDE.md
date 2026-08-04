@@ -208,6 +208,24 @@ it unilaterally.
   `attack_instance.execute(...)` as a second safety net, so results are
   always written to disk (with the error recorded in `run_metadata`) even if
   something still escapes both layers.
+  Third follow-up (2026-07-23, Onyx integration — see
+  `plans/onyx-integration.md`): building a connector for Onyx (an
+  authenticated target with a non-flat-JSON chat API) surfaced a real gap —
+  `execute_black_box` hardcoded `AgentEndpoint(base_url=self.target_url)`
+  with no way to pass auth headers or a differently-shaped request/response.
+  `IKEAAttack.__init__` gained one additive `endpoint_kwargs: Optional[dict]
+  = None` param (default `{}`, every existing caller unaffected), passed
+  straight through as `AgentEndpoint(base_url=self.target_url,
+  **self._endpoint_kwargs)`. Deliberately generic plumbing, not Onyx-specific
+  logic — the actual Onyx request/response handling lives entirely outside
+  `aginiti/`, in `benchmarks/scaled_evals/agents/onyx_target/connector.py`,
+  which builds the `headers`/`send_fn` dict and hands it in as an opaque
+  value, same separation-of-concerns pattern as `leak_prefilter`. Did not
+  change `execute()`'s dispatch logic, `LeakFinding`, or any existing field/
+  parameter's behavior when `endpoint_kwargs` is omitted (verified: the full
+  test suite, including two new tests asserting `AgentEndpoint`'s
+  constructor receives exactly `{"base_url": ...}` when no `endpoint_kwargs`
+  is passed, stays green).
 - **LLM provider abstraction is mandatory everywhere.** Every LLM call inside
   the library goes through LiteLLM via `BaseAttack._init_llm`. Never hardcode
   a provider, an SDK, or assume a specific response shape. Default dev/test
@@ -246,7 +264,14 @@ it unilaterally.
   complexity anticipated here). Do not gold-plate the fixture agents.
 - **`AgentEndpoint`** (in `aginiti/connectors/endpoint.py`) is a generic HTTP
   client with configurable request/response keys — it must not assume the
-  target's schema matches our own reference agents exactly.
+  target's schema matches our own reference agents exactly. Extended
+  2026-07-23 (additive, both default `None`, every existing caller
+  unaffected) with `headers` (static extra headers, e.g. Bearer auth) and
+  `send_fn` (full override of how a chat request is made/parsed, still
+  wrapped in the existing retry loop) — first real caller is
+  `benchmarks/scaled_evals/agents/onyx_target/connector.py`. Both stay
+  generic on purpose: this is "support any authenticated/non-flat-JSON HTTP
+  target," not Onyx-specific code inside the connector layer.
 - **`embed_texts`** (in `aginiti/connectors/embedding.py`) is the single
   embedding entry point for the whole library — attacks and reference agents
   alike. It routes `chromadb/*` → local ONNX and every other `<provider>/*` →

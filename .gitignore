@@ -40,6 +40,25 @@ benchmarks/scaled_evals/datasets/*.json
 benchmarks/scaled_evals/agents/healthcare_agent/vector_store.json
 benchmarks/scaled_evals/results/
 
+# Onyx benchmark integration — PAUSED, not yet verified against a live
+# instance (see plans/onyx-integration.md). Excluded wholesale from git for
+# now so main stays clean of unverified work; will be pushed to a dedicated
+# feature branch once resumed and verified, not merged to main until then.
+# This ignores the feature's own code too, not just its runtime artifacts —
+# a broader exclusion than this project's other benchmark-layer entries below.
+benchmarks/scaled_evals/agents/onyx_target/
+benchmarks/scaled_evals/datasets/prepare_onyx_upload.py
+benchmarks/scaled_evals/datasets/onyx_upload_payloads.jsonl
+benchmarks/scaled_evals/datasets/onyx_upload_state.json
+scripts/run_onyx_benchmark.py
+docs/testing_your_own_onyx_deployment.md
+tests/test_onyx_connector.py
+tests/test_prepare_onyx_upload.py
+# NOT ignored (judgment call): scripts/compare_benchmark_runs.py and
+# tests/test_compare_benchmark_runs.py contain no Onyx-specific code — pure
+# generic "compare two benchmark result JSONs" tooling, useful independent
+# of Onyx (e.g. for the upcoming vanilla-target-agent work). Kept tracked.
+
 # Attack run output (scripts/run_ikea.py) — one timestamped file per run
 scripts/results/
 findings.json

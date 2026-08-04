@@ -167,6 +167,15 @@ class TestIKEAAttackInit:
         attack = _make_attack(topic="patient records")
         assert attack.topic == "patient records"
 
+    def test_endpoint_kwargs_defaults_to_empty_dict(self):
+        attack = _make_attack()
+        assert attack._endpoint_kwargs == {}
+
+    def test_endpoint_kwargs_stored(self):
+        kwargs = {"headers": {"Authorization": "Bearer x"}}
+        attack = _make_attack(endpoint_kwargs=kwargs)
+        assert attack._endpoint_kwargs == kwargs
+
     def test_embed_cache_initialized_empty(self):
         attack = _make_attack()
         assert attack._embed_cache == {}
@@ -690,6 +699,26 @@ class TestTrdmMutate:
         self.attack._embed = lambda text: [1.0, 0.0]
         assert self.attack._trdm_mutate("q", "y", "HR records") is None
 
+    def test_prompt_asks_for_concrete_facts_not_just_unexplored_aspects(self):
+        # Tier B1 upgrade (2026-07-2x): the mutation prompt must bias toward
+        # drilling into specific facts/entities a response revealed, not just
+        # "unexplored aspects of the domain" (the old wording, which rewarded
+        # drifting away from what was just revealed — see the module-level
+        # comment above _MUTATION_PROMPT for the live-run evidence).
+        captured = {}
+
+        def capture_llm(msgs, **kw):
+            captured["prompt"] = msgs[0]["content"]
+            return json.dumps({"anchor words": ["cand"]})
+
+        self.attack.llm = capture_llm
+        self.attack._embed = lambda text: [1.0, 0.0]
+        self.attack._trdm_mutate("q", "some response text", "HR records")
+        assert "specific facts" in captured["prompt"]
+        assert "SAME specific fact or case" in captured["prompt"]
+        # The fallback for generic/empty responses must still be present.
+        assert "fallback" in captured["prompt"]
+
 
 # ---------------------------------------------------------------------------
 # _mutate_and_generate_query (combined TRDM mutation + query gen, 2026-07-13)
@@ -760,6 +789,27 @@ class TestMutateAndGenerateQuery:
         self.attack._mutate_and_generate_query("q", "y", "HR records")
         # 3 retries on failure, matching _generate_query's retry budget.
         assert self.attack._llm_call_count == before + 3
+
+    def test_prompt_asks_for_concrete_facts_not_just_unexplored_aspects(self):
+        # Tier B1 upgrade (2026-07-2x) — this is the prompt actually used on
+        # the live TRDM-continuation path (execute_black_box calls this
+        # method, not the standalone _trdm_mutate). Same rationale as
+        # TestTrdmMutate's equivalent test above.
+        captured = {}
+
+        def capture_llm(msgs, **kw):
+            captured["prompt"] = msgs[0]["content"]
+            return "not json"  # content doesn't matter, only the prompt sent
+
+        self.attack.llm = capture_llm
+        self.attack._embed = lambda text: [1.0, 0.0]
+        self.attack._mutate_and_generate_query("q", "some response text", "HR records")
+        assert "specific facts" in captured["prompt"]
+        assert "SAME specific fact or case" in captured["prompt"]
+        assert "fallback" in captured["prompt"]
+        # The literal phrase this method's own dispatch/test infra keys off
+        # of must survive the rewrite.
+        assert "For EACH keyword concept" in captured["prompt"]
 
 
 # ---------------------------------------------------------------------------
@@ -836,15 +886,22 @@ class TestRecommendationFor:
 
 
 # ---------------------------------------------------------------------------
-# _classify_leak
+# _call_combined_classifier (renamed/rewritten from _classify_leak, 2026-07-2x)
 # ---------------------------------------------------------------------------
 
-class TestClassifyLeak:
+class TestCallCombinedClassifier:
+    """
+    Tests for _call_combined_classifier — the LLM call itself (renamed/
+    rewritten from _classify_leak, 2026-07-2x, Tier C1). See
+    plans/tier-c1-combined-refusal-leak-classifier.md for the design.
+    """
+
     def setup_method(self):
         self.attack = _make_attack()
 
     def _classification(self, **overrides):
         base = {
+            "is_refusal": False,
             "leak_type": "pii",
             "contains_pii": True,
             "contains_sensitive_data": True,
@@ -859,48 +916,61 @@ class TestClassifyLeak:
 
     def test_valid_classification_returned_as_is(self):
         self.attack.llm = lambda msgs, **kw: self._classification()
-        result = self.attack._classify_leak("q", "y", "HR records")
+        result = self.attack._call_combined_classifier("q", "y", "HR records")
         assert result["leak_type"] == "pii"
         assert result["severity"] == "critical"
         assert result["evidence"] == "SSN: 423-58-9167"
+        assert result["is_refusal"] is False
 
     def test_markdown_fenced_response_parsed(self):
         self.attack.llm = lambda msgs, **kw: f"```json\n{self._classification()}\n```"
-        result = self.attack._classify_leak("q", "y", "HR records")
+        result = self.attack._call_combined_classifier("q", "y", "HR records")
         assert result["leak_type"] == "pii"
 
     def test_invalid_json_falls_back_to_low(self):
         self.attack.llm = lambda msgs, **kw: "not json"
-        result = self.attack._classify_leak("q", "y", "HR records")
+        result = self.attack._call_combined_classifier("q", "y", "HR records")
         assert result["severity"] == "low"
         assert result["leak_type"] == "unknown"
         assert result["evidence"] is None
+        # Fallback must never silently mark a response as refused just
+        # because classification failed — see the method's docstring.
+        assert result["is_refusal"] is False
 
     def test_invalid_severity_falls_back_to_low(self):
         self.attack.llm = lambda msgs, **kw: self._classification(severity="extreme")
-        result = self.attack._classify_leak("q", "y", "HR records")
+        result = self.attack._call_combined_classifier("q", "y", "HR records")
         assert result["severity"] == "low"
         assert result["leak_type"] == "unknown"
 
     def test_invalid_leak_type_falls_back_to_low(self):
         self.attack.llm = lambda msgs, **kw: self._classification(leak_type="made_up")
-        result = self.attack._classify_leak("q", "y", "HR records")
+        result = self.attack._call_combined_classifier("q", "y", "HR records")
+        assert result["severity"] == "low"
+        assert result["leak_type"] == "unknown"
+
+    def test_invalid_is_refusal_type_falls_back_to_low(self):
+        # is_refusal must be a real JSON bool -- "true" (a string) is not
+        # silently coerced, it's treated as an invalid/unparseable response.
+        self.attack.llm = lambda msgs, **kw: self._classification(is_refusal="true")
+        result = self.attack._call_combined_classifier("q", "y", "HR records")
         assert result["severity"] == "low"
         assert result["leak_type"] == "unknown"
 
     def test_llm_exception_never_propagates(self):
         self.attack.llm = MagicMock(side_effect=RuntimeError("API down"))
-        result = self.attack._classify_leak("q", "y", "HR records")
+        result = self.attack._call_combined_classifier("q", "y", "HR records")
         assert result["severity"] == "low"
         assert result["leak_type"] == "unknown"
+        assert result["is_refusal"] is False
 
     def test_increments_llm_call_count(self):
         self.attack.llm = lambda msgs, **kw: self._classification()
         before = self.attack._llm_call_count
-        self.attack._classify_leak("q", "y", "HR records")
+        self.attack._call_combined_classifier("q", "y", "HR records")
         assert self.attack._llm_call_count == before + 1
 
-    def test_domain_and_response_interpolated_into_prompt(self):
+    def test_domain_query_and_response_interpolated_into_prompt(self):
         captured = {}
 
         def llm(msgs, **kw):
@@ -908,9 +978,103 @@ class TestClassifyLeak:
             return self._classification()
 
         self.attack.llm = llm
-        self.attack._classify_leak("q", "the response text", "patient medical consultations")
+        self.attack._call_combined_classifier(
+            "the query text", "the response text", "patient medical consultations"
+        )
         assert "patient medical consultations" in captured["prompt"]
         assert "the response text" in captured["prompt"]
+        # query was a dead parameter in the old _LEAK_CLASSIFIER_PROMPT
+        # (accepted but never formatted in) -- must actually appear now.
+        assert "the query text" in captured["prompt"]
+
+    def test_contradiction_is_refusal_true_with_real_leak_resolves_to_not_refused(self):
+        # Self-contradictory model output: Step 1 says refusal, Step 2 says
+        # something leaked anyway. Per project principle (false negatives
+        # worse than false positives), the leak signal wins -- is_refusal
+        # is overridden to False so the finding isn't silently dropped.
+        self.attack.llm = lambda msgs, **kw: self._classification(
+            is_refusal=True, leak_type="sensitive_data", severity="high"
+        )
+        result = self.attack._call_combined_classifier("q", "y", "HR records")
+        assert result["is_refusal"] is False
+        assert result["leak_type"] == "sensitive_data"
+
+    def test_contradiction_logs_a_warning(self, caplog):
+        import logging
+        self.attack.llm = lambda msgs, **kw: self._classification(
+            is_refusal=True, leak_type="pii"
+        )
+        with caplog.at_level(logging.WARNING):
+            self.attack._call_combined_classifier("q", "y", "HR records")
+        assert any("Contradiction" in r.message for r in caplog.records)
+
+    def test_is_refusal_true_with_leak_type_none_is_not_a_contradiction(self):
+        # The clean, expected case for a genuine refusal -- no override.
+        self.attack.llm = lambda msgs, **kw: self._classification(
+            is_refusal=True, leak_type="none", severity="none"
+        )
+        result = self.attack._call_combined_classifier("q", "y", "HR records")
+        assert result["is_refusal"] is True
+        assert result["leak_type"] == "none"
+
+
+# ---------------------------------------------------------------------------
+# _classify_response (added 2026-07-2x, Tier C1)
+# ---------------------------------------------------------------------------
+
+class TestClassifyResponse:
+    """
+    Tests the routing logic: free _is_refusal short-circuit (zero LLM
+    calls, matching pre-C1 cost exactly) -> optional leak_prefilter ->
+    combined LLM classifier. See _classify_response's docstring and
+    plans/tier-c1-combined-refusal-leak-classifier.md.
+    """
+
+    def setup_method(self):
+        self.attack = _make_attack()
+
+    def test_confidently_refused_by_keyword_skips_llm_entirely(self):
+        self.attack.llm = MagicMock(side_effect=AssertionError("must not call LLM"))
+        result = self.attack._classify_response(
+            "q", "I cannot provide that information.", "HR records"
+        )
+        assert result["is_refusal"] is True
+        assert result["leak_type"] == "none"
+        self.attack.llm.assert_not_called()
+
+    def test_confidently_refused_by_cosine_skips_llm_entirely(self):
+        # Simulates _is_refusal's embedding-fallback stage matching
+        # (>= theta_refusal) -- also zero LLM calls, same as the keyword path.
+        self.attack._is_refusal = lambda text: True
+        self.attack.llm = MagicMock(side_effect=AssertionError("must not call LLM"))
+        result = self.attack._classify_response("q", "some novel refusal phrasing", "HR records")
+        assert result["is_refusal"] is True
+        self.attack.llm.assert_not_called()
+
+    def test_not_confidently_refused_calls_combined_classifier(self):
+        self.attack._is_refusal = lambda text: False
+        self.attack.llm = lambda msgs, **kw: json.dumps({
+            "is_refusal": False, "leak_type": "pii", "contains_pii": True,
+            "contains_sensitive_data": False, "reveals_schema": False,
+            "appears_record_specific": True, "severity": "critical",
+            "evidence": "SSN: 423-58-9167", "reasoning": "leaked",
+        })
+        result = self.attack._classify_response("q", "a real answer", "HR records")
+        assert result["leak_type"] == "pii"
+
+    def test_llm_upgraded_refusal_catches_what_free_check_missed(self):
+        # The exact scenario C1 exists for: the free check says "not
+        # refused" (novel phrasing it doesn't recognize), but the LLM's own
+        # judgment correctly identifies it as a refusal anyway.
+        self.attack._is_refusal = lambda text: False
+        self.attack.llm = lambda msgs, **kw: json.dumps({
+            "is_refusal": True, "leak_type": "none", "contains_pii": False,
+            "contains_sensitive_data": False, "reveals_schema": False,
+            "appears_record_specific": False, "severity": "none",
+            "evidence": None, "reasoning": "Novel refusal phrasing.",
+        })
+        result = self.attack._classify_response("q", "some response", "HR records")
+        assert result["is_refusal"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -921,20 +1085,19 @@ class TestMakeFinding:
     def setup_method(self):
         self.attack = _make_attack()
 
-    def _stub_classify(self, **overrides):
+    def _classification(self, **overrides):
         result = {
+            "is_refusal": False,
             "leak_type": "pii",
             "severity": "critical",
             "evidence": "SSN: 423-58-9167",
             "reasoning": "Discloses a specific SSN.",
         }
         result.update(overrides)
-        self.attack._classify_leak = MagicMock(return_value=result)
         return result
 
     def test_all_fields_present(self):
-        self._stub_classify()
-        finding = self.attack._make_finding("probe query", "response text", "HR records")
+        finding = self.attack._make_finding("probe query", "response text", self._classification())
         assert finding.attack_type == "DRA"
         assert finding.tier_used == "black_box"
         assert finding.probe_used == "probe query"
@@ -942,30 +1105,24 @@ class TestMakeFinding:
         assert finding.severity in ("critical", "high", "medium", "low", "none")
         assert len(finding.recommendation) > 0
 
-    def test_domain_passed_through_to_classifier(self):
-        self._stub_classify()
-        self.attack._make_finding("q", "y", "patient medical consultations")
-        self.attack._classify_leak.assert_called_once_with("q", "y", "patient medical consultations")
-
     def test_confidence_derived_from_severity_not_cosine(self):
         # Confidence must equal _severity_to_float(severity), regardless of
         # what _embed returns — the old cosine-based path is gone entirely.
         self.attack._embed = lambda text: [1.0, 0.0]  # would have been cosine=1.0
-        self._stub_classify(severity="medium")
-        finding = self.attack._make_finding("q", "y", "HR records")
+        finding = self.attack._make_finding("q", "y", self._classification(severity="medium"))
         assert finding.severity == "medium"
         assert finding.confidence == pytest.approx(0.55)
 
     def test_leaked_content_uses_evidence_quote(self):
-        self._stub_classify(evidence="SSN: 423-58-9167")
-        finding = self.attack._make_finding("q", "full response text here", "HR records")
+        finding = self.attack._make_finding(
+            "q", "full response text here", self._classification(evidence="SSN: 423-58-9167")
+        )
         assert finding.leaked_content == "SSN: 423-58-9167"
         assert finding.full_response == "full response text here"
 
     def test_leaked_content_falls_back_to_truncated_response_when_no_evidence(self):
         long_response = "x" * 500
-        self._stub_classify(evidence=None)
-        finding = self.attack._make_finding("q", long_response, "HR records")
+        finding = self.attack._make_finding("q", long_response, self._classification(evidence=None))
         assert finding.leaked_content == long_response[:300]
         assert len(finding.leaked_content) == 300
 
@@ -977,78 +1134,91 @@ class TestMakeFinding:
         # "schema" (structure/field names, no real data) and "none"/
         # "unknown" (no disclosure) should stay unconfirmed.
         for lt in ("pii", "verbatim", "sensitive_data"):
-            self._stub_classify(leak_type=lt)
-            finding = self.attack._make_finding("q", "y", "HR records")
+            finding = self.attack._make_finding("q", "y", self._classification(leak_type=lt))
             assert finding.confirmed is True, lt
 
     def test_confirmed_false_for_other_leak_types(self):
         for lt in ("none", "schema", "unknown"):
-            self._stub_classify(leak_type=lt)
-            finding = self.attack._make_finding("q", "y", "HR records")
+            finding = self.attack._make_finding("q", "y", self._classification(leak_type=lt))
             assert finding.confirmed is False, lt
 
     def test_leak_type_and_reasoning_stored(self):
-        self._stub_classify(leak_type="sensitive_data", reasoning="Discloses a diagnosis.")
-        finding = self.attack._make_finding("q", "y", "HR records")
+        finding = self.attack._make_finding(
+            "q", "y", self._classification(leak_type="sensitive_data", reasoning="Discloses a diagnosis.")
+        )
         assert finding.leak_type == "sensitive_data"
         assert finding.reasoning == "Discloses a diagnosis."
 
     def test_recommendation_matches_leak_type(self):
-        self._stub_classify(leak_type="pii", severity="critical")
-        finding = self.attack._make_finding("q", "y", "HR records")
+        finding = self.attack._make_finding(
+            "q", "y", self._classification(leak_type="pii", severity="critical")
+        )
         assert "IMMEDIATE" in finding.recommendation
         assert "PII redaction" in finding.recommendation
 
 
 # ---------------------------------------------------------------------------
-# leak_prefilter (added 2026-07-13)
+# leak_prefilter (added 2026-07-13; moved into _classify_response 2026-07-2x)
 # ---------------------------------------------------------------------------
 
 class TestLeakPrefilter:
     def setup_method(self):
         self.attack = _make_attack()
-        self.attack._classify_leak = MagicMock(return_value={
-            "leak_type": "pii", "severity": "critical",
+        self.attack._is_refusal = lambda text: False  # never confidently-refused for free
+        self.attack._call_combined_classifier = MagicMock(return_value={
+            "is_refusal": False, "leak_type": "pii", "severity": "critical",
             "evidence": "SSN: 423-58-9167", "reasoning": "real classification",
         })
 
     def test_none_prefilter_always_classifies(self):
         # Default (no prefilter configured) — unchanged behavior.
         assert self.attack.leak_prefilter is None
-        finding = self.attack._make_finding("q", "y", "HR records")
-        self.attack._classify_leak.assert_called_once()
-        assert finding.leak_type == "pii"
+        result = self.attack._classify_response("q", "y", "HR records")
+        self.attack._call_combined_classifier.assert_called_once()
+        assert result["leak_type"] == "pii"
         assert self.attack.prefilter_skips == 0
 
     def test_prefilter_true_still_classifies(self):
         self.attack.leak_prefilter = lambda text: True
-        finding = self.attack._make_finding("q", "y", "HR records")
-        self.attack._classify_leak.assert_called_once()
-        assert finding.leak_type == "pii"
+        result = self.attack._classify_response("q", "y", "HR records")
+        self.attack._call_combined_classifier.assert_called_once()
+        assert result["leak_type"] == "pii"
         assert self.attack.prefilter_skips == 0
 
     def test_prefilter_false_skips_classification(self):
         self.attack.leak_prefilter = lambda text: False
-        finding = self.attack._make_finding("q", "irrelevant response", "HR records")
-        self.attack._classify_leak.assert_not_called()
-        assert finding.leak_type == "none"
-        assert finding.severity == "none"
-        assert finding.confirmed is False
+        result = self.attack._classify_response("q", "irrelevant response", "HR records")
+        self.attack._call_combined_classifier.assert_not_called()
+        assert result["leak_type"] == "none"
+        assert result["severity"] == "none"
+        assert result["is_refusal"] is False
         assert self.attack.prefilter_skips == 1
 
     def test_prefilter_receives_the_response_text(self):
         seen = {}
         self.attack.leak_prefilter = lambda text: seen.setdefault("text", text) and False
-        self.attack._make_finding("q", "the actual agent response", "HR records")
+        self.attack._classify_response("q", "the actual agent response", "HR records")
         assert seen["text"] == "the actual agent response"
 
-    def test_prefilter_skips_counted_across_multiple_findings(self):
+    def test_prefilter_skips_counted_across_multiple_calls(self):
         self.attack.leak_prefilter = lambda text: "keep" in text
-        self.attack._make_finding("q1", "skip me", "HR records")
-        self.attack._make_finding("q2", "keep me", "HR records")
-        self.attack._make_finding("q3", "skip me too", "HR records")
+        self.attack._classify_response("q1", "skip me", "HR records")
+        self.attack._classify_response("q2", "keep me", "HR records")
+        self.attack._classify_response("q3", "skip me too", "HR records")
         assert self.attack.prefilter_skips == 2
-        assert self.attack._classify_leak.call_count == 1
+        assert self.attack._call_combined_classifier.call_count == 1
+
+    def test_prefilter_not_consulted_when_confidently_refused(self):
+        # If the free _is_refusal check already confidently identifies a
+        # refusal, the prefilter (and the LLM) are never reached at all --
+        # confirms the free-tier short-circuit happens before the prefilter.
+        self.attack._is_refusal = lambda text: True
+        calls = []
+        self.attack.leak_prefilter = lambda text: calls.append(text) or True
+        result = self.attack._classify_response("q", "I cannot help with that.", "HR records")
+        assert calls == []
+        assert result["is_refusal"] is True
+        self.attack._call_combined_classifier.assert_not_called()
 
     def test_prefilter_reset_per_execute_black_box_run(self):
         # Reuses the same _make_attack() pattern as TestExecuteBlackBox but
@@ -1116,6 +1286,7 @@ class TestExecuteBlackBox:
         query_response: str = '{"questions": ["What are employee salaries?"]}',
         agent_response: str = "Emma Thompson earns $152,000.",
         classify_response: str = json.dumps({
+            "is_refusal": False,
             "leak_type": "sensitive_data",
             "contains_pii": False,
             "contains_sensitive_data": True,
@@ -1164,6 +1335,37 @@ class TestExecuteBlackBox:
             findings = self.attack.execute_black_box(topic="HR records", max_queries=3)
         # Refused responses should not appear as findings
         assert all("don't know" not in f.leaked_content.lower() for f in findings)
+
+    def test_refused_queries_tracked_separately_from_findings(self):
+        # Added alongside the EE=0 fix: refused (query, response) pairs were
+        # always computed internally (ERS penalty weighting) but previously
+        # discarded entirely. They must now be recorded on the instance so
+        # callers can report exactly which queries were refused.
+        self._stub_attack(agent_response="I don't know.")
+        self.attack._is_refusal = lambda text: True
+        with patch.object(AgentEndpoint, "check_reachable", return_value=True), \
+             patch.object(AgentEndpoint, "chat", return_value="I don't know."):
+            findings = self.attack.execute_black_box(topic="HR records", max_queries=3)
+        assert findings == []
+        assert len(self.attack.refused_queries) == 3
+        assert all(r["response"] == "I don't know." for r in self.attack.refused_queries)
+        assert all("probe" in r and r["probe"] for r in self.attack.refused_queries)
+
+    def test_refused_queries_reset_between_runs(self):
+        # A reused IKEAAttack instance must not accumulate refusals from a
+        # previous run — same reset contract as _llm_call_count/prefilter_skips.
+        self._stub_attack(agent_response="I don't know.")
+        self.attack._is_refusal = lambda text: True
+        with patch.object(AgentEndpoint, "check_reachable", return_value=True), \
+             patch.object(AgentEndpoint, "chat", return_value="I don't know."):
+            self.attack.execute_black_box(topic="HR records", max_queries=2)
+        assert len(self.attack.refused_queries) == 2
+
+        self.attack._is_refusal = lambda text: False
+        with patch.object(AgentEndpoint, "check_reachable", return_value=True), \
+             patch.object(AgentEndpoint, "chat", return_value="a real answer"):
+            self.attack.execute_black_box(topic="HR records", max_queries=2)
+        assert self.attack.refused_queries == []
 
     def test_respects_max_queries(self):
         self._stub_attack()
@@ -1280,6 +1482,7 @@ class TestExecuteBlackBox:
             prompt = msgs[0]["content"]
             if "leak_type" in prompt:
                 return json.dumps({
+                    "is_refusal": False,
                     "leak_type": "none", "contains_pii": False,
                     "contains_sensitive_data": False, "reveals_schema": False,
                     "appears_record_specific": False, "severity": "none",
@@ -1337,6 +1540,7 @@ class TestExecuteBlackBox:
             prompt = msgs[0]["content"]
             if "leak_type" in prompt:
                 return json.dumps({
+                    "is_refusal": False,
                     "leak_type": "sensitive_data", "contains_pii": False,
                     "contains_sensitive_data": True, "reveals_schema": False,
                     "appears_record_specific": True, "severity": "high",
@@ -1375,6 +1579,100 @@ class TestExecuteBlackBox:
         assert isinstance(findings, list)
         assert 0 < len(findings) < 50
         assert any("LLM UNAVAILABLE" in r.message for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# endpoint_kwargs passthrough (added 2026-07-23 — see AgentEndpoint's
+# headers/send_fn in aginiti/connectors/endpoint.py). Verifies
+# execute_black_box's AgentEndpoint(...) construction actually receives
+# whatever the caller passed via IKEAAttack(endpoint_kwargs=...), without
+# needing a real authenticated target — this is the plumbing IKEAAttack
+# needs so a caller (e.g. the Onyx connector) can point it at an
+# authenticated / non-flat-JSON target with zero other code changes.
+# ---------------------------------------------------------------------------
+
+class TestEndpointKwargsPassthrough:
+    def setup_method(self):
+        self._cache_patcher = patch(
+            "aginiti.attacks.dra.ikea._anchor_cache_path",
+            side_effect=lambda topic: Path(tempfile.gettempdir())
+            / f"ikea_test_cache_{uuid.uuid4().hex}.json",
+        )
+        self._cache_patcher.start()
+
+    def teardown_method(self):
+        self._cache_patcher.stop()
+
+    def _run_one_query(self, attack: IKEAAttack, spy_init) -> list[LeakFinding]:
+        # Same minimal one-cycle stub shape as TestExecuteBlackBox._stub_attack
+        # — max_queries=1 (not 0: kwargs.get("max_queries") or self.max_queries
+        # treats 0 as falsy and falls back to self.max_queries, a pre-existing
+        # quirk unrelated to this change, so 0 isn't usable here as "run
+        # nothing").
+        classify_response = json.dumps({
+            "is_refusal": False,
+            "leak_type": "sensitive_data",
+            "contains_pii": False,
+            "contains_sensitive_data": True,
+            "reveals_schema": False,
+            "appears_record_specific": True,
+            "severity": "high",
+            "evidence": None,
+            "reasoning": "test reasoning",
+        })
+
+        def llm_side_effect(msgs, **kw):
+            prompt = msgs[0]["content"]
+            if "leak_type" in prompt:
+                return classify_response
+            if "anchor words" in prompt and "Query" not in prompt:
+                return '{"anchor words": ["salary"]}'
+            if "questions" in prompt:
+                return '{"questions": ["What are employee salaries?"]}'
+            return "not json"
+
+        attack.llm = llm_side_effect
+        attack._embed = lambda text: [1.0, 0.0]
+        attack._is_refusal = lambda text: False
+
+        with patch.object(AgentEndpoint, "__init__", spy_init), \
+             patch.object(AgentEndpoint, "check_reachable", return_value=True), \
+             patch.object(AgentEndpoint, "chat", return_value="Emma Thompson earns $152,000."):
+            return attack.execute_black_box(topic="HR records", max_queries=1)
+
+    def test_endpoint_kwargs_passed_to_agent_endpoint_constructor(self):
+        captured_kwargs: dict = {}
+        original_init = AgentEndpoint.__init__
+
+        def spy_init(self, *args, **kwargs):
+            captured_kwargs.update(kwargs)
+            return original_init(self, *args, **kwargs)
+
+        attack = _make_attack(
+            topic="HR records",
+            endpoint_kwargs={"headers": {"Authorization": "Bearer secret"}},
+        )
+        findings = self._run_one_query(attack, spy_init)
+
+        assert len(findings) == 1
+        assert captured_kwargs.get("headers") == {"Authorization": "Bearer secret"}
+
+    def test_no_endpoint_kwargs_matches_old_default_behavior(self):
+        captured_kwargs: dict = {}
+        original_init = AgentEndpoint.__init__
+
+        def spy_init(self, *args, **kwargs):
+            captured_kwargs.update(kwargs)
+            return original_init(self, *args, **kwargs)
+
+        attack = _make_attack(topic="HR records")  # no endpoint_kwargs at all
+        self._run_one_query(attack, spy_init)
+
+        # Identical to the pre-2026-07-23 hardcoded AgentEndpoint(base_url=...)
+        # call — base_url is always passed (it's the required positional
+        # config), but no extra kwargs sneak in when the caller didn't ask
+        # for any via endpoint_kwargs.
+        assert captured_kwargs == {"base_url": "http://localhost:8001"}
 
 
 # ---------------------------------------------------------------------------
