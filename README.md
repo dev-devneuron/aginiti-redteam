@@ -2,7 +2,6 @@
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue.svg)]()
-[![License](https://img.shields.io/badge/license-MIT-green.svg)]()
 
 **Aginiti Redteam** is an open-source security probing and red-teaming library built specifically to audit enterprise **agentic AI & RAG systems for data leakage**. It enables security engineers and developers to probe their RAG-based AI applications, classify exfiltration risks, and map security findings directly to the OWASP Top 10 for Large Language Model Applications.
 
