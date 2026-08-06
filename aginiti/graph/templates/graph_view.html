@@ -1,0 +1,313 @@
+<title>Aginiti — Security State Graph</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb; --page: #f9f9f7;
+    --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #898781;
+    --gridline: #e1e0d9; --border: rgba(11,11,11,0.10);
+    --series-1: #2a78d6; /* structural / neutral fact */
+    --critical: #d03b3b; --critical-bg: rgba(208,59,59,0.10);
+    --warning: #fab219; --warning-bg: rgba(250,178,25,0.14);
+    --good: #0ca30c;
+    --frontier: #898781;
+    --node-fill: #fcfcfb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1: #1a1a19; --page: #0d0d0d;
+      --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #898781;
+      --gridline: #2c2c2a; --border: rgba(255,255,255,0.10);
+      --series-1: #3987e5;
+      --critical: #e66767; --critical-bg: rgba(230,103,103,0.14);
+      --warning: #d9a521; --warning-bg: rgba(217,165,33,0.16);
+      --good: #0ca30c;
+      --frontier: #6b6a65;
+      --node-fill: #1a1a19;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1: #1a1a19; --page: #0d0d0d;
+    --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #898781;
+    --gridline: #2c2c2a; --border: rgba(255,255,255,0.10);
+    --series-1: #3987e5;
+    --critical: #e66767; --critical-bg: rgba(230,103,103,0.14);
+    --warning: #d9a521; --warning-bg: rgba(217,165,33,0.16);
+    --good: #0ca30c;
+    --frontier: #6b6a65;
+    --node-fill: #1a1a19;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 24px 80px; }
+  .eyebrow { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
+  h1 { font-size: 24px; margin: 6px 0 4px; text-wrap: balance; }
+  .subtitle { color: var(--text-secondary); font-size: 14.5px; margin: 0 0 6px; max-width: 74ch; }
+  .source-note {
+    font-size: 12.5px; color: var(--text-muted); background: var(--surface-1);
+    border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; margin: 14px 0 24px;
+  }
+  .layout { display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  .graph-panel {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px; overflow-x: auto;
+  }
+  svg.graph { width: 100%; height: auto; min-width: 640px; }
+  .node-label { font-size: 11.5px; fill: var(--text-primary); }
+  .node-sub { font-size: 9.5px; fill: var(--text-muted); }
+  .edge-label { font-size: 9.5px; fill: var(--text-muted); }
+  .gridline { stroke: var(--gridline); stroke-width: 1; }
+  .node-circle { cursor: pointer; stroke-width: 2px; }
+  .node-circle:hover { stroke-width: 3px; }
+  .frontier-circle { stroke-dasharray: 3 3; fill: none; cursor: pointer; }
+  .side-panel {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px; font-size: 13px; color: var(--text-secondary); position: sticky; top: 16px;
+    max-height: 80vh; overflow-y: auto;
+  }
+  .side-panel h3 { margin: 0 0 8px; font-size: 14px; color: var(--text-primary); }
+  .side-panel .placeholder { color: var(--text-muted); }
+  .badge { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 99px; margin-right: 6px; text-transform: uppercase; }
+  .badge-critical { background: var(--critical-bg); color: var(--critical); }
+  .badge-warning { background: var(--warning-bg); color: var(--warning); }
+  .badge-neutral { background: rgba(137,135,129,0.16); color: var(--text-muted); }
+  .evidence-item { margin-top: 10px; padding: 8px 10px; background: var(--page); border-radius: 6px; font-size: 12px; }
+  .evidence-polarity { font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); margin-bottom: 3px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; font-size: 12px; color: var(--text-secondary); }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+  .frontier-list { list-style: none; padding: 0; margin: 8px 0 0; }
+  .frontier-list li { padding: 6px 0; border-top: 1px solid var(--gridline); font-size: 12.5px; }
+  .frontier-list li:first-child { border-top: none; }
+  footer { margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--gridline); color: var(--text-muted); font-size: 12px; }
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Aginiti &middot; Security State Graph</div>
+  <h1 id="page-title">Target security posture</h1>
+  <p class="subtitle">What the campaign currently believes about this target: confirmed trust relationships and
+    capabilities (solid), blocked attempts (dashed, muted), and the frontier of probes that are eligible but not
+    yet run. Click any node to see the evidence behind it.</p>
+  <div class="source-note" id="source-note"></div>
+
+  <div class="layout">
+    <div class="graph-panel">
+      <svg class="graph" id="graph-svg" role="img" aria-label="Security State Graph node-link diagram"></svg>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-swatch" style="background:var(--critical)"></span> mission-critical (confirmed exploit)</div>
+        <div class="legend-item"><span class="legend-swatch" style="background:var(--warning)"></span> defender response (blocked/flagged)</div>
+        <div class="legend-item"><span class="legend-swatch" style="background:var(--series-1)"></span> structural fact</div>
+        <div class="legend-item"><span class="legend-swatch" style="border:1.5px dashed var(--frontier); background:transparent"></span> frontier (not yet probed)</div>
+      </div>
+    </div>
+    <div class="side-panel" id="side-panel">
+      <h3>Inspect a node</h3>
+      <p class="placeholder">Click any node in the graph to see its status, confidence, and the evidence that produced it.</p>
+    </div>
+  </div>
+
+  <footer id="footer-note"></footer>
+</div>
+
+<script>
+const NS = "http://www.w3.org/2000/svg";
+
+function el(tag, attrs, ...children) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v);
+  for (const c of children) if (c != null) e.appendChild(c);
+  return e;
+}
+function text(tag_attrs, str) {
+  const t = el("text", tag_attrs);
+  t.textContent = str;
+  return t;
+}
+
+function nodeColorVar(node, missionTargets) {
+  if (node.status === "confirmed" && missionTargets.includes(node.key)) return "var(--critical)";
+  if (node.subgraph === "defender") return "var(--warning)";
+  return "var(--series-1)";
+}
+
+function confidenceOpacity(band) {
+  return { low: 0.4, medium: 0.7, high: 1.0 }[band] ?? 0.5;
+}
+
+function layoutColumns(data) {
+  // BFS depth from "start" over confirmed edges only, for a left-to-right layered layout.
+  const adj = {};
+  for (const e of data.edges) {
+    (adj[e.from] = adj[e.from] || []).push(e.to);
+  }
+  const depth = { [data.start_node]: 0 };
+  const queue = [data.start_node];
+  while (queue.length) {
+    const n = queue.shift();
+    for (const nb of (adj[n] || [])) {
+      if (!(nb in depth)) { depth[nb] = depth[n] + 1; queue.push(nb); }
+    }
+  }
+  // Any node unreached by BFS (shouldn't normally happen) gets column 1.
+  for (const n of data.nodes) if (!(n.key in depth)) depth[n.key] = 1;
+  return depth;
+}
+
+function render(data) {
+  document.getElementById("source-note").textContent = "Data source: " + data.source_note;
+  document.getElementById("footer-note").textContent =
+    "Generated by scripts/generate_graph_view.py from aginiti/graph/export.py -- adapter-agnostic: " +
+    "this page renders identically regardless of which BaseAdapter (mock or a real external target) produced the data.";
+
+  const depth = layoutColumns(data);
+  const maxDepth = Math.max(0, ...Object.values(depth));
+  const colWidth = 190, rowHeight = 74, leftPad = 70, topPad = 40;
+
+  // group nodes (+ virtual start) by column
+  const columns = {};
+  columns[0] = columns[0] || [];
+  columns[0].push({ key: data.start_node, isStart: true });
+  for (const n of data.nodes) {
+    const d = depth[n.key];
+    columns[d] = columns[d] || [];
+    columns[d].push(n);
+  }
+  // frontier nodes: one column right of the deepest of their prerequisites (or col 1 if none)
+  const frontierCol = maxDepth + 1;
+  columns[frontierCol] = data.frontier.map(f => ({ ...f, isFrontier: true, key: f.operator_id }));
+
+  const positions = {}; // key -> {x,y}
+  let maxRows = 1;
+  for (const [colStr, items] of Object.entries(columns)) {
+    const col = parseInt(colStr, 10);
+    maxRows = Math.max(maxRows, items.length);
+    items.forEach((item, i) => {
+      positions[item.key] = {
+        x: leftPad + col * colWidth,
+        y: topPad + i * rowHeight,
+        item,
+      };
+    });
+  }
+
+  const width = leftPad * 2 + (frontierCol) * colWidth + 140;
+  const height = topPad * 2 + maxRows * rowHeight;
+  const svg = document.getElementById("graph-svg");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+  svg.appendChild(el("defs", {}, el("marker", {
+    id: "arrow", viewBox: "0 0 10 10", refX: "9", refY: "5",
+    markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse",
+  }, el("path", { d: "M0,0 L10,5 L0,10 z", fill: "currentColor" }))));
+
+  // edges
+  for (const e of data.edges) {
+    const from = positions[e.from], to = positions[e.to];
+    if (!from || !to) continue;
+    const isFail = e.outcome === "failure";
+    const line = el("line", {
+      x1: from.x + 26, y1: from.y, x2: to.x - 26, y2: to.y,
+      stroke: isFail ? "var(--text-muted)" : "currentColor",
+      "stroke-width": isFail ? 1.3 : 1.8,
+      "stroke-dasharray": isFail ? "4 3" : "none",
+      "marker-end": "url(#arrow)",
+      opacity: isFail ? 0.55 : 0.9,
+      style: "color: var(--text-secondary)",
+    });
+    svg.appendChild(line);
+    const midx = (from.x + to.x) / 2, midy = (from.y + to.y) / 2 - 6;
+    svg.appendChild(el("rect", { x: midx - e.operator_id.length * 2.6, y: midy - 9, width: e.operator_id.length * 5.2, height: 12, fill: "var(--page)" }));
+    svg.appendChild(text({ x: midx, y: midy, "text-anchor": "middle", class: "edge-label" }, e.operator_id));
+  }
+
+  // frontier edges (dotted, from each prerequisite to the frontier node)
+  for (const f of data.frontier) {
+    const to = positions[f.operator_id];
+    const reqs = f.requires.length ? f.requires : [data.start_node];
+    for (const r of reqs) {
+      const from = positions[r];
+      if (!from || !to) continue;
+      svg.appendChild(el("line", {
+        x1: from.x + 26, y1: from.y, x2: to.x - 20, y2: to.y,
+        stroke: "var(--frontier)", "stroke-width": 1, "stroke-dasharray": "2 3", opacity: 0.6,
+      }));
+    }
+  }
+
+  // nodes
+  for (const [key, pos] of Object.entries(positions)) {
+    const item = pos.item;
+    const g = el("g", { transform: `translate(${pos.x},${pos.y})` });
+
+    if (item.isStart) {
+      g.appendChild(el("circle", { r: 8, fill: "var(--text-muted)" }));
+      g.appendChild(text({ x: 0, y: -16, "text-anchor": "middle", class: "node-label" }, "start"));
+    } else if (item.isFrontier) {
+      const c = el("circle", { r: 18, class: "frontier-circle", stroke: "var(--frontier)" });
+      c.appendChild(el("title", {}, item.description));
+      g.appendChild(c);
+      g.appendChild(text({ x: 0, y: 32, "text-anchor": "middle", class: "node-sub" }, item.operator_id));
+      g.addEventListener("click", () => showFrontier(item));
+    } else {
+      const color = nodeColorVar(item, data.mission_targets);
+      const dashed = item.status === "hypothesized";
+      const refuted = item.status === "refuted";
+      const circle = el("circle", {
+        r: 18, class: "node-circle",
+        fill: refuted ? "var(--page)" : color,
+        stroke: color,
+        "fill-opacity": refuted ? 0 : confidenceOpacity(item.confidence),
+        "stroke-dasharray": dashed ? "3 2" : "none",
+      });
+      g.appendChild(circle);
+      g.appendChild(text({ x: 0, y: -26, "text-anchor": "middle", class: "node-label" }, item.key));
+      g.appendChild(text({ x: 0, y: 32, "text-anchor": "middle", class: "node-sub" }, `${item.status} · ${item.confidence}`));
+      g.addEventListener("click", () => showNode(item));
+      g.style.cursor = "pointer";
+    }
+    svg.appendChild(g);
+  }
+}
+
+function showNode(node) {
+  const panel = document.getElementById("side-panel");
+  const badgeClass = node.subgraph === "defender" ? "badge-warning" : "badge-neutral";
+  let html = `<h3>${node.key}</h3>`;
+  html += `<span class="badge ${badgeClass}">${node.subgraph}</span>`;
+  html += `<span class="badge badge-neutral">${node.status}</span>`;
+  html += `<span class="badge badge-neutral">confidence: ${node.confidence}</span>`;
+  html += `<p style="margin-top:10px"><strong>Extracted detail:</strong> ${escapeHtml(node.object)}</p>`;
+  html += `<p style="margin-top:14px; font-size:11px; text-transform:uppercase; color:var(--text-muted)">Evidence</p>`;
+  if (!node.evidence.length) html += `<p class="placeholder">No linked observations.</p>`;
+  for (const ev of node.evidence) {
+    html += `<div class="evidence-item"><div class="evidence-polarity">${ev.polarity}</div>${escapeHtml(ev.raw_signal)}</div>`;
+  }
+  panel.innerHTML = html;
+}
+
+function showFrontier(item) {
+  const panel = document.getElementById("side-panel");
+  let html = `<h3>${item.operator_id}</h3>`;
+  html += `<span class="badge badge-neutral">not yet probed</span>`;
+  html += `<p style="margin-top:10px">${escapeHtml(item.description)}</p>`;
+  if (item.requires.length) {
+    html += `<p style="margin-top:14px; font-size:11px; text-transform:uppercase; color:var(--text-muted)">Requires</p>`;
+    html += `<ul class="frontier-list">${item.requires.map(r => `<li>${escapeHtml(r)}</li>`).join("")}</ul>`;
+  }
+  panel.innerHTML = html;
+}
+
+function escapeHtml(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+const GRAPH_DATA = /*__GRAPH_DATA_JSON__*/;
+render(GRAPH_DATA);
+</script>
