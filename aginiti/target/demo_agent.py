@@ -102,6 +102,11 @@ class DemoAgent:
         """BaseAdapter interface (aginiti/adapters/base.py)."""
         return self.world.any_mission_ground_truth_occurred()
 
+    def record_suspicious_event(self) -> None:
+        """Optional BaseAdapter extension: not every adapter implements a
+        suspicion-escalation mechanic (DVLA's doesn't); the mock does."""
+        self.world.record_suspicious_event()
+
     def _run_tool_loop(self, max_rounds: int = 4) -> SendResult:
         trace: list[dict] = []
         for _ in range(max_rounds):

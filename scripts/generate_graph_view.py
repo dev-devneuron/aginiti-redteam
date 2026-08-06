@@ -1,16 +1,19 @@
 """Generates the interactive SSG graph visualization.
 
-Two modes:
+Three modes:
+  --dvla                              Run a fresh live campaign against the
+                                      real damn-vulnerable-llm-agent target
+                                      and export from it directly.
   --from-run RUN_ID TRIAL_JSON_NAME   Reconstruct a SecurityStateGraph from
                                       an already-saved trial JSON (works
                                       offline, no API calls -- used to
                                       bootstrap the visualization from real
                                       prior campaign data without spending
                                       quota).
-  (default, no args)                 Run a fresh live campaign and export
+  (default, no args)                 Run a fresh live campaign against the
+                                      MOCK (dev fixture only) and export
                                       directly from the resulting live
-                                      SecurityStateGraph (higher fidelity,
-                                      needs API budget).
+                                      SecurityStateGraph.
 
 The reconstruction path loses a little fidelity relative to a live export
 (observation supports/contradicts direction is approximated from
@@ -30,7 +33,7 @@ from aginiti.graph.export import export_ssg_for_visualization
 from aginiti.graph.schema import Claim, ClaimStatus, ConfidenceBand, Observation
 from aginiti.graph.ssg import SUBGRAPH_TARGET, SecurityStateGraph
 from aginiti.operators.definitions import build_library
-from aginiti.scenarios import multi_path_mission
+from aginiti.scenarios import dvla_mission, multi_path_mission
 
 
 def _subgraph_lookup(library) -> dict[str, str]:
@@ -72,10 +75,22 @@ def reconstruct_ssg_from_trial(trial: dict, library) -> tuple[SecurityStateGraph
 
 
 def main():
-    library = build_library()
-    mission = multi_path_mission()
-
-    if len(sys.argv) >= 3 and sys.argv[1] == "--from-run":
+    if len(sys.argv) >= 2 and sys.argv[1] == "--dvla":
+        from aginiti.adapters.dvla_adapter import DVLAAdapter
+        from aginiti.campaign import run_campaign
+        from aginiti.operators.dvla_definitions import build_dvla_library
+        library = build_dvla_library()
+        mission = dvla_mission()
+        result = run_campaign(mission, library, agent=DVLAAdapter())
+        ssg = result.ssg
+        execution_log = [{"operator_id": e.operator_id, "confirmed_keys": e.confirmed_keys,
+                           "confirmed_effects": e.confirmed_effects}
+                          for e in result.execution_log]
+        source_note = ("live campaign against WithSecureLabs/damn-vulnerable-llm-agent -- "
+                        "a real, independently-developed external target, not the mock")
+    elif len(sys.argv) >= 3 and sys.argv[1] == "--from-run":
+        library = build_library()
+        mission = multi_path_mission()
         run_id, trial_name = sys.argv[2], sys.argv[3]
         path = os.path.join("runs", run_id, trial_name)
         with open(path, encoding="utf-8") as f:
@@ -83,13 +98,15 @@ def main():
         ssg, execution_log = reconstruct_ssg_from_trial(trial, library)
         source_note = f"reconstructed from runs/{run_id}/{trial_name} (real campaign transcript, not synthetic)"
     else:
+        library = build_library()
+        mission = multi_path_mission()
         from aginiti.campaign import run_campaign
         result = run_campaign(mission, library)
         ssg = result.ssg
         execution_log = [{"operator_id": e.operator_id, "confirmed_keys": e.confirmed_keys,
                            "confirmed_effects": e.confirmed_effects}
                           for e in result.execution_log]
-        source_note = "live campaign, run fresh for this export"
+        source_note = "live campaign against the mock (dev fixture, not the research target)"
 
     export = export_ssg_for_visualization(ssg, library, mission, execution_log)
     export["source_note"] = source_note

@@ -50,3 +50,11 @@ class BaseAdapter(Protocol):
         hallucination" failure mode) independently of the judge's verdict.
         """
         ...
+
+    # record_suspicious_event() is deliberately NOT part of this Protocol:
+    # it's an optional extension, not every real target's adapter
+    # implements a suspicion-escalation mechanic (DVLA's doesn't; the
+    # mock's does). ObservationAdapter calls it via getattr(..., None) and
+    # no-ops when absent -- implement it if your adapter has an analogous
+    # "the target gets more cautious after repeated flagged attempts"
+    # dynamic to model.
