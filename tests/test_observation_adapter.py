@@ -4,7 +4,10 @@ effects were framed as "evidence this is FALSE" instead of TRUE, which
 silently broke recon_capabilities (whose only effect is HYPOTHESIZED) in
 every single campaign until caught by a full benchmark run.
 """
-from aginiti.adapter.observation_adapter import _build_candidates, _effect_id
+from unittest.mock import patch
+
+from aginiti.adapter.observation_adapter import ObservationAdapter, _build_candidates, _effect_id
+from aginiti.graph.ssg import SecurityStateGraph
 from aginiti.operators.definitions import build_library
 
 
@@ -39,3 +42,35 @@ def test_every_operator_in_the_live_library_frames_hypothesized_and_confirmed_as
         for c in _build_candidates(op):
             is_refuted = c["id"].endswith("::refuted")
             assert ("FALSE" in c["meaning"]) == is_refuted, c
+
+
+def test_hypothesized_effect_gets_a_linked_observation_not_just_a_claim():
+    # Regression test: a HYPOTHESIZED-status confirmed effect (e.g.
+    # recon_capabilities) was excluded from both supports and contradicts,
+    # so its Observation never linked to the claim it produced -- the claim
+    # existed (via assert_claim) but showed zero evidence in the graph
+    # export, even though real evidence caused it. Found by inspecting a
+    # real DVLA campaign's exported graph, where the node had an extracted
+    # detail but an empty evidence list.
+    op = build_library().get("recon_capabilities")
+    ssg = SecurityStateGraph()
+    fake_verdict = {
+        "confirmed_effect_ids": ["payroll_api_exists::hypothesized"],
+        "details": {}, "reasoning": "mentions payroll",
+    }
+    with patch("aginiti.adapter.observation_adapter.chat_json", return_value=fake_verdict), \
+         patch.object(type(op), "render_prompt", return_value="x"):
+        from types import SimpleNamespace
+
+        class FakeAgent:
+            def send(self, channel, prompt):
+                return SimpleNamespace(final_text="I have payroll access.", tool_trace=[])
+
+            def ground_truth_mission_achieved(self):
+                return False
+
+        result = ObservationAdapter().execute(op, ssg, FakeAgent())
+
+    assert result.overall_success is True
+    obs = ssg.observations[-1]
+    assert "payroll_api_exists" in obs.supports  # not silently dropped

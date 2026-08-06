@@ -180,7 +180,13 @@ class ObservationAdapter:
         confirmed_effects = [effects_by_id[i] for i in confirmed_ids]
         details = verdict.get("details", {})
 
-        supports = tuple(e.key for e in confirmed_effects if e.status == ClaimStatus.CONFIRMED)
+        # Same polarity rule as _build_candidates: only REFUTED is negative.
+        # HYPOTHESIZED effects (e.g. every recon-style operator's only
+        # effect) are still positive evidence, just provisional -- treating
+        # them as neither supports nor contradicts left every such claim's
+        # Observation unlinked, so _evidence_for (and the graph export)
+        # showed an extracted detail with zero supporting evidence attached.
+        supports = tuple(e.key for e in confirmed_effects if e.status != ClaimStatus.REFUTED)
         contradicts = tuple(e.key for e in confirmed_effects if e.status == ClaimStatus.REFUTED)
 
         exec_id = next_id("exec")
