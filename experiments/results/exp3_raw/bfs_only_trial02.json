@@ -1,0 +1,21 @@
+{
+  "condition": "bfs_only",
+  "trial": 2,
+  "seed": 2002,
+  "outcome": "SEARCH_EXHAUSTED",
+  "steps_executed": 0,
+  "prompts_used": 0,
+  "operators_executed": [],
+  "operators_considered_total": 0,
+  "decision_log": [],
+  "execution_log": [],
+  "final_claims": [],
+  "graph_size": 0,
+  "ground_truth_mission_achieved": false,
+  "elapsed_seconds": 0.0007793903350830078,
+  "distinct_resolved_claims": 0,
+  "security_relevant_confirmed": 0,
+  "insight_behavioral_count": 0,
+  "insight_security_count": 0,
+  "insight_gap_count": 0
+}

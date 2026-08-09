@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from groq import RateLimitError
+from groq import APIStatusError, RateLimitError
 from langchain.agents import create_agent
 from langchain_core.tools import tool
 from langchain_groq import ChatGroq
@@ -99,6 +99,53 @@ class DVLAAdapter:
                 last_err = e
                 self._key_idx = (self._key_idx + 1) % len(self._keys)
                 self._rebuild_agent()
+            except APIStatusError as e:
+                # Groq validates tool-call names/shapes strictly server-side
+                # -- a model that gets confused by its own echoed text (e.g.
+                # after being asked to dump its own tool schemas, or by an
+                # encoded/injected instruction) into emitting a malformed or
+                # hallucinated tool call gets a hard 4xx here. Found LIVE
+                # (2026-08-08) via tool_inventory_full_disclosure -- this was
+                # previously uncaught and crashed the whole campaign, a real
+                # adapter robustness gap, not a target-behavior question.
+                # NOT retried: this is a generation problem, not a transient
+                # one, and resending the identical prompt would very likely
+                # reproduce it. The model's own actual generated text
+                # (confirmed live to sometimes BE the exact disclosure being
+                # probed for -- a full verbatim tool-schema dump, in one
+                # observed case) survives in the error body's
+                # `failed_generation` field -- surfaced as real evidence for
+                # the judge to see, not swallowed, since discarding it would
+                # understate what the model actually revealed before the
+                # malformed call.
+                # STRUCTURALLY fixed 2026-08-08 (same-day, second pass): the
+                # first fix only LABELED this text with an "[Aginiti: ...]"
+                # string prefix, hoping the judge would read it and back
+                # off -- it didn't. A live combined run showed the RAW
+                # failed_generation text (Groq's own function-list preamble,
+                # not the model's actual reply) get misread by a DIFFERENT
+                # operator's judge (system_prompt_extraction) as a genuine
+                # system-prompt leak, a real, caught false positive
+                # (verified false by reading the actual SYSTEM_PROMPT
+                # constant against the disclosed text -- they don't match).
+                # A string label is advisory; is_synthetic=True is a hard
+                # instruction ObservationAdapter enforces structurally --
+                # this text can NEVER confirm or refute a claim, regardless
+                # of how it reads. The text itself (still labeled, for a
+                # human reading logs) is preserved as a Fact for audit
+                # trail, just never handed to the judge/extractor.
+                body = getattr(e, "body", None)
+                failed_generation = None
+                if isinstance(body, dict):
+                    failed_generation = (body.get("error") or {}).get("failed_generation")
+                if failed_generation:
+                    final_text = ("[Aginiti: the target's tool-call attempt was rejected by the API "
+                                  "before a normal reply was generated; raw generation follows]\n"
+                                  + failed_generation)
+                else:
+                    final_text = f"[Aginiti: target API rejected the request -- {e}]"
+                self.history = self.history + [{"role": "assistant", "content": final_text}]
+                return SendResult(final_text=final_text, tool_trace=[], is_synthetic=True)
         if msgs is None:
             raise last_err
         self.history = msgs

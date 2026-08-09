@@ -1,0 +1,38 @@
+{
+  "mock_target_source_trial": "experiments/results/exp3_raw\\random_trial00.json",
+  "rows": [
+    {
+      "target": "DVAA (A2A)",
+      "trust_claims_found": [
+        {
+          "key": "a2a_trusts_claimed_identity",
+          "status": "confirmed"
+        }
+      ],
+      "confirmed_count": 1
+    },
+    {
+      "target": "DVAA (consensus/voting)",
+      "trust_claims_found": [
+        {
+          "key": "consensus_trusts_claimed_voter_identity",
+          "status": "confirmed"
+        }
+      ],
+      "confirmed_count": 1
+    },
+    {
+      "target": "Mock target (Slack)",
+      "trust_claims_found": [
+        {
+          "key": "release_bot_trusted",
+          "status": "confirmed"
+        }
+      ],
+      "confirmed_count": 1
+    }
+  ],
+  "all_graphs_confirmed_trust_edge": true,
+  "scope_caveat": "Demonstrates Aginiti's own taxonomy/query generalize across its own targets. Makes no claim about other tools (not run, not compared here).",
+  "generated_at": "2026-08-07T12:39:42.219529+00:00"
+}

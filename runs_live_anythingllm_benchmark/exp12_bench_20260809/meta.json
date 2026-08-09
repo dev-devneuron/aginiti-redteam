@@ -1,0 +1,19 @@
+{
+  "run_id": "exp12_bench_20260809",
+  "conditions": [
+    "aginiti",
+    "greedy_info_gain",
+    "bfs_only",
+    "random",
+    "static"
+  ],
+  "missions": [
+    "single_step_comprehensive",
+    "branching_chat_rag",
+    "branching_automatic_rag"
+  ],
+  "n_trials": 5,
+  "base_seed": 6000,
+  "reasoning_layer": true,
+  "llm_provider": "gemini"
+}

@@ -23,8 +23,8 @@ design doc's Section 2.2 says a real deployment's does.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
 
+from aginiti.adapters.base import SendResult
 from aginiti.llm_client import chat_tools
 from aginiti.target.tools import TOOL_SCHEMAS, ToolWorld
 
@@ -86,12 +86,6 @@ _TOOL_IMPLS = {
 }
 
 
-@dataclass
-class SendResult:
-    final_text: str
-    tool_trace: list[dict] = field(default_factory=list)
-
-
 class DemoAgent:
     def __init__(self, seed: int | None = None):
         self.world = ToolWorld()
@@ -142,7 +136,11 @@ class DemoAgent:
                     "name": name,
                     "content": json.dumps(result),
                 })
-        return SendResult(final_text="[max tool-call rounds reached]", tool_trace=trace)
+        # is_synthetic=True (2026-08-08, evidence-provenance fix): this text
+        # is Aginiti's own budget-cutoff message, not anything the mock
+        # agent said -- see aginiti/adapters/base.py's SendResult docstring
+        # for the real false positive (DVLA) this class of bug caused.
+        return SendResult(final_text="[max tool-call rounds reached]", tool_trace=trace, is_synthetic=True)
 
     def send(self, channel: str, prompt: str) -> SendResult:
         """Deliver one operator's action to the target. Indirect channels

@@ -84,7 +84,7 @@ def main():
         result = run_campaign(mission, library, agent=DVLAAdapter())
         ssg = result.ssg
         execution_log = [{"operator_id": e.operator_id, "confirmed_keys": e.confirmed_keys,
-                           "confirmed_effects": e.confirmed_effects}
+                           "confirmed_effects": e.confirmed_effects, "tool_trace": e.tool_trace}
                           for e in result.execution_log]
         source_note = ("live campaign against WithSecureLabs/damn-vulnerable-llm-agent -- "
                         "a real, independently-developed external target, not the mock")
@@ -104,7 +104,7 @@ def main():
         result = run_campaign(mission, library)
         ssg = result.ssg
         execution_log = [{"operator_id": e.operator_id, "confirmed_keys": e.confirmed_keys,
-                           "confirmed_effects": e.confirmed_effects}
+                           "confirmed_effects": e.confirmed_effects, "tool_trace": e.tool_trace}
                           for e in result.execution_log]
         source_note = "live campaign against the mock (dev fixture, not the research target)"
 

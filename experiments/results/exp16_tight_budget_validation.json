@@ -1,0 +1,157 @@
+{
+  "run_dir": "runs_live_anythingllm_benchmark/exp16_bench_20260809",
+  "mission": "branching_chat_rag",
+  "base_seed": 10000,
+  "n_trials_per_condition": 30,
+  "run_completeness": {
+    "n_trials_found": 180,
+    "n_trials_expected": 180,
+    "n_incomplete_or_errored": 0,
+    "is_complete": true
+  },
+  "per_condition": {
+    "aginiti": {
+      "condition": "aginiti",
+      "n_trials": 30,
+      "n_trials_expected": 30,
+      "n_incomplete_or_errored": 0,
+      "successes": 30,
+      "success_rate": 1.0,
+      "mean_prompts_to_success": 1,
+      "bootstrap_ci_prompts_to_success": "1.000 [95% CI: 1.000, 1.000], 5000 resamples",
+      "pick_categories": {
+        "genuine_win": 30
+      },
+      "useful_steps": 30,
+      "wasted_steps": 0,
+      "wasted_step_rate": 0.0,
+      "genuine_win_trials": 30,
+      "genuine_win_successes": 30,
+      "genuine_win_success_rate": 1.0
+    },
+    "greedy_info_gain": {
+      "condition": "greedy_info_gain",
+      "n_trials": 30,
+      "n_trials_expected": 30,
+      "n_incomplete_or_errored": 0,
+      "successes": 13,
+      "success_rate": 0.43333333333333335,
+      "mean_prompts_to_success": 1,
+      "bootstrap_ci_prompts_to_success": "1.000 [95% CI: 1.000, 1.000], 5000 resamples",
+      "pick_categories": {
+        "genuine_win": 17,
+        "trap": 13
+      },
+      "useful_steps": 17,
+      "wasted_steps": 13,
+      "wasted_step_rate": 0.43333333333333335,
+      "genuine_win_trials": 17,
+      "genuine_win_successes": 13,
+      "genuine_win_success_rate": 0.7647058823529411
+    },
+    "bfs_only": {
+      "condition": "bfs_only",
+      "n_trials": 30,
+      "n_trials_expected": 30,
+      "n_incomplete_or_errored": 0,
+      "successes": 0,
+      "success_rate": 0.0,
+      "mean_prompts_to_success": null,
+      "bootstrap_ci_prompts_to_success": null,
+      "pick_categories": {
+        "no_candidates_rankable": 30
+      },
+      "useful_steps": 0,
+      "wasted_steps": 0,
+      "wasted_step_rate": 0.0,
+      "genuine_win_trials": 0,
+      "genuine_win_successes": 0,
+      "genuine_win_success_rate": null
+    },
+    "random": {
+      "condition": "random",
+      "n_trials": 30,
+      "n_trials_expected": 30,
+      "n_incomplete_or_errored": 0,
+      "successes": 9,
+      "success_rate": 0.3,
+      "mean_prompts_to_success": 1,
+      "bootstrap_ci_prompts_to_success": "1.000 [95% CI: 1.000, 1.000], 5000 resamples",
+      "pick_categories": {
+        "chain_start_doomed_at_budget_1": 11,
+        "genuine_win": 12,
+        "trap": 7
+      },
+      "useful_steps": 12,
+      "wasted_steps": 18,
+      "wasted_step_rate": 0.6,
+      "genuine_win_trials": 12,
+      "genuine_win_successes": 9,
+      "genuine_win_success_rate": 0.75
+    },
+    "static": {
+      "condition": "static",
+      "n_trials": 30,
+      "n_trials_expected": 30,
+      "n_incomplete_or_errored": 0,
+      "successes": 9,
+      "success_rate": 0.3,
+      "mean_prompts_to_success": 1,
+      "bootstrap_ci_prompts_to_success": "1.000 [95% CI: 1.000, 1.000], 5000 resamples",
+      "pick_categories": {
+        "genuine_win": 10,
+        "trap": 10,
+        "chain_start_doomed_at_budget_1": 10
+      },
+      "useful_steps": 10,
+      "wasted_steps": 20,
+      "wasted_step_rate": 0.6666666666666666,
+      "genuine_win_trials": 10,
+      "genuine_win_successes": 9,
+      "genuine_win_success_rate": 0.9
+    },
+    "bayesian": {
+      "condition": "bayesian",
+      "n_trials": 30,
+      "n_trials_expected": 30,
+      "n_incomplete_or_errored": 0,
+      "successes": 13,
+      "success_rate": 0.43333333333333335,
+      "mean_prompts_to_success": 1,
+      "bootstrap_ci_prompts_to_success": "1.000 [95% CI: 1.000, 1.000], 5000 resamples",
+      "pick_categories": {
+        "trap": 12,
+        "genuine_win": 18
+      },
+      "useful_steps": 18,
+      "wasted_steps": 12,
+      "wasted_step_rate": 0.4,
+      "genuine_win_trials": 18,
+      "genuine_win_successes": 12,
+      "genuine_win_success_rate": 0.6666666666666666
+    }
+  },
+  "stat_comparisons_vs_aginiti": {
+    "greedy_info_gain": {
+      "p_value": 6.185596344065137e-07,
+      "n_total": 60,
+      "interpretation": "p=0.000 < 0.05: directionally significant."
+    },
+    "random": {
+      "p_value": 3.583746362536725e-09,
+      "n_total": 60,
+      "interpretation": "p=0.000 < 0.05: directionally significant."
+    },
+    "static": {
+      "p_value": 3.583746362536725e-09,
+      "n_total": 60,
+      "interpretation": "p=0.000 < 0.05: directionally significant."
+    },
+    "bayesian": {
+      "p_value": 6.185596344065137e-07,
+      "n_total": 60,
+      "interpretation": "p=0.000 < 0.05: directionally significant."
+    }
+  },
+  "generated_at": "2026-08-09T03:05:04.940447+00:00"
+}

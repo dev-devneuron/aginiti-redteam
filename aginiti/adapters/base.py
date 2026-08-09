@@ -24,6 +24,28 @@ from typing import Protocol
 class SendResult:
     final_text: str
     tool_trace: list[dict] = field(default_factory=list)
+    # 2026-08-08: the minimum clean provenance abstraction this architecture
+    # was missing -- found via a REAL false positive (DVLA's
+    # tool_inventory_full_disclosure): DVLAAdapter's own API-error-recovery
+    # text got fed to a DIFFERENT operator's judge (system_prompt_extraction)
+    # in the same campaign and was misread as a genuine system-prompt leak.
+    # `final_text` alone can't tell ObservationAdapter whether a string is
+    # the TARGET's own visible output or something Aginiti's own adapter
+    # code synthesized on the target's behalf (an API-error recovery
+    # message, a "[max tool-call rounds reached]" budget cutoff, etc.) --
+    # both looked identical to every downstream consumer (the judge, the
+    # extractor, a human reading logs). is_synthetic=True is a hard
+    # instruction to ObservationAdapter: never let this text confirm or
+    # refute ANY claim, no matter how compelling it reads. Every adapter
+    # that ever constructs `final_text` itself (rather than relaying the
+    # target's own response verbatim) must set this -- see DVLAAdapter's
+    # APIStatusError handler, demo_agent.py's and injecagent_adapter.py's
+    # "[max tool-call rounds reached]" fallback for the three sites this
+    # was retrofitted onto. Defaults to False (genuine target output) so
+    # every adapter that never synthesizes anything -- DVAAAdapter,
+    # McpStdioAdapter, both confirmed by audit to always either relay a
+    # real response or raise, never fabricate one -- needs no changes.
+    is_synthetic: bool = False
 
 
 class BaseAdapter(Protocol):

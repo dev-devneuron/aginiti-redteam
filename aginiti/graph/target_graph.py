@@ -47,6 +47,25 @@ def build_graph(library: OperatorLibrary, ssg: SecurityStateGraph,
     return graph
 
 
+def build_static_graph(library: OperatorLibrary) -> Graph:
+    """Every operator's declared graph_edge, regardless of confirmation
+    status -- deliberately NOT filtered by ssg.is_confirmed the way
+    build_graph() is. This is the library's own FIXED prior structural
+    hypothesis about how everything connects (an operator's author wrote
+    graph_edge to mean "what confirming this would mean structurally,"
+    independent of whether it's been proven yet), the admissible/
+    optimistic heuristic surface aginiti_planner.py's potential_progress
+    computes Φ over -- same role a relaxed-problem heuristic plays for
+    A* search. Never mutated mid-campaign; safe to compute once per
+    rank() call and reuse across every candidate."""
+    graph: Graph = {START: set()}
+    for op in library:
+        if op.graph_edge is None:
+            continue
+        _add_edge(graph, *op.graph_edge)
+    return graph
+
+
 def shortest_distances(graph: Graph, start: str = START) -> dict[str, int]:
     """BFS shortest-hop distance from `start` to every node reachable
     through currently-confirmed edges."""
@@ -55,6 +74,34 @@ def shortest_distances(graph: Graph, start: str = START) -> dict[str, int]:
     while queue:
         node = queue.popleft()
         for neighbor in graph.get(node, ()):
+            if neighbor not in distances:
+                distances[neighbor] = distances[node] + 1
+                queue.append(neighbor)
+    return distances
+
+
+def distance_to_nearest_target(graph: Graph, targets: tuple[str, ...]) -> dict[str, int]:
+    """BFS distance from EVERY node to its nearest target, as ONE multi-
+    source BFS over the graph's REVERSAL starting from all targets at
+    once (O(V+E) total) rather than a separate forward BFS per candidate
+    node. This is Φ (negated) from aginiti_planner.py's potential_progress
+    -- a node not present in the returned dict has no static path to any
+    target at all (callers treat that as "no shaping signal," not an
+    error)."""
+    reverse_graph: Graph = {node: set() for node in graph}
+    for node, neighbors in graph.items():
+        for neighbor in neighbors:
+            reverse_graph.setdefault(neighbor, set()).add(node)
+
+    distances: dict[str, int] = {}
+    queue: deque[str] = deque()
+    for target in targets:
+        if target not in distances:
+            distances[target] = 0
+            queue.append(target)
+    while queue:
+        node = queue.popleft()
+        for neighbor in reverse_graph.get(node, ()):
             if neighbor not in distances:
                 distances[neighbor] = distances[node] + 1
                 queue.append(neighbor)

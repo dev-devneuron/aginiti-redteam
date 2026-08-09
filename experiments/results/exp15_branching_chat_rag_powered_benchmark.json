@@ -1,0 +1,139 @@
+{
+  "run_dir": "runs_live_anythingllm_benchmark/exp15_bench_20260809",
+  "mission": "branching_chat_rag",
+  "base_seed": 9000,
+  "n_trials_per_condition": 30,
+  "run_completeness": {
+    "n_trials_found": 150,
+    "n_trials_expected": 150,
+    "n_incomplete_or_errored": 0,
+    "is_complete": true
+  },
+  "per_condition": {
+    "aginiti": {
+      "condition": "aginiti",
+      "n_trials": 30,
+      "n_trials_expected": 30,
+      "n_incomplete_or_errored": 0,
+      "successes": 24,
+      "success_rate": 0.8,
+      "mean_prompts_to_success": 1.375,
+      "median_prompts_to_success": 1.0,
+      "bootstrap_ci_prompts_to_success": "1.375 [95% CI: 1.208, 1.583], 5000 resamples",
+      "first_pick_distribution": {
+        "trap": 13,
+        "genuine_single_step_win": 17
+      },
+      "trap_picked_first_rate": 0.43333333333333335,
+      "loss_categories": {
+        "trap_selected": 6
+      },
+      "n_losses": 6
+    },
+    "greedy_info_gain": {
+      "condition": "greedy_info_gain",
+      "n_trials": 30,
+      "n_trials_expected": 30,
+      "n_incomplete_or_errored": 0,
+      "successes": 19,
+      "success_rate": 0.6333333333333333,
+      "mean_prompts_to_success": 1.3157894736842106,
+      "median_prompts_to_success": 1,
+      "bootstrap_ci_prompts_to_success": "1.316 [95% CI: 1.105, 1.526], 5000 resamples",
+      "first_pick_distribution": {
+        "genuine_single_step_win": 20,
+        "trap": 10
+      },
+      "trap_picked_first_rate": 0.3333333333333333,
+      "loss_categories": {
+        "trap_selected": 11
+      },
+      "n_losses": 11
+    },
+    "bfs_only": {
+      "condition": "bfs_only",
+      "n_trials": 30,
+      "n_trials_expected": 30,
+      "n_incomplete_or_errored": 0,
+      "successes": 0,
+      "success_rate": 0.0,
+      "mean_prompts_to_success": null,
+      "median_prompts_to_success": null,
+      "bootstrap_ci_prompts_to_success": null,
+      "first_pick_distribution": {
+        "no_candidates_rankable": 30
+      },
+      "trap_picked_first_rate": 0.0,
+      "loss_categories": {
+        "no_candidates_rankable": 30
+      },
+      "n_losses": 30
+    },
+    "random": {
+      "condition": "random",
+      "n_trials": 30,
+      "n_trials_expected": 30,
+      "n_incomplete_or_errored": 0,
+      "successes": 25,
+      "success_rate": 0.8333333333333334,
+      "mean_prompts_to_success": 2.04,
+      "median_prompts_to_success": 2,
+      "bootstrap_ci_prompts_to_success": "2.040 [95% CI: 1.760, 2.360], 5000 resamples",
+      "first_pick_distribution": {
+        "genuine_single_step_win": 11,
+        "chain_start": 13,
+        "trap": 6
+      },
+      "trap_picked_first_rate": 0.2,
+      "loss_categories": {
+        "trap_selected": 5
+      },
+      "n_losses": 5
+    },
+    "static": {
+      "condition": "static",
+      "n_trials": 30,
+      "n_trials_expected": 30,
+      "n_incomplete_or_errored": 0,
+      "successes": 27,
+      "success_rate": 0.9,
+      "mean_prompts_to_success": 2.074074074074074,
+      "median_prompts_to_success": 2,
+      "bootstrap_ci_prompts_to_success": "2.074 [95% CI: 1.778, 2.370], 5000 resamples",
+      "first_pick_distribution": {
+        "chain_start": 11,
+        "genuine_single_step_win": 12,
+        "trap": 7
+      },
+      "trap_picked_first_rate": 0.23333333333333334,
+      "loss_categories": {
+        "trap_selected": 2,
+        "chain_started_incomplete": 1
+      },
+      "n_losses": 3
+    }
+  },
+  "stat_comparisons_vs_aginiti": {
+    "greedy_info_gain": {
+      "p_value": 0.2515691892878847,
+      "n_total": 60,
+      "interpretation": "p=0.252: no significant difference detected at n=60."
+    },
+    "bfs_only": {
+      "p_value": 3.293956608524838e-11,
+      "n_total": 60,
+      "interpretation": "p=0.000 < 0.05: directionally significant."
+    },
+    "random": {
+      "p_value": 0.9999999999999999,
+      "n_total": 60,
+      "interpretation": "p=1.000: no significant difference detected at n=60."
+    },
+    "static": {
+      "p_value": 0.47164455896551566,
+      "n_total": 60,
+      "interpretation": "p=0.472: no significant difference detected at n=60."
+    }
+  },
+  "generated_at": "2026-08-09T00:23:51.433518+00:00"
+}

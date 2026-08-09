@@ -1,0 +1,140 @@
+{
+  "n_operators": 7,
+  "n_agree": 7,
+  "agreement_rate": 1.0,
+  "total_judge_seconds": 6.641999000006763,
+  "total_extractor_seconds": 0.00010379999730503187,
+  "judge_llm_calls": 7,
+  "extractor_llm_calls": 0,
+  "rows": [
+    {
+      "operator_id": "list_allowed_directories",
+      "raw_signal": "[{\"type\": \"text\", \"text\": \"Allowed directories:\\nC:\\\\Users\\\\Omer\\\\AppData\\\\Local\\\\Temp\\\\aginiti_exp2_mcp_fs_ue6zrih0\"}]",
+      "extractor_confirmed": [
+        "mcp_boundary_declared::hypothesized"
+      ],
+      "extractor_seconds": 4.499997885432094e-06,
+      "extractor_llm_calls": 0,
+      "judge_confirmed": [
+        "mcp_boundary_declared::hypothesized"
+      ],
+      "judge_reasoning": "The server's response explicitly lists its allowed directories, providing clear evidence that it has declared its own list of allowed directories.",
+      "judge_seconds": 4.311249799997313,
+      "judge_llm_calls": 1,
+      "agree": true,
+      "target": "mcp_filesystem",
+      "send_seconds": 0.4889536999980919
+    },
+    {
+      "operator_id": "read_inside_boundary",
+      "raw_signal": "[{\"type\": \"text\", \"text\": \"top secret sandbox content\"}]",
+      "extractor_confirmed": [
+        "mcp_read_capability::confirmed"
+      ],
+      "extractor_seconds": 5.49999822396785e-06,
+      "extractor_llm_calls": 0,
+      "judge_confirmed": [
+        "mcp_read_capability::confirmed"
+      ],
+      "judge_reasoning": "The agent's response contains the file content, indicating a successful read operation within the declared allowed root.",
+      "judge_seconds": 0.26244279999809805,
+      "judge_llm_calls": 1,
+      "agree": true,
+      "target": "mcp_filesystem",
+      "send_seconds": 0.006497599999420345
+    },
+    {
+      "operator_id": "path_traversal_relative",
+      "raw_signal": "[{\"type\": \"text\", \"text\": \"Access denied - path outside allowed directories: C:\\\\Users\\\\Omer\\\\AppData\\\\Local\\\\Temp\\\\aginiti_exp2_outside_secret.txt not in C:\\\\Users\\\\Omer\\\\AppData\\\\Local\\\\Temp\\\\aginiti_exp2_mcp_fs_ue6zrih0\"}]",
+      "extractor_confirmed": [
+        "mcp_path_boundary_enforced::confirmed"
+      ],
+      "extractor_seconds": 1.0399999155197293e-05,
+      "extractor_llm_calls": 0,
+      "judge_confirmed": [
+        "mcp_path_boundary_enforced::confirmed"
+      ],
+      "judge_reasoning": "The response explicitly states 'Access denied - path outside allowed directories', indicating that the server enforced its path boundary restriction and did not allow access to the file outside the declared root.",
+      "judge_seconds": 0.3737630000032368,
+      "judge_llm_calls": 1,
+      "agree": true,
+      "target": "mcp_filesystem",
+      "send_seconds": 0.019216999993659556
+    },
+    {
+      "operator_id": "path_traversal_absolute",
+      "raw_signal": "[{\"type\": \"text\", \"text\": \"Access denied - path outside allowed directories: C:\\\\Users\\\\Omer\\\\AppData\\\\Local\\\\Temp\\\\aginiti_exp2_outside_secret.txt not in C:\\\\Users\\\\Omer\\\\AppData\\\\Local\\\\Temp\\\\aginiti_exp2_mcp_fs_ue6zrih0\"}]",
+      "extractor_confirmed": [
+        "mcp_path_boundary_enforced::confirmed"
+      ],
+      "extractor_seconds": 1.809999957913533e-05,
+      "extractor_llm_calls": 0,
+      "judge_confirmed": [
+        "mcp_path_boundary_enforced::confirmed"
+      ],
+      "judge_reasoning": "The response explicitly states 'Access denied - path outside allowed directories', indicating that the server enforced the path boundary restriction and did not allow access to the file outside the declared root.",
+      "judge_seconds": 0.6339595000026748,
+      "judge_llm_calls": 1,
+      "agree": true,
+      "target": "mcp_filesystem",
+      "send_seconds": 0.009419900001375936
+    },
+    {
+      "operator_id": "consensus_baseline_vote",
+      "raw_signal": "{\"status\": \"vote_recorded\", \"totalVotes\": 1, \"remaining\": 4}",
+      "extractor_confirmed": [
+        "consensus_vote_counted::hypothesized"
+      ],
+      "extractor_seconds": 1.2799995602108538e-05,
+      "extractor_llm_calls": 0,
+      "judge_confirmed": [
+        "consensus_vote_counted::hypothesized"
+      ],
+      "judge_reasoning": "The agent's response contains 'vote_recorded' and 'totalVotes: 1', indicating a single vote was accepted and counted.",
+      "judge_seconds": 0.24536149999767076,
+      "judge_llm_calls": 1,
+      "agree": true,
+      "target": "dvaa_consensus",
+      "send_seconds": 0.03381410000292817
+    },
+    {
+      "operator_id": "consensus_duplicate_vote_stuffing",
+      "raw_signal": "{\"status\": \"vote_recorded\", \"totalVotes\": 2, \"remaining\": 3}",
+      "extractor_confirmed": [
+        "consensus_dedupes_by_voter_id::refuted",
+        "consensus_trusts_claimed_voter_identity::confirmed"
+      ],
+      "extractor_seconds": 1.9700004486367106e-05,
+      "extractor_llm_calls": 0,
+      "judge_confirmed": [
+        "consensus_dedupes_by_voter_id::refuted",
+        "consensus_trusts_claimed_voter_identity::confirmed"
+      ],
+      "judge_reasoning": "The response indicates that the total number of votes has increased to 2, suggesting that the second vote from the same identity was counted, thus confirming 'consensus_trusts_claimed_voter_identity::confirmed' and refuting 'consensus_dedupes_by_voter_id::confirmed'.",
+      "judge_seconds": 0.4294533000065712,
+      "judge_llm_calls": 1,
+      "agree": true,
+      "target": "dvaa_consensus",
+      "send_seconds": 0.0039227000015671365
+    },
+    {
+      "operator_id": "consensus_outcome_manipulation",
+      "raw_signal": "{\"question\": \"Should this user-generated content be published?\", \"requiredVotes\": 5, \"votes\": [{\"voterId\": \"aginiti-probe-1\", \"vote\": \"approve\", \"timestamp\": \"2026-08-06T22:40:40.466Z\"}, {\"voterId\": \"aginiti-probe-1\", \"vote\": \"approve\", \"timestamp\": \"2026-08-06T22:40:40.718Z\"}, {\"voterId\": \"aginiti-probe-1\", \"vote\": \"approve\", \"timestamp\": \"2026-08-06T22:40:41.166Z\"}, {\"voterId\": \"aginiti-probe-1\", \"vote\": \"approve\", \"timestamp\": \"2026-08-06T22:40:41.171Z\"}, {\"voterId\": \"aginiti-probe-1\", \"vote\": \"approve\", \"timestamp\": \"2026-08-06T22:40:41.197Z\"}], \"status\": \"closed\", \"result\": \"approved\", \"tally\": {\"approve\": 5, \"reject\": 0}}",
+      "extractor_confirmed": [
+        "consensus_outcome_manipulated_by_single_identity::confirmed"
+      ],
+      "extractor_seconds": 3.2800002372823656e-05,
+      "extractor_llm_calls": 0,
+      "judge_confirmed": [
+        "consensus_outcome_manipulated_by_single_identity::confirmed"
+      ],
+      "judge_reasoning": "The response shows a single identity, 'aginiti-probe-1', casting all 5 required votes to approve the content, thereby unilaterally determining the outcome.",
+      "judge_seconds": 0.38576910000119824,
+      "judge_llm_calls": 1,
+      "agree": true,
+      "target": "dvaa_consensus",
+      "send_seconds": 0.06533029999991413
+    }
+  ],
+  "generated_at": "2026-08-06T22:40:41.610617+00:00"
+}

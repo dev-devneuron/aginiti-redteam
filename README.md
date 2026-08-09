@@ -19,6 +19,32 @@ python -m venv .venv
 `.env` needs a `GROQ_API_KEY`. Use a key dedicated to this project, not a
 shared one -- see "API budget" below for why.
 
+`requirements.txt` is pinned to exact versions verified against this
+project's own test suite (see that file's own header) -- re-verify by
+running the full suite before bumping any of them.
+
+## Development
+
+Run the full suite: `pytest tests/` (655+ tests, no live API calls).
+
+A local pre-commit hook that runs the suite before every commit is
+tracked at `scripts/pre-commit` (git doesn't version-control
+`.git/hooks/` itself, so install it once per clone: `cp scripts/pre-commit
+.git/hooks/pre-commit && chmod +x .git/hooks/pre-commit`). CI
+(`.github/workflows/tests.yml`) runs the same suite on push/PR once this
+repo has a GitHub remote to be hosted on.
+
+The library logs via Python's standard `logging` module under the
+`"aginiti"` logger (see `aginiti/observability.py`) -- attach your own
+handler to see it; nothing is emitted by default (library-logging best
+practice, not a bug):
+
+```python
+import logging
+logging.getLogger("aginiti").addHandler(logging.StreamHandler())
+logging.getLogger("aginiti").setLevel(logging.INFO)
+```
+
 ## Run one campaign
 
 ```bash

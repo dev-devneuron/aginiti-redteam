@@ -26,7 +26,7 @@ Node/edge semantics:
 """
 from __future__ import annotations
 
-from aginiti.graph.ssg import SUBGRAPH_TARGET, SecurityStateGraph
+from aginiti.graph.ssg import CATEGORY_CAPABILITY, SUBGRAPH_TARGET, SecurityStateGraph
 from aginiti.mission import Mission
 from aginiti.operators.library import OperatorLibrary
 
@@ -98,6 +98,7 @@ def export_ssg_for_visualization(ssg: SecurityStateGraph, library: OperatorLibra
                     "status": claim.status.value,
                     "confidence": claim.confidence.value,
                     "subgraph": ssg.claim_subgraph.get(key, SUBGRAPH_TARGET),
+                    "category": ssg.claim_category.get(key, CATEGORY_CAPABILITY),
                     "object": claim.object,
                     "evidence": _evidence_for(ssg, key),
                 }
