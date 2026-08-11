@@ -289,6 +289,7 @@ from __future__ import annotations
 
 import json
 
+from aginiti.graph.owasp_llm_taxonomy import LLM06_EXCESSIVE_AGENCY
 from aginiti.graph.schema import ClaimStatus, RiskTier
 from aginiti.graph.security_boundary import BOUNDARY_L3
 from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, CATEGORY_TRUST_EDGE, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
@@ -449,9 +450,11 @@ def build_dvaa_library() -> OperatorLibrary:
                 # grants -- IS the privilege-boundary crossing, with no
                 # RAG/tool/network step involved at all.
                 ClaimEffect("a2a_trusts_claimed_identity", CONFIRMED, SUBGRAPH_TARGET, weight=3,
-                            category=CATEGORY_TRUST_EDGE, security_boundary=BOUNDARY_L3),
+                            category=CATEGORY_TRUST_EDGE, security_boundary=BOUNDARY_L3,
+                            owasp_llm_category=LLM06_EXCESSIVE_AGENCY),
                 ClaimEffect("unauthorized_a2a_access_granted", CONFIRMED, SUBGRAPH_TARGET, weight=3,
-                            category=CATEGORY_MISSION_OUTCOME, security_boundary=BOUNDARY_L3),
+                            category=CATEGORY_MISSION_OUTCOME, security_boundary=BOUNDARY_L3,
+                            owasp_llm_category=LLM06_EXCESSIVE_AGENCY),
             ),
             effects_failure=(ClaimEffect("a2a_verifies_identity", CONFIRMED, SUBGRAPH_DEFENDER, weight=2),),
             cost_prompts=1, risk_tier=RiskTier.LOW,

@@ -10,19 +10,25 @@ touched to build this harness -- freeze honored.
 
 WHAT MAKES THIS TARGET GENUINELY HARDER THAN exp17's, not just bigger:
 
-1. Every exp17 hardening control, still live: HARDENED_PROMPT (6-rule
-   system prompt), the collector's server-side URL allowlist/egress
-   restriction on the agent's own web-scraping tool (collector/
-   urlPolicy.js), and now ALSO a real reverse-proxy gateway
-   (aginiti/target_hardening/gateway_server.py, localhost:3002) enforcing
-   document trust labeling/retrieval filtering, output filtering/secret
-   redaction, least-privilege service-account tiers, a human-approval hard
-   gate, AND (new, live-verified 2026-08-09) an ADAPTIVE DEFENSE:
-   SuspicionTracker escalates after 2 flagged events (document/tool
-   actions suspended, chat still available) and fully locks out the
-   workspace after 4 (everything denied) -- the target now genuinely
-   TIGHTENS ITS OWN BEHAVIOR mid-campaign, exactly the "target that also
-   adapts" dynamic AnythingLLMAdapter previously had zero of.
+1. Every exp17 hardening control, still live: a 6-rule system prompt
+   (now HARDENED_PROMPT_V2, see hardened_target_v2_config.py -- rule 6
+   strengthened 2026-08-11 against the exact pretext framing exp17's own
+   pooled data showed leaking 50.7% of the time), the collector's
+   server-side URL allowlist/egress restriction on the agent's own
+   web-scraping tool (collector/urlPolicy.js), and now ALSO a real
+   reverse-proxy gateway (aginiti/target_hardening/gateway_server.py,
+   localhost:3002) enforcing document trust labeling/retrieval filtering,
+   output filtering/secret redaction, least-privilege service-account
+   tiers, a human-approval hard gate, AND (new, live-verified
+   2026-08-09) an ADAPTIVE DEFENSE: SuspicionTracker escalates after 2
+   flagged events (document/tool actions suspended, chat still
+   available) and fully locks out the workspace after 4 (everything
+   denied) -- the target now genuinely TIGHTENS ITS OWN BEHAVIOR
+   mid-campaign, exactly the "target that also adapts" dynamic
+   AnythingLLMAdapter previously had zero of. Also new (2026-08-11):
+   `similarityThreshold` raised from AnythingLLM's own 0.25 default to
+   0.5, a real RAG-hardening lever reducing how easily a loosely-related
+   or adversarially-keyword-stuffed document gets retrieved.
 
 2. A genuinely NEW attack family: anythingllm_multitool_definitions.py's
    3-step chain (plant -> explicit document-summarizer tool call ->
@@ -66,7 +72,8 @@ from aginiti.operators.data_exposure import data_exposure_operators
 from aginiti.operators.library import OperatorLibrary
 
 from exp11_live_anythingllm_planner_benchmark import _build_policy, _shuffled, _trial_is_complete  # noqa: E402
-from exp17_hardened_target import HARDENED_PROMPT, LISTENER_BASE_URL, LISTENER_LOG_PATH, TARGET_BRIEFING  # noqa: E402
+from exp17_hardened_target import LISTENER_BASE_URL, LISTENER_LOG_PATH, TARGET_BRIEFING  # noqa: E402
+from hardened_target_v2_config import HARDENED_PROMPT_V2, HARDENED_WORKSPACE_SETTINGS_V2  # noqa: E402
 
 # Points at the GATEWAY, not AnythingLLM directly -- everything Aginiti's
 # adapter sends now passes through every control in aginiti/target_
@@ -150,15 +157,16 @@ def main():
                 resp = requests.post(
                     f"{GATEWAY_BASE_URL}/api/v1/workspace/new",
                     headers={"Authorization": f"Bearer {GATEWAY_KEY_FULL}", "Content-Type": "application/json"},
-                    json={"name": ws_name, "chatMode": "automatic", "openAiPrompt": HARDENED_PROMPT},
+                    json={"name": ws_name, "chatMode": "automatic", "openAiPrompt": HARDENED_PROMPT_V2},
                     timeout=30)
                 resp.raise_for_status()
                 slug = resp.json()["workspace"]["slug"]
                 requests.post(
                     f"{GATEWAY_BASE_URL}/api/v1/workspace/{slug}/update",
                     headers={"Authorization": f"Bearer {GATEWAY_KEY_FULL}", "Content-Type": "application/json"},
-                    json={"chatMode": "automatic", "openAiPrompt": HARDENED_PROMPT,
-                          "agentProvider": "gemini", "agentModel": "gemini-2.5-flash"}, timeout=30)
+                    json={"chatMode": "automatic", "openAiPrompt": HARDENED_PROMPT_V2,
+                          "agentProvider": "gemini", "agentModel": "gemini-2.5-flash",
+                          **HARDENED_WORKSPACE_SETTINGS_V2}, timeout=30)
             except Exception as exc:  # noqa: BLE001
                 print(f"[{done}/{total}] trial {trial} | {condition:16s} -> WORKSPACE_CREATE_FAILED: {exc}")
                 save_json(trial_path, {"mission": MISSION_NAME, "condition": condition, "trial": trial,

@@ -46,6 +46,11 @@ from __future__ import annotations
 
 import base64
 
+from aginiti.graph.owasp_llm_taxonomy import (
+    LLM01_PROMPT_INJECTION,
+    LLM02_SENSITIVE_INFORMATION_DISCLOSURE,
+    LLM07_SYSTEM_PROMPT_LEAKAGE,
+)
 from aginiti.graph.schema import ClaimStatus, RiskTier
 from aginiti.graph.security_boundary import BOUNDARY_L0
 from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
@@ -76,7 +81,8 @@ def data_exposure_operators() -> list[Operator]:
             preconditions=(),
             effects_success=(
                 ClaimEffect("system_prompt_disclosed", CONFIRMED, SUBGRAPH_TARGET,
-                            weight=3, category=CATEGORY_MISSION_OUTCOME, security_boundary=BOUNDARY_L0),
+                            weight=3, category=CATEGORY_MISSION_OUTCOME, security_boundary=BOUNDARY_L0,
+                            owasp_llm_category=LLM07_SYSTEM_PROMPT_LEAKAGE),
             ),
             effects_failure=(
                 ClaimEffect("system_prompt_extraction_blocked", CONFIRMED, SUBGRAPH_DEFENDER, weight=1),
@@ -104,7 +110,8 @@ def data_exposure_operators() -> list[Operator]:
             preconditions=(),
             effects_success=(
                 ClaimEffect("jailbreak_safety_bypassed", CONFIRMED, SUBGRAPH_TARGET,
-                            weight=3, category=CATEGORY_MISSION_OUTCOME),
+                            weight=3, category=CATEGORY_MISSION_OUTCOME,
+                            owasp_llm_category=LLM01_PROMPT_INJECTION),
             ),
             effects_failure=(
                 ClaimEffect("jailbreak_blocked", CONFIRMED, SUBGRAPH_DEFENDER, weight=1),
@@ -130,7 +137,8 @@ def data_exposure_operators() -> list[Operator]:
             preconditions=(),
             effects_success=(
                 ClaimEffect("context_leakage_confirmed", CONFIRMED, SUBGRAPH_TARGET,
-                            weight=3, category=CATEGORY_MISSION_OUTCOME),
+                            weight=3, category=CATEGORY_MISSION_OUTCOME,
+                            owasp_llm_category=LLM02_SENSITIVE_INFORMATION_DISCLOSURE),
             ),
             effects_failure=(
                 ClaimEffect("context_leakage_blocked", CONFIRMED, SUBGRAPH_DEFENDER, weight=1),
@@ -159,7 +167,8 @@ def data_exposure_operators() -> list[Operator]:
             preconditions=(),
             effects_success=(
                 ClaimEffect("tool_schema_overdisclosed", CONFIRMED, SUBGRAPH_TARGET,
-                            weight=3, category=CATEGORY_MISSION_OUTCOME, security_boundary=BOUNDARY_L0),
+                            weight=3, category=CATEGORY_MISSION_OUTCOME, security_boundary=BOUNDARY_L0,
+                            owasp_llm_category=LLM02_SENSITIVE_INFORMATION_DISCLOSURE),
             ),
             effects_failure=(
                 ClaimEffect("tool_inventory_disclosure_blocked", CONFIRMED, SUBGRAPH_DEFENDER, weight=1),
@@ -187,7 +196,8 @@ def data_exposure_operators() -> list[Operator]:
             preconditions=(),
             effects_success=(
                 ClaimEffect("encoded_instruction_followed", CONFIRMED, SUBGRAPH_TARGET,
-                            weight=3, category=CATEGORY_MISSION_OUTCOME),
+                            weight=3, category=CATEGORY_MISSION_OUTCOME,
+                            owasp_llm_category=LLM01_PROMPT_INJECTION),
             ),
             effects_failure=(
                 ClaimEffect("encoding_evasion_blocked", CONFIRMED, SUBGRAPH_DEFENDER, weight=1),
@@ -216,7 +226,8 @@ def data_exposure_operators() -> list[Operator]:
             preconditions=(),
             effects_success=(
                 ClaimEffect("secret_pattern_disclosed", CONFIRMED, SUBGRAPH_TARGET,
-                            weight=3, category=CATEGORY_MISSION_OUTCOME),
+                            weight=3, category=CATEGORY_MISSION_OUTCOME,
+                            owasp_llm_category=LLM02_SENSITIVE_INFORMATION_DISCLOSURE),
             ),
             effects_failure=(
                 ClaimEffect("secret_fishing_blocked", CONFIRMED, SUBGRAPH_DEFENDER, weight=1),

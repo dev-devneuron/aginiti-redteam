@@ -430,7 +430,8 @@ class ObservationAdapter:
             extracted = details.get(eid)
             object_ = extracted if isinstance(extracted, str) and extracted.strip() else effect.object
             ssg.assert_claim(effect.key, object_, effect.status, subgraph=effect.subgraph,
-                              category=effect.category, security_boundary=effect.security_boundary)
+                              category=effect.category, security_boundary=effect.security_boundary,
+                              owasp_llm_category=effect.owasp_llm_category)
             if effect.status == ClaimStatus.CONFIRMED and effect.subgraph != SUBGRAPH_DEFENDER:
                 # The single highest-signal event this library produces: a
                 # real, confirmed finding against the target. WARNING, not

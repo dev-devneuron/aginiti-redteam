@@ -53,6 +53,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from aginiti.graph.owasp_llm_taxonomy import LLM06_EXCESSIVE_AGENCY, LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES
 from aginiti.graph.schema import ClaimStatus, RiskTier
 from aginiti.graph.security_boundary import BOUNDARY_L1, BOUNDARY_L5
 from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
@@ -125,7 +126,8 @@ def build_anythingllm_automatic_library(canary: str, listener_base_url: str) -> 
             preconditions=(),
             effects_success=(
                 ClaimEffect("anythingllm_automatic_exfil_document_planted", CONFIRMED, SUBGRAPH_TARGET, weight=1,
-                            security_boundary=BOUNDARY_L1),
+                            security_boundary=BOUNDARY_L1,
+                            owasp_llm_category=LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES),
             ),
             effects_failure=(),
             cost_prompts=1, risk_tier=RiskTier.LOW,
@@ -160,7 +162,8 @@ def build_anythingllm_automatic_library(canary: str, listener_base_url: str) -> 
                 # the canary), not judge-read chat text -- see
                 # AnythingLLMAdapter.ground_truth_mission_achieved().
                 ClaimEffect("anythingllm_automatic_indirect_tool_exfil_confirmed", CONFIRMED, SUBGRAPH_TARGET,
-                            weight=3, category=CATEGORY_MISSION_OUTCOME, security_boundary=BOUNDARY_L5),
+                            weight=3, category=CATEGORY_MISSION_OUTCOME, security_boundary=BOUNDARY_L5,
+                            owasp_llm_category=LLM06_EXCESSIVE_AGENCY),
             ),
             effects_failure=(
                 # Same honest caveat as the chat-mode pack: this fires for

@@ -81,6 +81,7 @@ class SecurityStateGraph:
     claim_subgraph: dict[str, str] = field(default_factory=dict)  # claim key -> subgraph tag
     claim_category: dict[str, str] = field(default_factory=dict)  # claim key -> category tag
     claim_boundary: dict[str, str] = field(default_factory=dict)  # claim key -> security_boundary tag (aginiti/graph/security_boundary.py)
+    claim_owasp_category: dict[str, str] = field(default_factory=dict)  # claim key -> OWASP LLM Top 10 tag (aginiti/graph/owasp_llm_taxonomy.py)
     # Derived working memory (aginiti/graph/belief_state.py) -- a CACHE over
     # the fields above, not another source of truth. Deliberately excluded
     # from persistence.py; see that module's comment.
@@ -193,7 +194,7 @@ class SecurityStateGraph:
 
     def assert_claim(self, key: str, object_: str, status: ClaimStatus,
                       subgraph: str = SUBGRAPH_TARGET, category: str | None = None,
-                      security_boundary: str | None = None) -> Claim:
+                      security_boundary: str | None = None, owasp_llm_category: str | None = None) -> Claim:
         """Create a new Claim version for `key` with an explicit status.
         Confidence is derived from whatever Observations already reference
         this key (0 if none yet -> LOW). `category` is optional because the
@@ -201,9 +202,10 @@ class SecurityStateGraph:
         it -- leaving the prior tag (or none, defaulting to "capability" for
         queries) in place is correct there, since the real category was
         already set (or will be) by the assert_claim call driven by the
-        operator's ClaimEffect. `security_boundary` follows the exact same
-        optional, sticky-until-overwritten pattern -- see aginiti/graph/
-        security_boundary.py."""
+        operator's ClaimEffect. `security_boundary` and `owasp_llm_category`
+        follow the exact same optional, sticky-until-overwritten pattern --
+        see aginiti/graph/security_boundary.py and aginiti/graph/
+        owasp_llm_taxonomy.py."""
         prior = self.current_claim(key)
         net = self._net_observation_score(key)
         claim = Claim.create(
@@ -219,6 +221,8 @@ class SecurityStateGraph:
             self.claim_category[key] = category
         if security_boundary is not None:
             self.claim_boundary[key] = security_boundary
+        if owasp_llm_category is not None:
+            self.claim_owasp_category[key] = owasp_llm_category
         self._update_hypotheses_for_claim(key, status)
         return claim
 
@@ -294,3 +298,28 @@ class SecurityStateGraph:
         crossed.\""""
         from aginiti.graph.security_boundary import highest_level
         return highest_level(self.confirmed_boundary_crossings().values())
+
+    def confirmed_owasp_categories(self) -> dict[str, str]:
+        """claim key -> OWASP LLM Top 10 (2025) category tag, for every
+        CURRENTLY-CONFIRMED claim that has one (see aginiti/graph/
+        owasp_llm_taxonomy.py). Same opt-in discipline as
+        confirmed_boundary_crossings(): claims with no tag are simply
+        absent, never defaulted to a guessed category."""
+        out = {}
+        for key, category in self.claim_owasp_category.items():
+            claim = self.current_claim(key)
+            if claim is not None and claim.status == ClaimStatus.CONFIRMED:
+                out[key] = category
+        return out
+
+    def owasp_category_summary(self) -> dict[str, int]:
+        """OWASP category -> count of distinct currently-confirmed claims
+        tagged with it. This is the report-friendly rollup: "3 confirmed
+        LLM01 findings, 1 confirmed LLM07 finding," the same shape a
+        compliance-facing reader expects from a garak-style taxonomy
+        breakdown (see owasp_llm_taxonomy.py's docstring for why this
+        dimension was added)."""
+        summary: dict[str, int] = {}
+        for category in self.confirmed_owasp_categories().values():
+            summary[category] = summary.get(category, 0) + 1
+        return summary

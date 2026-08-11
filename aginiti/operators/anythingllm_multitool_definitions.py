@@ -40,6 +40,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from aginiti.graph.owasp_llm_taxonomy import (
+    LLM02_SENSITIVE_INFORMATION_DISCLOSURE,
+    LLM06_EXCESSIVE_AGENCY,
+    LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES,
+)
 from aginiti.graph.schema import ClaimStatus, RiskTier
 from aginiti.graph.security_boundary import BOUNDARY_L1, BOUNDARY_L2, BOUNDARY_L5
 from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
@@ -117,7 +122,8 @@ def build_anythingllm_multitool_library(canary: str, listener_base_url: str) -> 
             preconditions=(),
             effects_success=(
                 ClaimEffect("anythingllm_multitool_relay_document_planted", CONFIRMED, SUBGRAPH_TARGET,
-                            weight=1, security_boundary=BOUNDARY_L1),
+                            weight=1, security_boundary=BOUNDARY_L1,
+                            owasp_llm_category=LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES),
             ),
             effects_failure=(),
             cost_prompts=1, risk_tier=RiskTier.LOW,
@@ -150,7 +156,8 @@ def build_anythingllm_multitool_library(canary: str, listener_base_url: str) -> 
                 # confined to the agent's own environment -- no external
                 # network egress yet, that's the FINAL step's job.
                 ClaimEffect("anythingllm_multitool_document_summarized", CONFIRMED, SUBGRAPH_TARGET,
-                            weight=2, security_boundary=BOUNDARY_L2),
+                            weight=2, security_boundary=BOUNDARY_L2,
+                            owasp_llm_category=LLM06_EXCESSIVE_AGENCY),
             ),
             effects_failure=(
                 ClaimEffect("anythingllm_multitool_document_not_summarized", CONFIRMED,
@@ -191,7 +198,8 @@ def build_anythingllm_multitool_library(canary: str, listener_base_url: str) -> 
                 # L5: same double-independent ground truth (listener log)
                 # as anythingllm_automatic_definitions.py's trigger.
                 ClaimEffect("anythingllm_multitool_relay_confirmed", CONFIRMED, SUBGRAPH_TARGET,
-                            weight=3, category=CATEGORY_MISSION_OUTCOME, security_boundary=BOUNDARY_L5),
+                            weight=3, category=CATEGORY_MISSION_OUTCOME, security_boundary=BOUNDARY_L5,
+                            owasp_llm_category=LLM02_SENSITIVE_INFORMATION_DISCLOSURE),
             ),
             effects_failure=(
                 ClaimEffect("anythingllm_multitool_relay_not_triggered", CONFIRMED,

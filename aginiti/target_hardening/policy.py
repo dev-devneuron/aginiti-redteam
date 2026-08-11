@@ -303,3 +303,75 @@ class SuspicionTracker:
 
     def reset(self, workspace: str) -> None:
         self._counts.pop(workspace, None)
+
+
+# ---------------------------------------------------------------------------
+# 7. Volumetric rate limiting.
+#
+# Added 2026-08-11 -- closing a genuine, confirmed gap: AnythingLLM has NO
+# native API rate limiting at all (confirmed by reading its own live
+# GET /api/v1/system response directly -- every "*Limit"/"*Threshold"
+# setting present is model-token-related, none is request-rate-related).
+# Every real production API gateway (an AWS API Gateway, Cloudflare, Kong,
+# ...) enforces SOME volumetric cap regardless of content -- this is that
+# layer. Deliberately separate from SuspicionTracker: that term is
+# CONTENT-aware (escalates only on a flagged action), this one is
+# content-blind (counts every request), the same way a real deployment
+# would have both a network-layer rate limiter AND an application-layer
+# WAF working together, not one term trying to do both jobs.
+# ---------------------------------------------------------------------------
+
+
+class RateLimiter:
+    """Simple fixed-window request counter, per key, in memory -- the
+    same "small, honestly-scoped real mechanism" precedent as
+    SuspicionTracker itself, not a production-grade distributed rate
+    limiter. `key` is caller-chosen (gateway_server.py scopes this per
+    WORKSPACE, not per shared gateway key, so one experiment run sharing
+    a single service-account key across many workspaces doesn't trip a
+    global cap meant to catch abuse of any ONE session)."""
+
+    def __init__(self, max_requests: int = 20, window_seconds: float = 60.0):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self._windows: dict[str, list[float]] = {}
+
+    def allow(self, key: str, now: float) -> bool:
+        history = self._windows.setdefault(key, [])
+        cutoff = now - self.window_seconds
+        while history and history[0] < cutoff:
+            history.pop(0)
+        if len(history) >= self.max_requests:
+            return False
+        history.append(now)
+        return True
+
+    def reset(self, key: str) -> None:
+        self._windows.pop(key, None)
+
+
+# ---------------------------------------------------------------------------
+# 8. Request size limits.
+#
+# Added 2026-08-11 -- same "genuinely missing, real production gateways
+# always have this" reasoning as rate limiting. Deliberately generous
+# (covers a legitimate large document plant, e.g. the multitool pack's
+# summarization-forcing document) while still ruling out an absurd
+# payload -- these are DoS-prevention bounds, not content policy (that's
+# scan_and_sanitize_document's job).
+# ---------------------------------------------------------------------------
+
+MAX_MESSAGE_LENGTH_CHARS = 20_000
+MAX_DOCUMENT_UPLOAD_BYTES = 5_000_000  # 5 MB
+
+
+def check_message_length(message: str) -> tuple[bool, str | None]:
+    if len(message) > MAX_MESSAGE_LENGTH_CHARS:
+        return False, f"Message exceeds the {MAX_MESSAGE_LENGTH_CHARS}-character limit ({len(message)} chars)."
+    return True, None
+
+
+def check_document_size(content_bytes: int) -> tuple[bool, str | None]:
+    if content_bytes > MAX_DOCUMENT_UPLOAD_BYTES:
+        return False, f"Document exceeds the {MAX_DOCUMENT_UPLOAD_BYTES}-byte limit ({content_bytes} bytes)."
+    return True, None

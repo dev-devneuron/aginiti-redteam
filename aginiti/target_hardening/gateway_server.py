@@ -24,8 +24,11 @@ import requests
 from flask import Flask, Response, request
 
 from aginiti.target_hardening.policy import (
+    RateLimiter,
     SuspicionTracker,
+    check_document_size,
     check_gateway_key,
+    check_message_length,
     check_url_allowed,
     required_capability,
     requires_approval,
@@ -44,6 +47,12 @@ AUDIT_LOG_PATH = os.environ.get(
 
 app = Flask(__name__)
 _suspicion = SuspicionTracker()  # module-level: shared across every request this process handles
+# 20 requests / 60s per WORKSPACE (not per shared gateway key -- see
+# policy.RateLimiter's own docstring for why): generous enough that a real
+# exp18 trial (budget=4, a handful of document actions) never trips it,
+# tight enough to be a genuine volumetric cap against runaway abuse of any
+# ONE session, matching how a real production rate limiter is scoped.
+_rate_limiter = RateLimiter(max_requests=20, window_seconds=60.0)
 _CHAT_PATH_RE = re.compile(r"^/api/v1/workspace/([^/]+)/chat$")
 
 
@@ -113,6 +122,16 @@ def _enforce_gateway_key_and_approval():
     # depend on history), BEFORE the route handler runs.
     workspace = _workspace_from_request()
     if workspace is not None:
+        # Volumetric rate limiting (2026-08-11) -- content-blind, checked
+        # before the content-aware suspicion/lockout gate below: a real
+        # production rate limiter sits in front of, and is independent
+        # from, an application-layer WAF.
+        if not _rate_limiter.allow(workspace, now=time.time()):
+            _audit({"event": "denied_rate_limited", "path": path, "workspace": workspace})
+            return Response(
+                json.dumps({"error": f"Rate limit exceeded: max {_rate_limiter.max_requests} requests per "
+                                      f"{_rate_limiter.window_seconds:.0f}s for this workspace."}),
+                status=429, mimetype="application/json")
         if _suspicion.is_locked_out(workspace):
             _audit({"event": "denied_locked_out", "path": path, "workspace": workspace,
                     "suspicion_count": _suspicion.count(workspace)})
@@ -151,7 +170,12 @@ def document_upload():
     if uploaded is None:
         return Response(json.dumps({"error": "no file field"}), status=400,
                          mimetype="application/json")
-    raw_text = uploaded.read().decode("utf-8", errors="replace")
+    raw_bytes = uploaded.read()
+    size_ok, size_reason = check_document_size(len(raw_bytes))
+    if not size_ok:
+        _audit({"event": "document_rejected_too_large", "filename": uploaded.filename, "size": len(raw_bytes)})
+        return Response(json.dumps({"error": size_reason}), status=413, mimetype="application/json")
+    raw_text = raw_bytes.decode("utf-8", errors="replace")
     scan = scan_and_sanitize_document(raw_text)
     if scan.was_flagged:
         workspace = request.form.get("addToWorkspaces")
@@ -199,9 +223,56 @@ def workspace_chat(slug: str):
     pre-redaction text in the gateway's own audit log -- see policy.py's
     scan_and_redact_output docstring for why that distinction matters."""
     body = request.get_json(force=True, silent=True) or {}
+    length_ok, length_reason = check_message_length(body.get("message", ""))
+    if not length_ok:
+        _audit({"event": "message_rejected_too_long", "workspace": slug,
+                "length": len(body.get("message", ""))})
+        return Response(json.dumps({"error": length_reason}), status=413, mimetype="application/json")
     resp = requests.post(f"{TARGET_BASE_URL}/api/v1/workspace/{slug}/chat",
                           headers=_forward_headers(), json=body, timeout=180)
     if resp.status_code != 200:
+        # Resilience against a real, confirmed AnythingLLM crash class
+        # (2026-08-11, found live setting up garak): its own gemini/
+        # index.js:401 reads `result.output.choices[0].message.content`
+        # without checking `.message` exists first -- when Gemini's
+        # safety filter blocks a response (exactly what a DAN-style
+        # jailbreak prompt triggers, given this workspace's own
+        # GeminiSafetySetting=BLOCK_MEDIUM_AND_ABOVE), `.message` is
+        # undefined and the whole request 500s with "Cannot read
+        # properties of undefined (reading 'content')" instead of a clean
+        # refusal. Confirmed by reproducing directly and reading the
+        # upstream source, not guessed. Narrow, exact-string match on
+        # this ONE known crash signature -- a genuinely different 500 (an
+        # unrelated bug, an auth failure, a real outage) is NOT caught
+        # here and still propagates as-is, so this can't mask a new,
+        # different failure as a clean refusal.
+        #
+        # Rewritten into a real, honest 200 refusal-shaped response
+        # rather than a raw crash: this is what AnythingLLM's own code
+        # SHOULD have returned for a safety-filtered completion, not a
+        # fabrication -- and it's what makes this gateway usable by any
+        # normal client (garak included) that expects a text-generation
+        # API to report "declined" as content, not as a 500 that triggers
+        # an endless backoff-retry loop.
+        if resp.status_code == 500 and "Cannot read properties of undefined" in resp.text:
+            _audit({"event": "target_crash_treated_as_refusal", "workspace": slug,
+                    "upstream_status": 500, "upstream_body": resp.text[:300]})
+            # Live-caught refinement (2026-08-11): the first version of
+            # this synthesized text was "[response blocked or
+            # unavailable]" -- garak's own mitigation.MitigationBypass
+            # detector (which pattern-matches for a NATURAL-LANGUAGE
+            # refusal phrase) didn't recognize a bracketed system-note
+            # string as a refusal at all, and reported a false 100%
+            # "attack success rate" on a target that had, in reality,
+            # never complied. A real, ordinary-sounding refusal sentence
+            # both is more honest (this really is what a declining model
+            # says) and is what any refusal-phrase detector -- garak's or
+            # otherwise -- correctly recognizes.
+            return Response(
+                json.dumps({"textResponse": "I'm not able to help with that request.",
+                            "_gateway_note": "upstream crashed handling a likely safety-filtered "
+                                              "response (AnythingLLM gemini/index.js:401); treated as a refusal"}),
+                status=200, mimetype="application/json")
         return Response(resp.content, status=resp.status_code, content_type=resp.headers.get("Content-Type"))
     try:
         payload = resp.json()

@@ -1,6 +1,11 @@
 from aginiti.target_hardening.policy import (
+    MAX_DOCUMENT_UPLOAD_BYTES,
+    MAX_MESSAGE_LENGTH_CHARS,
+    RateLimiter,
     SuspicionTracker,
+    check_document_size,
     check_gateway_key,
+    check_message_length,
     check_url_allowed,
     requires_approval,
     scan_and_redact_output,
@@ -217,3 +222,67 @@ def test_note_suspicious_returns_the_new_running_count():
     t = SuspicionTracker()
     assert t.note_suspicious("ws") == 1
     assert t.note_suspicious("ws") == 2
+
+
+# --- Volumetric rate limiting -------------------------------------------
+
+def test_rate_limiter_allows_requests_under_the_cap():
+    rl = RateLimiter(max_requests=3, window_seconds=60)
+    assert rl.allow("ws", now=0.0)
+    assert rl.allow("ws", now=1.0)
+    assert rl.allow("ws", now=2.0)
+
+
+def test_rate_limiter_blocks_once_the_cap_is_reached_within_the_window():
+    rl = RateLimiter(max_requests=3, window_seconds=60)
+    for t in (0.0, 1.0, 2.0):
+        assert rl.allow("ws", now=t)
+    assert not rl.allow("ws", now=3.0)
+
+
+def test_rate_limiter_is_per_key_not_global():
+    rl = RateLimiter(max_requests=1, window_seconds=60)
+    assert rl.allow("ws-a", now=0.0)
+    assert not rl.allow("ws-a", now=0.5)
+    assert rl.allow("ws-b", now=0.5)  # a different key has its own budget
+
+
+def test_rate_limiter_allows_again_once_the_window_slides_past_old_requests():
+    rl = RateLimiter(max_requests=1, window_seconds=60)
+    assert rl.allow("ws", now=0.0)
+    assert not rl.allow("ws", now=30.0)  # still inside the 60s window
+    assert rl.allow("ws", now=61.0)      # the first request is now outside the window
+
+
+def test_rate_limiter_reset_clears_a_keys_window():
+    rl = RateLimiter(max_requests=1, window_seconds=60)
+    assert rl.allow("ws", now=0.0)
+    assert not rl.allow("ws", now=1.0)
+    rl.reset("ws")
+    assert rl.allow("ws", now=1.0)
+
+
+# --- Request size limits -------------------------------------------------
+
+def test_message_under_the_length_limit_is_allowed():
+    ok, reason = check_message_length("a normal short message")
+    assert ok is True
+    assert reason is None
+
+
+def test_message_over_the_length_limit_is_rejected():
+    ok, reason = check_message_length("x" * (MAX_MESSAGE_LENGTH_CHARS + 1))
+    assert ok is False
+    assert "exceeds" in reason
+
+
+def test_document_under_the_size_limit_is_allowed():
+    ok, reason = check_document_size(1000)
+    assert ok is True
+    assert reason is None
+
+
+def test_document_over_the_size_limit_is_rejected():
+    ok, reason = check_document_size(MAX_DOCUMENT_UPLOAD_BYTES + 1)
+    assert ok is False
+    assert "exceeds" in reason

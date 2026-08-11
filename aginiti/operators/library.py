@@ -69,6 +69,13 @@ class ClaimEffect:
     # reaches the SSG) preserves every existing operator's behavior
     # unchanged.
     security_boundary: str | None = None
+    # Which OWASP Top 10 for LLM Applications (2025) risk category this
+    # effect represents if CONFIRMED -- see aginiti/graph/
+    # owasp_llm_taxonomy.py for the full 10-category list and why it's a
+    # separate dimension from security_boundary/category. Same opt-in
+    # discipline: None (the default) preserves every existing operator's
+    # behavior unchanged.
+    owasp_llm_category: str | None = None
 
     def __post_init__(self) -> None:
         if self.category is None:

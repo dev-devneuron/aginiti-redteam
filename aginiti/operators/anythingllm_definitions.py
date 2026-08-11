@@ -36,6 +36,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from aginiti.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION, LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES
 from aginiti.graph.schema import ClaimStatus, RiskTier
 from aginiti.graph.security_boundary import BOUNDARY_L1
 from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
@@ -102,7 +103,8 @@ def build_anythingllm_library(canary: str) -> OperatorLibrary:
             preconditions=(),
             effects_success=(
                 ClaimEffect("anythingllm_document_planted", CONFIRMED, SUBGRAPH_TARGET, weight=1,
-                            security_boundary=BOUNDARY_L1),
+                            security_boundary=BOUNDARY_L1,
+                            owasp_llm_category=LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES),
             ),
             effects_failure=(),
             cost_prompts=1, risk_tier=RiskTier.LOW,
@@ -133,7 +135,8 @@ def build_anythingllm_library(canary: str) -> OperatorLibrary:
                 # (contrast the automatic/markdown chains below, which are
                 # L5, confirmed via an independent listener log).
                 ClaimEffect("anythingllm_rag_injection_executed", CONFIRMED, SUBGRAPH_TARGET,
-                            weight=3, category=CATEGORY_MISSION_OUTCOME, security_boundary=BOUNDARY_L1),
+                            weight=3, category=CATEGORY_MISSION_OUTCOME, security_boundary=BOUNDARY_L1,
+                            owasp_llm_category=LLM01_PROMPT_INJECTION),
             ),
             effects_failure=(
                 # Not necessarily an active defense -- see this module's docstring precedent
