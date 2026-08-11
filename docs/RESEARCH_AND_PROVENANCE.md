@@ -1,0 +1,147 @@
+# Research, Repos & Provenance — everything Aginiti borrows from, and how
+
+_Written 2026-08-12. Every entry below was checked against a live source
+(GitHub API license metadata, arXiv, or a direct web search) either when
+the citing code was written, or freshly for this document — nothing here
+is recalled from training data and presented as verified without an
+actual check. Where a check couldn't be completed, that's stated, not
+silently skipped. Organized by REUSE TYPE, since "we referenced this
+paper's idea" and "we copied and adapted this repo's code" carry very
+different obligations — conflating them would itself be a citation
+error._
+
+---
+
+## How to read this document
+
+Four reuse types appear below, each with a different bar:
+
+1. **Code adapted** — source code was read and mechanically translated
+   into Aginiti's own architecture. License terms must be preserved.
+2. **Data vendored** — real files copied byte-for-byte from an upstream
+   repo. License must permit redistribution; attribution preserved via a
+   NOTICE file.
+3. **Attack pattern/category reused, no code copied** — the CONCEPT (what
+   kind of attack this is, roughly how it works) is translated into
+   Aginiti's own typed operator shape; the actual prompt text, regex, or
+   implementation is original. This is the large majority of entries
+   below, and is the explicit, standing discipline this project has
+   followed since `data_exposure.py`'s first garak-inspired operators:
+   "reuse the ATTACK CATEGORY, not the source text."
+4. **Research grounding** — a paper or public finding that motivates a
+   design decision (a planner term, a taxonomy dimension, a target-
+   hardening choice) without any code or data being borrowed at all.
+
+---
+
+## 1. Code adapted (license terms apply, preserved below)
+
+| Source | What was adapted | License | Where in Aginiti |
+|---|---|---|---|
+| **Cisco AI Defense, `mcp-scanner`** (github.com/cisco-ai-defense/mcp-scanner) | `mcpscanner/core/analyzers/prompt_defense_analyzer.py`'s 12 `DEFENSE_RULES` (regex patterns + severity/threat-category metadata) and its scanning algorithm — "mechanical translation," their class hierarchy NOT imported | Apache 2.0 (copyright Cisco Systems, Inc.) | `aginiti/static_analysis/prompt_defense.py` — attribution and license terms preserved in the module docstring per Apache 2.0 §4, fetched and dated 2026-08-08 |
+
+This is the **only** entry in this document where Aginiti's own source
+code (not just an attack concept) was directly adapted from an external
+open-source project. Everywhere else, the reuse is category-level or
+data-level, not code-level — deliberate, and worth being precise about,
+since the obligations differ.
+
+## 2. Data vendored (real files, unmodified, with license verified)
+
+| Source | What was vendored | License | Where in Aginiti |
+|---|---|---|---|
+| **InjecAgent** (Zhan, Liang, Ying, Kang — UIUC, ACL Findings 2024, arXiv:2403.02691, github.com/uiuc-kang-lab/InjecAgent) | `user_cases.jsonl` (17 legitimate scenarios), `attacker_cases_dh.jsonl` (30 direct-harm intents), `attacker_cases_ds.jsonl` (32 data-stealing intents), `tools.json` (38 toolkits / 330 tool schemas) — real, unmodified, fetched directly from the raw GitHub content, 1,054 test cases total, matching the paper's own reported count exactly | MIT (confirmed via GitHub API repository metadata at fetch time, not inferred) | `aginiti/operators/injecagent_data/` — full provenance in that directory's own `NOTICE.md`. The paper's own evaluation harness was deliberately NOT vendored; Aginiti drives the same test cases through its own adapter/campaign loop instead (`aginiti/target/injecagent_adapter.py`) |
+| **WithSecureLabs, `damn-vulnerable-llm-agent`** (github.com/WithSecureLabs/damn-vulnerable-llm-agent) | The target itself (rebuilt on current LangChain `create_agent` after the original's agent class was deprecated) plus a vendored copy of its transaction DB, used only to build ground truth | (real, independently-developed vulnerable-by-design target, not a research paper — used as a live TARGET, not borrowed methodology) | `aginiti/adapters/dvla_adapter.py`, `aginiti/adapters/vendor/dvla_transaction_db.py` |
+| **`damn-vulnerable-ai-agent` (DVAA)** | The target itself: a 19-agent fleet spanning API/MCP/A2A/consensus protocols, live-verified before any operator was written against it | (real, independently-developed vulnerable-by-design target) | `aginiti/adapters/dvaa_adapter.py`, `aginiti/operators/dvaa_definitions.py`, `dvaa_consensus_definitions.py` |
+| **Official MCP reference implementation** (github.com/modelcontextprotocol/servers) | The real `@modelcontextprotocol/server-filesystem`, run over genuine stdio transport with a real `initialize` handshake | (official protocol reference implementation, used as a live target) | `aginiti/adapters/mcp_stdio_adapter.py`, `aginiti/operators/mcp_filesystem_definitions.py` |
+
+## 3. Attack pattern/category reused (no code copied — the standing discipline)
+
+### From open-source scanners
+
+| Source | Category reused | License (of the source tool) | Aginiti operators |
+|---|---|---|---|
+| **garak** (NVIDIA, github.com/NVIDIA/garak, Apache 2.0) | `sysprompt_extraction`, `dan` (jailbreak), `encoding` (obfuscation-based evasion), `agent_breaker`/tool-inventory disclosure concern | Apache 2.0 | `system_prompt_extraction`, `jailbreak_dan_style`, `encoding_evasion_probe`, `tool_inventory_full_disclosure` (`data_exposure.py`) |
+| **PyRIT** (Microsoft/Azure, github.com/Azure/PyRIT, MIT) | The `PromptConverter` architecture — composable, chainable text-transformation pipeline (not any specific converter's prompt text) | MIT | `aginiti/transforms/converters.py`'s `PromptConverter`/`ConverterPipeline`, and `aginiti/adaptive/refinement.py`'s standalone-retry-loop framing |
+
+### From published jailbreak/red-teaming research
+
+| Paper | What's reused | Where |
+|---|---|---|
+| **CipherChat** — Yuan, Jiao, Wang, Huang, Yu, Xing, Yang, Wang, Tao, Zhang, "GPT-4 Is Too Smart To Be Safe: Stealthy Chat with LLMs via Cipher" (2023, arXiv:2308.06463) | The finding that cipher/encoding FAMILIES (character encodings vs. substitution ciphers) succeed at different rates, and that pure role-play priming with NO literal encoding ("SelfCipher") often outperforms every literal cipher tested | `aginiti/adaptive/encoding_discovery.py`'s cross-family stack-synthesis strategy and `SelfCipherPrimerConverter` (own wording, not the paper's prompt text) |
+| **MetaCipher** — "A Time-Persistent and Universal Multi-Agent Framework for Cipher-Based Jailbreak Attacks for LLMs" (2025, arXiv:2506.22557, AAAI) | The finding that ADAPTIVE cipher selection (not a bigger fixed list) reaches state-of-the-art attack success within ~10 queries — the direct research grounding for building a search instead of a static enumeration | `aginiti/adaptive/encoding_discovery.py`'s whole design rationale (own, much simpler, fully-deterministic selector — not a reimplementation of MetaCipher's RL-trained one) |
+| **PAIR** — Chao, Robey, Dobriban, Hassani, Pappas, Wong, "Jailbreaking Black Box Large Language Models in Twenty Queries" (2023, arXiv:2310.08419) | The mechanism: one attacker-LLM conversation that reads the target's LAST response and rewrites the next attempt conditioned on it | `aginiti/adaptive/refinement.py` — implemented as described, own prompt wording |
+| **TAP** — Mehrotra et al., "Tree of Attacks: Jailbreaking Black-Box LLMs Automatically" (2023, arXiv:2312.02119) | Named as the natural generalization of PAIR (branching tree search vs. a linear chain) — explicitly NOT implemented, documented as future scope | `aginiti/adaptive/refinement.py`'s own docstring, scoping what it is and isn't |
+| **Crescendo** — Russinovich, Salem, Eldan (Microsoft), "Great, Now Write an Article About That: The Crescendo Multi-Turn LLM Jailbreak Attack" (2024, arXiv:2404.01833) | Named as a structurally distinct mechanism (escalation within one ongoing conversation) — explicitly NOT implemented, distinguished from Aginiti's own existing precondition-chain multi-step operators | `aginiti/adaptive/refinement.py`'s own docstring |
+| **Greshake, Abdelnabi, Mishra, Endres, Holz, Fritz**, "Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection" (AISec '23) | The academic grounding for indirect prompt injection as a real threat class — instructions arriving via retrieved/delegated content rather than a direct request | The mock library's Slack/GitHub-issue-sourced injection probes; DVAA's memory-planting operators; conceptually, every "trigger" half of a plant→trigger chain |
+| **Sarraute, Buffet, Hoffmann**, "Penetration Testing == POMDP Solving?" (2011) | Treating adversarial planning as decision-making under partial observability, not deterministic scripting | Why Claims carry a confidence band instead of a boolean; why `AginitiPlanner` computes a utility, not a fixed script |
+| **W3C PROV-O** provenance ontology | The entity/activity/derivation model | The Fact → Observation → Claim chain's own structure |
+
+### From real-world vulnerability research and CVEs
+
+| Source | What's reused | Verification |
+|---|---|---|
+| **EchoLeak** (CVE-2025-32711, disclosed June 2025, Aim Security) — first documented zero-click prompt-injection exploit in a production LLM system (Microsoft 365 Copilot), chaining markdown-image auto-fetch to achieve unauthenticated data exfiltration | The core mechanism `anythingllm_markdown_exfil_definitions.py` tests: markdown-image auto-render as a client-side exfiltration channel needing no tool permissions at all | Live-confirmed via multiple independent 2025 security-vendor writeups |
+| **MCPTox** benchmark (arXiv:2508.14925) — tested 45 live MCP servers / 353 tools, up to 72% attack success on MCP tool-poisoning | Grounds `dvaa_definitions.py`'s `mcp_unverified_tool_registration` (a supply-chain, write-path trust boundary distinct from every other MCP operator in that file) | arXiv abstract confirmed |
+| **CVE-2025-54136** — MCP Tool Poisoning | Same operator as above, real CVE citation for the vulnerability class | — |
+| **STAC** (arXiv:2509.25624, Oct 2025) — "innocent tools form dangerous chains" | Grounds `mcp_execute_read_secret_config` → `mcp_exfiltrate_via_plugin_fetch`, a genuine 2-step composition attack where NEITHER operator alone is a mission outcome | arXiv abstract confirmed |
+| **A2ASecBench** (Zhan et al., ICLR 2026, github.com/SaFo-Lab/A2ASecBench, MIT) | Of 6 named A2A attacks, the 3 that are data-exposure-shaped (not availability/DoS-shaped, out of this project's scope) | License verified via GitHub API |
+| **MINJA** (Dong et al., NeurIPS 2025, github.com/dsh3n77/MINJA) | The attack PATTERN only (a memory-poisoning write that never issues an explicit "remember this" command, unlike this file's own pre-existing plant/recall pair) — **no code reused**, since the repo has **no license file** | Verified via GitHub API; the absence of a license is the reason this entry is pattern-only, stated explicitly in the code |
+| **agentpwn.com** (`src/payloads/agentpwn-mirror.js`, `APWN-DE-003` URL-exfiltration pattern) | DVAA's own actual, real (not simulated) knowledge-base exfiltration mechanism — read directly from the running target's own source, not an external research artifact | Live-verified via direct source inspection of the actual DVAA install, not assumed from docs |
+| **CVE-2026-25253** (OpenClaw agentic-skill RCE), **CVE-2026-35435** (Azure AI Foundry M365 agents privilege escalation) | Investigated, explicitly **NOT adopted** — vendor/framework-specific, not expressible against DVAA's actual architecture; flagged as future target-adoption candidates | Investigated, scoped out on record rather than silently dropped |
+
+### Researched, cited, but NOT yet built into a working operator (honest gaps)
+
+| Source | What it describes | Status |
+|---|---|---|
+| Embrace The Red, "Sneaky Bits: Advanced Data Smuggling Techniques" (2025); "Amp Code: Invisible Prompt Injection Fixed by Sourcegraph" (2025); Promptfoo's ASCII-smuggling red-team plugin; FireTail, "Ghosts in the Machine: ASCII Smuggling across Various LLMs" (2025); independent Aug-2025 reproduction; AI Agents Attack Matrix's `ascii_smuggling` entry | Invisible Unicode-Tags-block (U+E0000-U+E007F) steganographic data exfiltration — passes human visual review and naive text-based DLP | Fully specified, multiply-sourced (including one real shipped-product fix), **not implemented** — `docs/ATTACK_PROPOSAL_ascii_smuggling_exfil.md` |
+| **OWASP Top 10 for Agentic Applications 2026** (ASI01 Agent Goal Hijack … ASI10 Rogue Agents, released 2025-12-09, genai.owasp.org) | The newest agentic-specific risk taxonomy, developed with 100+ industry contributors | Researched (live-verified 2026-08-12), not yet built into a tagging module the way OWASP LLM Top 10 and MITRE ATLAS were |
+| **OWASP Agentic AI Threats and Mitigations** (Feb 2025, OWASP Agentic Security Initiative) | A threat-model taxonomy across Agent Design / Agent Memory / Planning & Autonomy / Tool Use / Deployment & Operations | Researched, not yet built into a tagging module |
+
+## 4. Industry taxonomies used as tagging dimensions (not "borrowed," but cited precisely)
+
+| Taxonomy | Version verified | Used for |
+|---|---|---|
+| **OWASP Top 10 for LLM Applications** | 2025 edition (v2.0, published 2024-11-18) — verified live, NOT assumed from an older 2023 list whose numbering has since changed (e.g. Overreliance was folded into LLM09:2025 Misinformation) | `aginiti/graph/owasp_llm_taxonomy.py`, all 10 categories |
+| **MITRE ATLAS** (Adversarial Threat Landscape for Artificial-Intelligence Systems) | v5.1.0 (November 2025) — only 5 technique IDs actually verified and used (`AML.T0051.000`/`.001`, `AML.T0054`, `AML.T0070`, `AML.T0086`); ATLAS has 84 techniques total as of this version, most NOT cross-referenced yet, stated as an honest gap | `aginiti/graph/mitre_atlas_refs.py` |
+
+## 5. Research grounding for the planner and evidence model (no code, no data — pure design motivation)
+
+| Source | Motivates |
+|---|---|
+| **Ng, Harada & Russell**, "Policy Invariance Under Reward Transformations: Theory and Application to Reward Shaping" (ICML 1999, pp. 278-287) | `potential_progress()`'s use of potential-based reward shaping — a shaping term guaranteed not to distort the optimal policy |
+| **Wiewiora, Cottrell & Elkan**, "Principled Methods for Advising Reinforcement Learning Agents" (ICML 2003, pp. 792-799) | `chain_value()`'s design: this paper proves potential-based shaping with Φ is exactly equivalent to initializing the value function with Φ — the direct justification for using a VALUE-INFORMED Φ (a plant's discounted credit for its downstream trigger's real value) rather than a purely topological one |
+| **Atsidakou, Katariya, Sanghavi, Kveton**, "Bayesian Fixed-Budget Best-Arm Identification" (arXiv:2211.08572) and "Prior-Dependent Allocations for Bayesian Fixed-Budget Best-Arm Identification in Structured Bandits" (arXiv:2402.05878, 2024) | Framing Aginiti's few-pulls, informative-prior planning problem as Bayesian fixed-budget best-arm identification (`aginiti/planner/bayesian_planner.py`) |
+| **Chapelle & Li**, "An Empirical Evaluation of Thompson Sampling" (2011) | Standard baseline reference for the Bayesian planner variant |
+| **Derczynski, Galinkin, Martin, Majumdar & Inie**, garak's own paper (arXiv:2406.11036) | `StaticPolicy` baseline's representativeness of systematic-probing tools as a class |
+| **PyRIT's own paper** (arXiv:2410.02828) | Same, for composable multi-turn orchestration as a class |
+| **Zhou et al.**, "AutoRedTeamer" (arXiv:2503.15754) | `MemoryGuidedPolicy` baseline's representativeness of attack-outcome-memory systems |
+| **NetSafe** (Yu et al., 2025) and the broader agentic-security survey literature (arXiv:2510.06445) | Motivating context for DVAA's A2A layer and consensus/voting scenario as a genuinely new behavioral dimension (identity/coordination among nominally-independent agents) |
+| BloodHound / attack-graph tooling lineage (Swiler & Phillips 1998, Sandia; Lippmann & Ingols 2005, MIT Lincoln Lab) | `path_progress`/`target_graph.py`'s BFS-over-a-graph design, built from live evidence rather than bulk-collected data |
+
+---
+
+## 6. What this pass checked for gaps, and found
+
+Beyond compiling what was already cited in-code, this document's
+preparation (2026-08-12) specifically searched for:
+
+- **The newest agentic-AI-specific taxonomies** — found and added above
+  (OWASP Top 10 for Agentic Applications 2026, OWASP Agentic AI Threats
+  Feb 2025) as researched-but-not-yet-tagged gaps, not silently omitted.
+- **Whether the two reward-shaping citations underlying `chain_value`/
+  `potential_progress` are real, correctly titled papers** — both
+  independently verified via live search (§5 above), not merely trusted
+  from the original docstring.
+- **Whether EchoLeak/CVE-2025-32711 is a real, correctly described
+  vulnerability** — independently verified via multiple 2025
+  security-vendor sources.
+- **Whether garak and PyRIT's licenses are what the code claims** — both
+  independently re-verified (Apache 2.0 and MIT respectively) directly
+  against their GitHub `LICENSE` files.
+
+No additional undisclosed code reuse was found. The one place Aginiti's
+own source code was directly adapted from an external open-source
+project (`aginiti/static_analysis/prompt_defense.py`, from Cisco's
+`mcp-scanner`, Apache 2.0) was already correctly attributed with license
+terms preserved before this review — confirmed, not newly discovered.

@@ -133,3 +133,22 @@ Point the adapter's `base_url` at `http://localhost:3002` and `api_key` at
 `gw-full-admin-key` (or `gw-chatonly-employee-key` for a deliberately
 restricted-privilege condition) instead of AnythingLLM directly — no other
 adapter or operator code changes needed. **Not done yet, per instruction.**
+
+## Update — 2026-08-12: this target has since been used, twice
+
+Both experiments this document was written to prepare for have now run
+against exactly this target (gateway config unchanged since Round 2
+above):
+
+- **exp18** — the full 6-family, 11-operator hardened-target benchmark
+  this file's Round 2 section was built for.
+- **exp19** — the Aginiti-vs-garak comparison (`docs/
+  COMPETITOR_COMPARISON.md`), run through the identical gateway so
+  neither tool got an easier or harder version of the target. Found and
+  fixed one more real bug live during that run (AnythingLLM's Gemini
+  safety-filter crash, already documented under Round 2's "Gateway crash
+  resilience" row above — this is where it was actually caught).
+
+No further hardening rounds since Round 2. `docs/AGINITI_OVERVIEW.md` has
+the full current-state picture, including the attack-category taxonomy
+and adaptive-discovery layer built on top of this target after exp19.

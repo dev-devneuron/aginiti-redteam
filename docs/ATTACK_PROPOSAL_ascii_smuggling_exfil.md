@@ -1,6 +1,13 @@
 # Proposed operator: invisible Unicode-tag data exfiltration ("ASCII smuggling")
 
-Status: **documented follow-up, not yet implemented.** This is the concrete
+Status: **documented follow-up, not yet implemented — still true as of
+2026-08-12.** A markdown/network-exfiltration-adjacent expansion pass
+happened since this was written (`docs/ATTACK_LIBRARY.md`'s
+`markdown_network_exfiltration` category, `encoding_attack`'s chain-
+discovery layer), and this specific technique was NOT folded into it —
+it remains a real, well-cited, buildable gap, not overtaken by other
+work. See `docs/AGINITI_OVERVIEW.md`'s "Known gaps, stated plainly"
+section. This is the concrete
 output of Request E's "add latest very praised attacks that are highly
 effective in data leaks" ask for a genuinely NEW technique (distinct from
 the already-implemented `anythingllm_markdown_exfil_definitions.py`, which

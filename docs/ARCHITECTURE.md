@@ -1,5 +1,61 @@
 # Aginiti — Architecture & Codebase Guide
 
+## Update — 2026-08-12: read this first, then the rest as historical depth
+
+Everything below this box predates a full second chapter of the project
+(exp11 through exp19, the AnythingLLM target, hardening rounds, the garak
+comparison, and the whole attack-taxonomy/adaptive-discovery layer) and
+was not rewritten to absorb it — rewriting ~900 lines of a meticulously
+maintained architecture doc to match its own density would have cost more
+than it returned. **For the current, complete picture, read
+[`docs/AGINITI_OVERVIEW.md`](AGINITI_OVERVIEW.md) — it supersedes this
+file's Executive Summary, directory tree, and target list as the
+authoritative current-state document.** What follows is still accurate
+for everything it describes; it just stops before:
+
+- The **AnythingLLM target** (5 real, live-verified attack chains: RAG
+  document-poisoning, automatic-mode tool-triggered exfiltration,
+  markdown-image exfiltration, and a genuine 3-step multi-tool
+  composition chain) and its **hardened gateway** (`aginiti/target_hardening/`
+  — document sanitization, output redaction, service-account tiers,
+  adaptive lockout, rate limiting — see `docs/HARDENED_TARGET.md`).
+- The **target-agnostic `data_exposure.py`** pack (garak-inspired) and its
+  **encoding-transformation layer**: `aginiti/transforms/` (a composable
+  `PromptConverter` pipeline, PyRIT/CipherChat-inspired) and
+  `aginiti/adaptive/` (`refinement.py` — PAIR-style prompt rewriting;
+  `variant_discovery.py` — a generic adaptive-search engine;
+  `encoding_discovery.py` — searches the encoding-pipeline space instead
+  of firing a fixed list; `framing_discovery.py` — the same engine applied
+  to direct-prompt-attack pretexts).
+- Three additive taxonomy dimensions layered onto `ClaimEffect`/the SSG
+  beyond `category`: `security_boundary` (L0-L5, `aginiti/graph/
+  security_boundary.py`), `owasp_llm_category` (OWASP LLM Top 10 2025,
+  `aginiti/graph/owasp_llm_taxonomy.py`), `attack_category` (11 named
+  categories, `aginiti/graph/attack_category.py`), and
+  `mitre_atlas_technique` (5 verified MITRE ATLAS IDs, `aginiti/graph/
+  mitre_atlas_refs.py`) — all four now surfaced in `target_profile.py`'s
+  report and `export.py`'s visualization export.
+- **InjecAgent** (`aginiti/operators/injecagent.py` + vendored real
+  benchmark data, 1,054 test cases) as a fifth real target integration.
+- The **garak comparison** (`docs/COMPETITOR_COMPARISON.md`) — a real,
+  fair head-to-head, not a design exercise.
+- The planner's utility formula gained two more additive terms since
+  Section 6 below was written: `chain_value` (discounted credit for a
+  plant operator's downstream trigger value) and `severity_priority` (an
+  unscaled nudge toward higher `security_boundary` findings). Current
+  formula: `utility = alpha*(info_gain + chain_value) + beta*(business_impact
+  + path_progress + emergent_impact + potential_progress) + gap_priority +
+  hypothesis_priority + branch_interest + severity_priority`.
+- The test suite is now **770 tests** (was 252 when Section 2's directory
+  tree was last accurate).
+
+`docs/ROADMAP.md` and `docs/EVIDENCE_AND_EVALUATION.md` carry the same
+kind of gap and the same pointer forward; `docs/ATTACK_LIBRARY.md` and
+`docs/RESEARCH_AND_PROVENANCE.md` cover the attack-catalog and citations
+depth this file's Section 7/9 used to carry alone.
+
+---
+
 ## Executive summary
 
 *Read this section alone and you have the complete shape of the system —

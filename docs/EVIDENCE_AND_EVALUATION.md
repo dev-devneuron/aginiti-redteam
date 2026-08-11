@@ -1,5 +1,48 @@
 # Aginiti — Evidence & Evaluation Ledger
 
+## Update — 2026-08-12: the AnythingLLM chapter isn't in this ledger yet
+
+Section 7's "Known methodology limitations" audit below is dated
+2026-08-09 and is the last point this document tracks. Everything after
+that — a real second target (AnythingLLM), real chain_value/
+severity_priority planner fixes, two rounds of production-realistic
+target hardening, and a real fair comparison against garak — happened
+in a separate chapter this file doesn't carry citations for yet. The
+short version, with full detail in the documents named:
+
+- **exp16 (tight-budget validation)**: run for real, against a genuinely
+  discriminating multi-branch mission. Honest finding: Aginiti's planner
+  found "one extremely reliable winner" reliably, which is real evidence
+  of correct discrimination but not yet evidence of sophisticated
+  planning under a HARD discrimination problem — this became the direct
+  motivation for hardening the target further rather than declaring
+  victory.
+- **chain_value fix**: a real planner bug (a multi-step plant operator was
+  structurally incapable of ever outranking a mediocre single-step decoy,
+  regardless of the chain's real downstream value) found, fixed, and
+  regression-tested (`aginiti/planner/aginiti_planner.py`).
+- **exp17/exp18 (hardened AnythingLLM target)**: two rounds of real,
+  live-verified production-hardening (document sanitization, output
+  redaction, service-account tiers, adaptive lockout/rate-limiting,
+  strengthened system prompt, raised RAG similarity threshold) — see
+  `docs/HARDENED_TARGET.md`.
+- **exp19 (Aginiti vs. garak)**: a real, fair, externally-verifiable
+  comparison against NVIDIA's garak scanner on the identical hardened
+  target — 4 of 5 comparable categories agreed exactly (0% ASR both
+  tools); the 5th (encoding) was found NOT to be a fair comparison after
+  real trace-level investigation, not just trusted at face value — see
+  `docs/COMPETITOR_COMPARISON.md`.
+- A full **attack-category taxonomy + adaptive-discovery layer** was
+  built on top of all of this — see `docs/ATTACK_LIBRARY.md` and
+  `docs/RESEARCH_AND_PROVENANCE.md` for the research grounding.
+
+**`docs/AGINITI_OVERVIEW.md` is the current single source of truth** for
+what's proven vs. hypothesized as of 2026-08-12. This ledger remains
+accurate for the DVLA/DVAA/MCP-filesystem/consensus era it documents in
+detail below — it just isn't the whole story anymore.
+
+---
+
 ## Executive summary
 
 *Read this section alone and you have the complete evidentiary picture —

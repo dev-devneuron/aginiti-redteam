@@ -1,5 +1,28 @@
 # Aginiti — Intelligence Roadmap
 
+## Update — 2026-08-12: what happened after this roadmap was last touched
+
+This roadmap's Phase 0 status below still reads as "the founding RQ1
+question is unresolved, blocked on Groq quota" — that framing is now
+superseded, not current. What actually happened, in order: the frozen
+DVLA-target RQ1 protocol was never completed as originally scoped, but
+the project moved to a new, real, harder target (**AnythingLLM**, a
+production-shaped RAG/agent platform) and ran a real sequence of planner
+experiments against it — **exp14 through exp19** — culminating in a real,
+fixed bug in the planner's own utility function (`chain_value`, closing
+the "a plant operator that structurally can't outrank a mediocre single-
+step decoy" gap Experiment 7-adjacent work surfaced) and a real,
+fair, external comparison against **garak** (NVIDIA's LLM vulnerability
+scanner) on a shared hardened target. **`docs/AGINITI_OVERVIEW.md` is now
+the authoritative current-state document** — it has the honest, current
+answer to "does Aginiti's planning actually help," the full attack
+catalog built since Phase 2 below, and the taxonomy/adaptive-discovery
+layer none of the phases below mention. Treat everything from "How we got
+here" onward in this file as the accurate history through
+**2026-08-09**, not the present.
+
+---
+
 ## Executive summary
 
 *Read this section alone and you have the complete trajectory — everything
