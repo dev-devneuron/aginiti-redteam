@@ -24,3 +24,11 @@ google-genai==2.17.0
 # reverse proxy) -- was missing from this file entirely despite being a
 # real runtime dependency; added 2026-08-09.
 flask==3.1.3
+# Used directly by tests/test_fallback_integration.py, tests/test_dvla_adapter.py,
+# and tests/test_llm_client.py -- was working only because it happens to be a
+# transitive dependency of mcp/google-genai/langchain, the exact "declared nowhere,
+# installed by accident" pattern that already caused 6 real test failures in this
+# project's history once (see the note at the top of this file). Pinned explicitly
+# now instead of relying on the resolver's transitive choice staying compatible;
+# found during the 2026-08-12 architecture review, not a new dependency being added.
+httpx==0.28.1

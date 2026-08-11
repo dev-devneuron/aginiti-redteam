@@ -83,9 +83,10 @@ def main():
         mission = dvla_mission()
         result = run_campaign(mission, library, agent=DVLAAdapter())
         ssg = result.ssg
-        execution_log = [{"operator_id": e.operator_id, "confirmed_keys": e.confirmed_keys,
-                           "confirmed_effects": e.confirmed_effects, "tool_trace": e.tool_trace}
-                          for e in result.execution_log]
+        # export_ssg_for_visualization() accepts result.execution_log's ExecutionResult
+        # objects directly since the 2026-08-12 architecture-review fix (aginiti/graph/
+        # export.py's _entry_get()) -- no manual dict-normalization needed here anymore.
+        execution_log = result.execution_log
         source_note = ("live campaign against WithSecureLabs/damn-vulnerable-llm-agent -- "
                         "a real, independently-developed external target, not the mock")
     elif len(sys.argv) >= 3 and sys.argv[1] == "--from-run":
@@ -103,9 +104,7 @@ def main():
         from aginiti.campaign import run_campaign
         result = run_campaign(mission, library)
         ssg = result.ssg
-        execution_log = [{"operator_id": e.operator_id, "confirmed_keys": e.confirmed_keys,
-                           "confirmed_effects": e.confirmed_effects, "tool_trace": e.tool_trace}
-                          for e in result.execution_log]
+        execution_log = result.execution_log
         source_note = "live campaign against the mock (dev fixture, not the research target)"
 
     export = export_ssg_for_visualization(ssg, library, mission, execution_log)

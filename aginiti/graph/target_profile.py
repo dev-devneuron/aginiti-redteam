@@ -24,7 +24,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from aginiti.adapter.observation_adapter import KEY_DESCRIPTIONS
+from aginiti.graph.attack_category import CATEGORY_TITLES as ATTACK_CATEGORY_TITLES
 from aginiti.graph.hypothesis import Hypothesis
+from aginiti.graph.mitre_atlas_refs import TECHNIQUE_TITLES as ATLAS_TECHNIQUE_TITLES
+from aginiti.graph.owasp_llm_taxonomy import CATEGORY_TITLES as OWASP_CATEGORY_TITLES
 from aginiti.graph.queries import (
     SecurityQuestion,
     capabilities,
@@ -40,6 +43,7 @@ from aginiti.graph.queries import (
     unverified_capabilities,
 )
 from aginiti.graph.schema import Claim, ClaimStatus, Insight, InsightCategory
+from aginiti.graph.security_boundary import BOUNDARY_DESCRIPTIONS
 from aginiti.graph.ssg import SecurityStateGraph
 from aginiti.mission import Mission
 from aginiti.operators.library import Operator, OperatorLibrary
@@ -91,6 +95,44 @@ class TargetProfile:
     disproven: list[Claim] = field(default_factory=list)
     unexplored_frontier: list[Operator] = field(default_factory=list)
     recommended_next_probes: list[RankedCandidate] = field(default_factory=list)
+    # Severity/taxonomy rollups (added 2026-08-12 architecture review -- these SSG query
+    # methods, aginiti/graph/ssg.py's highest_boundary_crossed()/owasp_category_summary()/
+    # attack_category_summary()/confirmed_atlas_techniques(), existed and were fully tested
+    # but were never actually called from Aginiti's own primary product artifact until now;
+    # see this module's own docstring for why that's the thing that matters). None/empty
+    # means "nothing tagged has been confirmed yet," never a fabricated floor -- same
+    # honest-absence discipline as security_boundary.py's own highest_level().
+    highest_boundary: str | None = None
+    owasp_findings: dict[str, int] = field(default_factory=dict)
+    attack_category_findings: dict[str, int] = field(default_factory=dict)
+    atlas_techniques_confirmed: dict[str, str] = field(default_factory=dict)
+    # claim key -> a pre-formatted "[L5] [LLM06] [markdown_network_exfiltration] [AML.T0086]"
+    # suffix, only for keys that carry at least one tag -- computed once here (where ssg is
+    # in scope) so render_markdown/_claim_line can stay pure functions of the profile alone,
+    # never needing the ssg passed back in.
+    claim_tags: dict[str, str] = field(default_factory=dict)
+
+
+def _build_claim_tags(ssg: SecurityStateGraph) -> dict[str, str]:
+    """One formatted `[L5] [LLM06] [markdown_network_exfiltration] [AML.T0086]`-style suffix
+    per claim key that carries at least one of the four taxonomy dimensions -- built from
+    whichever of security_boundary/owasp_llm_category/attack_category/mitre_atlas_technique
+    is actually set for that key (any subset; a key doesn't need all four)."""
+    keys = set(ssg.claim_boundary) | set(ssg.claim_owasp_category) | \
+        set(ssg.claim_attack_category) | set(ssg.claim_atlas_technique)
+    tags: dict[str, str] = {}
+    for key in keys:
+        parts = []
+        if key in ssg.claim_boundary:
+            parts.append(f"[{ssg.claim_boundary[key].split('_', 1)[0]}]")  # "L5_..." -> "[L5]"
+        if key in ssg.claim_owasp_category:
+            parts.append(f"[{ssg.claim_owasp_category[key].split(':', 1)[0]}]")  # "LLM06:2025_..." -> "[LLM06]"
+        if key in ssg.claim_attack_category:
+            parts.append(f"[{ssg.claim_attack_category[key]}]")
+        if key in ssg.claim_atlas_technique:
+            parts.append(f"[{ssg.claim_atlas_technique[key]}]")
+        tags[key] = " ".join(parts)
+    return tags
 
 
 def build_target_profile(ssg: SecurityStateGraph, library: OperatorLibrary, mission: Mission,
@@ -127,11 +169,17 @@ def build_target_profile(ssg: SecurityStateGraph, library: OperatorLibrary, miss
         unexplored_frontier=unexplored_frontier(ssg, library, executed_ids=executed_ids),
         recommended_next_probes=recommend_next(library, ssg, mission, prompts_used=prompts_used,
                                                 executed_ids=executed_ids, n=next_probe_count),
+        highest_boundary=ssg.highest_boundary_crossed(),
+        owasp_findings=ssg.owasp_category_summary(),
+        attack_category_findings=ssg.attack_category_summary(),
+        atlas_techniques_confirmed=ssg.confirmed_atlas_techniques(),
+        claim_tags=_build_claim_tags(ssg),
     )
 
 
-def _claim_line(c: Claim) -> str:
-    return f"- **{_describe(c.key)}** -- {c.status.value} ({c.confidence.value} confidence)"
+def _claim_line(c: Claim, claim_tags: dict[str, str] | None = None) -> str:
+    tag_suffix = f" {claim_tags[c.key]}" if claim_tags and claim_tags.get(c.key) else ""
+    return f"- **{_describe(c.key)}** -- {c.status.value} ({c.confidence.value} confidence){tag_suffix}"
 
 
 def _frontier_line(op: Operator) -> str:
@@ -204,6 +252,48 @@ def _hypothesis_line(h: Hypothesis) -> str:
             f"_(testable via: {', '.join(h.experiments)})_{evidence}")
 
 
+def _severity_summary_lines(profile: TargetProfile) -> list[str]:
+    """The headline severity/taxonomy rollup -- "how deep did this go, and
+    which risk categories does the confirmed evidence actually span" --
+    answered from the same SSG methods build_target_profile() now calls
+    (see TargetProfile's own field docstrings). Every sub-line is an
+    honest "none of this has been classified/confirmed yet" when the
+    underlying data is empty, never a fabricated zero-severity floor."""
+    lines = ["## Severity & taxonomy summary"]
+    if profile.highest_boundary:
+        desc = BOUNDARY_DESCRIPTIONS.get(profile.highest_boundary, "")
+        lines.append(f"**Deepest boundary crossed:** `{profile.highest_boundary}` -- {desc}")
+    else:
+        lines.append("**Deepest boundary crossed:** _none classified yet -- either nothing tagged has "
+                      "been confirmed, or the confirmed findings so far predate this taxonomy's rollout "
+                      "onto their operators._")
+    lines.append("")
+    if profile.owasp_findings:
+        lines.append("**OWASP LLM Top 10 (2025) findings:**")
+        for category, count in sorted(profile.owasp_findings.items(), key=lambda kv: -kv[1]):
+            title = OWASP_CATEGORY_TITLES.get(category, category)
+            lines.append(f"- {category} ({title}): {count} confirmed finding{'s' if count != 1 else ''}")
+    else:
+        lines.append("**OWASP LLM Top 10 (2025) findings:** _none tagged and confirmed yet._")
+    lines.append("")
+    if profile.attack_category_findings:
+        lines.append("**Attack category breakdown:**")
+        for category, count in sorted(profile.attack_category_findings.items(), key=lambda kv: -kv[1]):
+            title = ATTACK_CATEGORY_TITLES.get(category, category)
+            lines.append(f"- {title}: {count} confirmed")
+    else:
+        lines.append("**Attack category breakdown:** _none tagged and confirmed yet._")
+    lines.append("")
+    if profile.atlas_techniques_confirmed:
+        lines.append("**MITRE ATLAS techniques confirmed:**")
+        for technique in sorted(set(profile.atlas_techniques_confirmed.values())):
+            title = ATLAS_TECHNIQUE_TITLES.get(technique, technique)
+            lines.append(f"- `{technique}` -- {title}")
+    else:
+        lines.append("**MITRE ATLAS techniques confirmed:** _none cross-referenced and confirmed yet._")
+    return lines
+
+
 def render_markdown(profile: TargetProfile) -> str:
     lines: list[str] = []
     lines.append(f"# Behavioral Security Assessment: {profile.target_name}")
@@ -213,6 +303,9 @@ def render_markdown(profile: TargetProfile) -> str:
                   f"known probes run ({profile.coverage:.0%})  \n"
                   f"**Understanding:** {profile.resolved_claims}/{profile.distinct_claim_keys} raised "
                   f"questions resolved, {profile.unresolved_claims} still open")
+    lines.append("")
+
+    lines.extend(_severity_summary_lines(profile))
     lines.append("")
 
     lines.append("## Security questions")
@@ -283,11 +376,11 @@ def render_markdown(profile: TargetProfile) -> str:
     lines.append("")
 
     lines.append("## Capabilities discovered")
-    lines.append("\n".join(_claim_line(c) for c in profile.capabilities) or "_None observed._")
+    lines.append("\n".join(_claim_line(c, profile.claim_tags) for c in profile.capabilities) or "_None observed._")
     lines.append("")
 
     lines.append("## Trust relationships")
-    lines.append("\n".join(_claim_line(c) for c in profile.trust_relationships)
+    lines.append("\n".join(_claim_line(c, profile.claim_tags) for c in profile.trust_relationships)
                  or "_No trust-delegation behavior observed in this target -- not necessarily absent, "
                     "just not exercised by the probes run so far._")
     lines.append("")
@@ -301,23 +394,23 @@ def render_markdown(profile: TargetProfile) -> str:
     lines.append("")
 
     lines.append("## Observed defenses")
-    lines.append("\n".join(_claim_line(c) for c in profile.observed_defenses) or "_None fired._")
+    lines.append("\n".join(_claim_line(c, profile.claim_tags) for c in profile.observed_defenses) or "_None fired._")
     lines.append("")
 
     lines.append("## Reachable actions (security evaluation)")
     lines.append(
-        "\n".join(_claim_line(c) for c in profile.reachable_actions)
+        "\n".join(_claim_line(c, profile.claim_tags) for c in profile.reachable_actions)
         or "_No compromise reached by the probes run so far. This is a security-evaluation "
            "consequence of the understanding below, not a separate verdict on the target._"
     )
     lines.append("")
 
     lines.append("## Reachable but unverified")
-    lines.append("\n".join(_claim_line(c) for c in profile.unverified) or "_None outstanding._")
+    lines.append("\n".join(_claim_line(c, profile.claim_tags) for c in profile.unverified) or "_None outstanding._")
     lines.append("")
 
     lines.append("## Assumptions disproven")
-    lines.append("\n".join(_claim_line(c) for c in profile.disproven) or "_None refuted so far._")
+    lines.append("\n".join(_claim_line(c, profile.claim_tags) for c in profile.disproven) or "_None refuted so far._")
     lines.append("")
 
     lines.append("## Unexplored")
