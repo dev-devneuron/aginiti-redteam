@@ -40,6 +40,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from aginiti.graph.attack_category import MULTI_STEP_CHAIN, RAG_POISONING, TOOL_MANIPULATION
+from aginiti.graph.mitre_atlas_refs import RAG_POISONING as ATLAS_RAG_POISONING
 from aginiti.graph.owasp_llm_taxonomy import (
     LLM02_SENSITIVE_INFORMATION_DISCLOSURE,
     LLM06_EXCESSIVE_AGENCY,
@@ -123,7 +125,8 @@ def build_anythingllm_multitool_library(canary: str, listener_base_url: str) -> 
             effects_success=(
                 ClaimEffect("anythingllm_multitool_relay_document_planted", CONFIRMED, SUBGRAPH_TARGET,
                             weight=1, security_boundary=BOUNDARY_L1,
-                            owasp_llm_category=LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES),
+                            owasp_llm_category=LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES,
+                            attack_category=RAG_POISONING, mitre_atlas_technique=ATLAS_RAG_POISONING),
             ),
             effects_failure=(),
             cost_prompts=1, risk_tier=RiskTier.LOW,
@@ -157,7 +160,8 @@ def build_anythingllm_multitool_library(canary: str, listener_base_url: str) -> 
                 # network egress yet, that's the FINAL step's job.
                 ClaimEffect("anythingllm_multitool_document_summarized", CONFIRMED, SUBGRAPH_TARGET,
                             weight=2, security_boundary=BOUNDARY_L2,
-                            owasp_llm_category=LLM06_EXCESSIVE_AGENCY),
+                            owasp_llm_category=LLM06_EXCESSIVE_AGENCY,
+                            attack_category=TOOL_MANIPULATION),
             ),
             effects_failure=(
                 ClaimEffect("anythingllm_multitool_document_not_summarized", CONFIRMED,
@@ -199,7 +203,15 @@ def build_anythingllm_multitool_library(canary: str, listener_base_url: str) -> 
                 # as anythingllm_automatic_definitions.py's trigger.
                 ClaimEffect("anythingllm_multitool_relay_confirmed", CONFIRMED, SUBGRAPH_TARGET,
                             weight=3, category=CATEGORY_MISSION_OUTCOME, security_boundary=BOUNDARY_L5,
-                            owasp_llm_category=LLM02_SENSITIVE_INFORMATION_DISCLOSURE),
+                            owasp_llm_category=LLM02_SENSITIVE_INFORMATION_DISCLOSURE,
+                            # MULTI_STEP_CHAIN, not (only) markdown/network exfiltration: this
+                            # claim's real precondition (see this operator's `preconditions=`) is
+                            # TWO independently-confirmed prior effects -- the plant AND the
+                            # document-summarizer step -- Aginiti's actual flagship example of
+                            # genuine AND-composition across distinct confirmed operators, reserved
+                            # for this tag rather than applying it to every 2-step plant/trigger
+                            # pair in this file (which would make the tag uninformative).
+                            attack_category=MULTI_STEP_CHAIN),
             ),
             effects_failure=(
                 ClaimEffect("anythingllm_multitool_relay_not_triggered", CONFIRMED,

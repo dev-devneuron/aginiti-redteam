@@ -15,6 +15,7 @@ from aginiti.transforms.converters import (
     PromptConverter,
     ROT13Converter,
     ReverseTextConverter,
+    SelfCipherPrimerConverter,
     UnicodeConfusableConverter,
     ConverterPipeline,
 )
@@ -31,6 +32,7 @@ __all__ = [
     "PromptConverter",
     "ROT13Converter",
     "ReverseTextConverter",
+    "SelfCipherPrimerConverter",
     "UnicodeConfusableConverter",
     "ConverterPipeline",
 ]

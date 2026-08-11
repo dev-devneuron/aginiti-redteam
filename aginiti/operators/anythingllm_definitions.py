@@ -36,6 +36,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from aginiti.graph.attack_category import INDIRECT_INJECTION, RAG_POISONING
+from aginiti.graph.mitre_atlas_refs import INDIRECT_PROMPT_INJECTION, RAG_POISONING as ATLAS_RAG_POISONING
 from aginiti.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION, LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES
 from aginiti.graph.schema import ClaimStatus, RiskTier
 from aginiti.graph.security_boundary import BOUNDARY_L1
@@ -104,7 +106,8 @@ def build_anythingllm_library(canary: str) -> OperatorLibrary:
             effects_success=(
                 ClaimEffect("anythingllm_document_planted", CONFIRMED, SUBGRAPH_TARGET, weight=1,
                             security_boundary=BOUNDARY_L1,
-                            owasp_llm_category=LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES),
+                            owasp_llm_category=LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES,
+                            attack_category=RAG_POISONING, mitre_atlas_technique=ATLAS_RAG_POISONING),
             ),
             effects_failure=(),
             cost_prompts=1, risk_tier=RiskTier.LOW,
@@ -136,7 +139,8 @@ def build_anythingllm_library(canary: str) -> OperatorLibrary:
                 # L5, confirmed via an independent listener log).
                 ClaimEffect("anythingllm_rag_injection_executed", CONFIRMED, SUBGRAPH_TARGET,
                             weight=3, category=CATEGORY_MISSION_OUTCOME, security_boundary=BOUNDARY_L1,
-                            owasp_llm_category=LLM01_PROMPT_INJECTION),
+                            owasp_llm_category=LLM01_PROMPT_INJECTION,
+                            attack_category=INDIRECT_INJECTION, mitre_atlas_technique=INDIRECT_PROMPT_INJECTION),
             ),
             effects_failure=(
                 # Not necessarily an active defense -- see this module's docstring precedent

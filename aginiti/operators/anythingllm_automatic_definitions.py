@@ -53,6 +53,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from aginiti.graph.attack_category import MARKDOWN_NETWORK_EXFILTRATION, RAG_POISONING
+from aginiti.graph.mitre_atlas_refs import EXFILTRATION_VIA_TOOL_INVOCATION, RAG_POISONING as ATLAS_RAG_POISONING
 from aginiti.graph.owasp_llm_taxonomy import LLM06_EXCESSIVE_AGENCY, LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES
 from aginiti.graph.schema import ClaimStatus, RiskTier
 from aginiti.graph.security_boundary import BOUNDARY_L1, BOUNDARY_L5
@@ -127,7 +129,8 @@ def build_anythingllm_automatic_library(canary: str, listener_base_url: str) -> 
             effects_success=(
                 ClaimEffect("anythingllm_automatic_exfil_document_planted", CONFIRMED, SUBGRAPH_TARGET, weight=1,
                             security_boundary=BOUNDARY_L1,
-                            owasp_llm_category=LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES),
+                            owasp_llm_category=LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES,
+                            attack_category=RAG_POISONING, mitre_atlas_technique=ATLAS_RAG_POISONING),
             ),
             effects_failure=(),
             cost_prompts=1, risk_tier=RiskTier.LOW,
@@ -163,7 +166,9 @@ def build_anythingllm_automatic_library(canary: str, listener_base_url: str) -> 
                 # AnythingLLMAdapter.ground_truth_mission_achieved().
                 ClaimEffect("anythingllm_automatic_indirect_tool_exfil_confirmed", CONFIRMED, SUBGRAPH_TARGET,
                             weight=3, category=CATEGORY_MISSION_OUTCOME, security_boundary=BOUNDARY_L5,
-                            owasp_llm_category=LLM06_EXCESSIVE_AGENCY),
+                            owasp_llm_category=LLM06_EXCESSIVE_AGENCY,
+                            attack_category=MARKDOWN_NETWORK_EXFILTRATION,
+                            mitre_atlas_technique=EXFILTRATION_VIA_TOOL_INVOCATION),
             ),
             effects_failure=(
                 # Same honest caveat as the chat-mode pack: this fires for

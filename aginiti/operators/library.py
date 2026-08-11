@@ -76,6 +76,19 @@ class ClaimEffect:
     # discipline: None (the default) preserves every existing operator's
     # behavior unchanged.
     owasp_llm_category: str | None = None
+    # Which attack METHODOLOGY this effect represents -- see aginiti/graph/
+    # attack_category.py for the 11-category list (8 offensive techniques +
+    # 3 planner-evaluation controls: decoy/known_defended/low_value_recon).
+    # A fourth, orthogonal dimension alongside category/security_boundary/
+    # owasp_llm_category. Same opt-in discipline.
+    attack_category: str | None = None
+    # A verified MITRE ATLAS (atlas.mitre.org) technique ID, e.g.
+    # "AML.T0070" -- see aginiti/graph/mitre_atlas_refs.py for the short,
+    # deliberately-incomplete list of IDs this project has actually
+    # confirmed rather than guessed. None (the default, and the common
+    # case) means "not yet verified against ATLAS," not "no ATLAS
+    # technique applies."
+    mitre_atlas_technique: str | None = None
 
     def __post_init__(self) -> None:
         if self.category is None:

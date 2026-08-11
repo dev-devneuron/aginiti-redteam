@@ -16,10 +16,10 @@ from aginiti.policies.base import Candidate
 from aginiti.scenarios import data_exposure_mission
 
 
-def test_pack_has_six_uniquely_ided_operators():
+def test_pack_has_seven_uniquely_ided_operators():
     ops = data_exposure_operators()
-    assert len(ops) == 6
-    assert len({op.id for op in ops}) == 6
+    assert len(ops) == 7
+    assert len({op.id for op in ops}) == 7
 
 
 def test_every_operator_is_target_agnostic_direct_channel_and_branch_tagged():
@@ -56,7 +56,7 @@ def test_encoded_payload_decodes_to_a_real_override_instruction():
 def test_composes_cleanly_onto_the_existing_mock_library_with_no_id_collisions():
     mock_ops = list(build_library())
     combined = OperatorLibrary([*mock_ops, *data_exposure_operators()])
-    assert len(combined) == len(mock_ops) + 6
+    assert len(combined) == len(mock_ops) + 7
 
 
 def test_data_exposure_mission_is_satisfied_by_any_one_criterion():

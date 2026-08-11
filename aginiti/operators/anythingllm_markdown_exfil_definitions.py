@@ -55,6 +55,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from aginiti.graph.attack_category import MARKDOWN_NETWORK_EXFILTRATION, RAG_POISONING
+from aginiti.graph.mitre_atlas_refs import RAG_POISONING as ATLAS_RAG_POISONING
 from aginiti.graph.owasp_llm_taxonomy import LLM05_IMPROPER_OUTPUT_HANDLING, LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES
 from aginiti.graph.schema import ClaimStatus, RiskTier
 from aginiti.graph.security_boundary import BOUNDARY_L1, BOUNDARY_L5
@@ -127,7 +129,8 @@ def build_anythingllm_markdown_exfil_library(canary: str, listener_base_url: str
             effects_success=(
                 ClaimEffect("anythingllm_markdown_exfil_document_planted", CONFIRMED, SUBGRAPH_TARGET, weight=1,
                             security_boundary=BOUNDARY_L1,
-                            owasp_llm_category=LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES),
+                            owasp_llm_category=LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES,
+                            attack_category=RAG_POISONING, mitre_atlas_technique=ATLAS_RAG_POISONING),
             ),
             effects_failure=(),
             cost_prompts=1, risk_tier=RiskTier.LOW,
@@ -162,7 +165,14 @@ def build_anythingllm_markdown_exfil_library(canary: str, listener_base_url: str
                 # as the automatic-mode chain, not judge-read chat text.
                 ClaimEffect("anythingllm_markdown_image_exfil_confirmed", CONFIRMED, SUBGRAPH_TARGET,
                             weight=3, category=CATEGORY_MISSION_OUTCOME, security_boundary=BOUNDARY_L5,
-                            owasp_llm_category=LLM05_IMPROPER_OUTPUT_HANDLING),
+                            owasp_llm_category=LLM05_IMPROPER_OUTPUT_HANDLING,
+                            # No mitre_atlas_technique here, deliberately: the exfiltration channel
+                            # is a client-side markdown-image auto-fetch, not an agent-invoked tool
+                            # call -- AML.T0086 (Exfiltration via AI Agent Tool Invocation) doesn't
+                            # actually fit, and no closer verified ATLAS technique was found (see
+                            # mitre_atlas_refs.py's docstring on leaving a gap honest rather than
+                            # forcing the nearest-sounding ID).
+                            attack_category=MARKDOWN_NETWORK_EXFILTRATION),
             ),
             effects_failure=(
                 ClaimEffect("anythingllm_markdown_image_exfil_not_triggered", CONFIRMED,

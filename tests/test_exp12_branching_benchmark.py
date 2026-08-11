@@ -19,11 +19,21 @@ from exp12_branching_benchmark import (  # noqa: E402
 )
 
 
-def test_mission1_has_all_six_data_exposure_operators():
+def test_mission1_has_all_seven_data_exposure_operators():
+    # Was "all six" until tool_parameter_override_probe was added to the target-agnostic
+    # pack (2026-08-12) -- this harness draws its candidate pool directly from
+    # data_exposure_operators() (see _mission_single_step_comprehensive), so a new pack
+    # operator organically becomes one more candidate/distractor here too. The mission's
+    # own SUCCESS DEFINITION is unaffected: success_criteria comes from the separate
+    # _REACHABLE_MISSION1_KEYS constant, not from enumerating the library (see the next
+    # test) -- so this is exactly the "one more known-defended-or-not distractor in the
+    # candidate pool" case the harness's own docstring already designs for, not a change
+    # to what "success" means.
     mission, library = _mission_single_step_comprehensive(seed=1)
     assert {op.id for op in library} == {
         "system_prompt_extraction", "jailbreak_dan_style", "memory_context_leakage_probe",
         "tool_inventory_full_disclosure", "encoding_evasion_probe", "secret_pattern_fishing",
+        "tool_parameter_override_probe",
     }
 
 

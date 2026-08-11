@@ -82,6 +82,8 @@ class SecurityStateGraph:
     claim_category: dict[str, str] = field(default_factory=dict)  # claim key -> category tag
     claim_boundary: dict[str, str] = field(default_factory=dict)  # claim key -> security_boundary tag (aginiti/graph/security_boundary.py)
     claim_owasp_category: dict[str, str] = field(default_factory=dict)  # claim key -> OWASP LLM Top 10 tag (aginiti/graph/owasp_llm_taxonomy.py)
+    claim_attack_category: dict[str, str] = field(default_factory=dict)  # claim key -> attack methodology tag (aginiti/graph/attack_category.py)
+    claim_atlas_technique: dict[str, str] = field(default_factory=dict)  # claim key -> verified MITRE ATLAS technique id (aginiti/graph/mitre_atlas_refs.py)
     # Derived working memory (aginiti/graph/belief_state.py) -- a CACHE over
     # the fields above, not another source of truth. Deliberately excluded
     # from persistence.py; see that module's comment.
@@ -194,7 +196,8 @@ class SecurityStateGraph:
 
     def assert_claim(self, key: str, object_: str, status: ClaimStatus,
                       subgraph: str = SUBGRAPH_TARGET, category: str | None = None,
-                      security_boundary: str | None = None, owasp_llm_category: str | None = None) -> Claim:
+                      security_boundary: str | None = None, owasp_llm_category: str | None = None,
+                      attack_category: str | None = None, mitre_atlas_technique: str | None = None) -> Claim:
         """Create a new Claim version for `key` with an explicit status.
         Confidence is derived from whatever Observations already reference
         this key (0 if none yet -> LOW). `category` is optional because the
@@ -202,10 +205,12 @@ class SecurityStateGraph:
         it -- leaving the prior tag (or none, defaulting to "capability" for
         queries) in place is correct there, since the real category was
         already set (or will be) by the assert_claim call driven by the
-        operator's ClaimEffect. `security_boundary` and `owasp_llm_category`
-        follow the exact same optional, sticky-until-overwritten pattern --
-        see aginiti/graph/security_boundary.py and aginiti/graph/
-        owasp_llm_taxonomy.py."""
+        operator's ClaimEffect. `security_boundary`, `owasp_llm_category`,
+        `attack_category`, and `mitre_atlas_technique` all follow the exact
+        same optional, sticky-until-overwritten pattern -- see aginiti/
+        graph/security_boundary.py, aginiti/graph/owasp_llm_taxonomy.py,
+        aginiti/graph/attack_category.py, and aginiti/graph/
+        mitre_atlas_refs.py."""
         prior = self.current_claim(key)
         net = self._net_observation_score(key)
         claim = Claim.create(
@@ -223,6 +228,10 @@ class SecurityStateGraph:
             self.claim_boundary[key] = security_boundary
         if owasp_llm_category is not None:
             self.claim_owasp_category[key] = owasp_llm_category
+        if attack_category is not None:
+            self.claim_attack_category[key] = attack_category
+        if mitre_atlas_technique is not None:
+            self.claim_atlas_technique[key] = mitre_atlas_technique
         self._update_hypotheses_for_claim(key, status)
         return claim
 
@@ -323,3 +332,40 @@ class SecurityStateGraph:
         for category in self.confirmed_owasp_categories().values():
             summary[category] = summary.get(category, 0) + 1
         return summary
+
+    def confirmed_attack_categories(self) -> dict[str, str]:
+        """claim key -> attack methodology tag (aginiti/graph/
+        attack_category.py), for every CURRENTLY-CONFIRMED claim that has
+        one. Same opt-in discipline as confirmed_owasp_categories()."""
+        out = {}
+        for key, category in self.claim_attack_category.items():
+            claim = self.current_claim(key)
+            if claim is not None and claim.status == ClaimStatus.CONFIRMED:
+                out[key] = category
+        return out
+
+    def attack_category_summary(self) -> dict[str, int]:
+        """attack_category -> count of distinct currently-confirmed claims
+        tagged with it -- the report-friendly rollup answering "how much of
+        Aginiti's confirmed findings actually came from real attack
+        technique categories, versus planner-evaluation controls (decoys/
+        known-defended/low-value recon)." See aginiti/graph/
+        attack_category.py's OFFENSIVE_CATEGORIES / is_offensive() to
+        filter this down to real attack coverage only."""
+        summary: dict[str, int] = {}
+        for category in self.confirmed_attack_categories().values():
+            summary[category] = summary.get(category, 0) + 1
+        return summary
+
+    def confirmed_atlas_techniques(self) -> dict[str, str]:
+        """claim key -> verified MITRE ATLAS technique id (aginiti/graph/
+        mitre_atlas_refs.py), for every CURRENTLY-CONFIRMED claim that has
+        one. Same opt-in discipline as confirmed_owasp_categories() --
+        absence means "not yet cross-referenced against ATLAS," not "no
+        ATLAS technique applies.\""""
+        out = {}
+        for key, technique in self.claim_atlas_technique.items():
+            claim = self.current_claim(key)
+            if claim is not None and claim.status == ClaimStatus.CONFIRMED:
+                out[key] = technique
+        return out

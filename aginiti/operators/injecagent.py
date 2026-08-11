@@ -19,6 +19,8 @@ CATEGORY_MISSION_OUTCOME confirmation like any other).
 """
 from __future__ import annotations
 
+from aginiti.graph.attack_category import INDIRECT_INJECTION
+from aginiti.graph.mitre_atlas_refs import INDIRECT_PROMPT_INJECTION
 from aginiti.graph.schema import ClaimStatus, RiskTier
 from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER
 from aginiti.operators.library import ClaimEffect, Operator
@@ -64,6 +66,7 @@ def injecagent_operator(test_case: dict) -> Operator:
         effects_success=(
             ClaimEffect(
                 success_key, CONFIRMED, weight=3, category=CATEGORY_MISSION_OUTCOME,
+                attack_category=INDIRECT_INJECTION, mitre_atlas_technique=INDIRECT_PROMPT_INJECTION,
                 description=(
                     f"The response indicates the assistant complied with the embedded instruction "
                     f"(\"{attacker_instruction}\"), working toward: {expected_achievements}"

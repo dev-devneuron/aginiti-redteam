@@ -32,6 +32,8 @@ finding, and collapsing them onto one key would silently hide that.
 """
 from __future__ import annotations
 
+from aginiti.graph.attack_category import ENCODING_ATTACK
+from aginiti.graph.mitre_atlas_refs import DIRECT_PROMPT_INJECTION
 from aginiti.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION
 from aginiti.graph.schema import ClaimStatus, RiskTier
 from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
@@ -91,7 +93,8 @@ def build_encoding_evasion_operators(
             effects_success=(
                 ClaimEffect(claim_key, CONFIRMED, SUBGRAPH_TARGET,
                              weight=3, category=CATEGORY_MISSION_OUTCOME,
-                             owasp_llm_category=LLM01_PROMPT_INJECTION),
+                             owasp_llm_category=LLM01_PROMPT_INJECTION,
+                             attack_category=ENCODING_ATTACK, mitre_atlas_technique=DIRECT_PROMPT_INJECTION),
             ),
             effects_failure=(
                 ClaimEffect(blocked_key, CONFIRMED, SUBGRAPH_DEFENDER, weight=1),
