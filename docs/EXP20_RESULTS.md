@@ -9,12 +9,11 @@ AginitiPlanner — "dynamic," carrying this session's `chain_value`/
 operators), budget=4, two missions. **150 real campaigns, 0 unresolved
 errors after gap-fills, 773/773 unit tests passing throughout.**
 
-**Status: core benchmark complete. The discovery-arm bonus test (metric
-#7) was interrupted mid-run by an environment/infrastructure restart —
-zero usable data survived, and the local AnythingLLM/gateway/collector
-stack is down as of this writing. Everything below this line is the
-complete, final result for the 5-condition planner comparison; the
-discovery arm needs a clean re-run once the local stack is back up.**
+**Status: complete.** The discovery-arm bonus test was interrupted mid-run
+once (environment/infrastructure restart, zero usable data survived that
+attempt) and re-run cleanly after restoring the AnythingLLM/collector/
+gateway/listener stack — 10/10 trials, 0 errors. Both the 5-condition
+planner comparison and the discovery-arm bonus test below are final.
 
 ---
 
@@ -129,10 +128,30 @@ at budget=4 against 28 competing single-shot alternatives.
 
 ### 7. Novel attack discovery
 
-**Not measured this run** — the discovery-arm bonus test (the only
-mechanism that could answer this empirically, since the 4 static-library
-planners can only pick from a fixed list) was interrupted before
-collecting usable data. Deferred to a clean re-run.
+**Measured, N=10, real live trials, 0 errors.** `encoding_discovery`
+(searches 10 single transforms, then role-play priming, then
+live-synthesized cross-family stacks — capable of finding a combination
+not in any static list) exhausted its full 16-candidate search **in all
+10/10 trials without a single success** — mean 457.8s/trial. No novel
+combination was ever confirmed, because nothing succeeded at all: an
+honest null result, not evidence the search logic is broken (the pilot
+run and the exp20_full_broad/chain main-benchmark data both show the
+same mechanism working correctly when it does succeed).
+
+`framing_discovery` (5 static pretexts, escalating to PAIR-style
+LLM-driven prompt rewriting if all fail) also failed all 5 static
+framings **and both escalated LLM-refinement attempts, in every single
+one of the 10 trials** (10/10 escalated, 0/10 succeeded at any stage) —
+mean 159.3s/trial.
+
+**Bottom line: this specific hardened target's system-prompt-leakage
+defense held against the single strongest, most adaptive single-operator
+attack Aginiti currently has** — 10 converters, role-play priming, 6
+synthesized stacks, 5 social-engineering framings, and 2 rounds of
+LLM-driven adaptive rewriting, all in the same run, all defeated. That's
+a genuinely positive signal about the target-hardening work from earlier
+this session, reported plainly even though it means "no" for the novel-
+discovery capability's payoff on this specific target/goal.
 
 ### 8. False positives
 
@@ -209,18 +228,22 @@ garak nor Aginiti's own earlier benchmark runs had demonstrated.
   condition that seriously tried multi-step chains, 100% against direct
   single-shot probes from any condition. That's a real, positive signal
   about the target-hardening work, independent of how Aginiti scored.
-- **The discovery-arm bonus test (novel attack discovery) is
-  incomplete** — genuinely missing evidence, not a null result, and
-  needs a clean re-run once the local AnythingLLM/gateway stack is back
-  up.
+- **The discovery-arm bonus test completed cleanly and returned a real,
+  honest null result**, not a technical gap: Aginiti's most adaptive
+  single-operator attack (encoding search + role-play + synthesized
+  stacks + framing search + LLM-driven refinement) did not crack this
+  target's system-prompt defense in 10/10 independent trials. That says
+  something genuinely positive about the hardening work — it's not a
+  weakness in the experiment.
 - **This is not yet "ready for an enterprise to trust blindly."** One
-  hardened target, one budget setting, N=15, a real but not
-  overwhelming statistical margin, and a capability (novel-attack
-  discovery) that's architecturally built but empirically unverified
-  this round. The honest next steps: re-run the discovery arm, consider
-  a larger N specifically for the chain-required mission's ASR claim,
-  and test whether the chain-pivoting advantage holds at other budget
-  sizes (budget=4 may be a specific sweet spot, not a general one).
+  hardened target, one budget setting, N=15 for the planner comparison
+  (N=10 for the discovery arm), and a real but not overwhelming
+  statistical margin on the headline chain-pivoting result. The honest
+  next steps: consider a larger N specifically for the chain-required
+  mission's ASR claim, test whether the chain-pivoting advantage holds
+  at other budget sizes (budget=4 may be a specific sweet spot, not a
+  general one), and try the discovery arm against a goal other than
+  system-prompt extraction, since this run only tested one target claim.
 
 ---
 
@@ -228,5 +251,8 @@ garak nor Aginiti's own earlier benchmark runs had demonstrated.
 
 `runs_live_anythingllm_benchmark/exp20_full_broad/` (75 trials),
 `runs_live_anythingllm_benchmark/exp20_full_chain/` (75 trials),
+`runs_live_anythingllm_benchmark/exp20_discovery_rerun/` (10 trials, the
+clean re-run — `exp20_full_discovery/` is the interrupted first attempt,
+kept for the record, zero usable trials in it),
 `experiments/exp20_full_benchmark.py` / `exp20_discovery_arm.py` /
-`exp20_analyze.py` (harness + analysis, reusable for the re-run).
+`exp20_analyze.py` (harness + analysis).
