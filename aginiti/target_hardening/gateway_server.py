@@ -41,8 +41,11 @@ ADMIN_KEY = os.environ.get("ANYTHINGLLM_ADMIN_KEY", "5YAK747-MJ64GZW-HTSYBY7-HBF
 GATEWAY_PORT = int(os.environ.get("GATEWAY_PORT", "3002"))
 AUDIT_LOG_PATH = os.environ.get(
     "GATEWAY_AUDIT_LOG",
-    r"C:\Users\Omer\AppData\Local\Temp\claude\E--GAIS\06641ac5-f731-4953-a632-5e6f756984e9"
-    r"\scratchpad\gateway_audit.log",
+    # 2026-08-12: moved off C:\...\Temp\claude\... (an ephemeral, session-
+    # scoped scratchpad that could vanish, and C: was down to 10.9GB free)
+    # onto E:\Aginiti-Extended\infra\logs -- this project's own permanent
+    # home, not a temp directory belonging to any one Claude session.
+    r"E:\Aginiti-Extended\infra\logs\gateway_audit.log",
 )
 
 app = Flask(__name__)

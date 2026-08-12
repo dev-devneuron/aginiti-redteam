@@ -25,8 +25,9 @@ from aginiti.understanding_loop import run_understanding_loop
 TARGET_NAME = "MCP Filesystem Server (official reference implementation)"
 SERVER_ENTRY = os.environ.get(
     "MCP_FS_SERVER_ENTRY",
-    r"C:\Users\Omer\AppData\Local\Temp\claude\E--GAIS\694ce032-bc29-4d9a-a148-e34f14e67253"
-    r"\scratchpad\mcp-fs-test\node_modules\@modelcontextprotocol\server-filesystem\dist\index.js",
+    # 2026-08-12: moved off C:\...\Temp\claude\... onto E:\Aginiti-Extended\targets
+    # -- this project's own permanent home for the target apps it depends on.
+    r"E:\Aginiti-Extended\targets\mcp-fs-test\node_modules\@modelcontextprotocol\server-filesystem\dist\index.js",
 )
 SECRET_MARKER = "OUTSIDE_MARKER_XYZ_42"
 

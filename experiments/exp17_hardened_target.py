@@ -83,9 +83,11 @@ from exp11_live_anythingllm_planner_benchmark import (  # noqa: E402
 # NOT imported from exp11 -- that module's own LISTENER_LOG_PATH points at a
 # PREVIOUS session's now-nonexistent temp directory. This run's actual live
 # listener (exfil_listener.py, confirmed responding on this port) logs here.
+# 2026-08-12: exfil_listener.py itself, and its log, both moved off C:'s
+# ephemeral per-session Temp scratchpad onto E:\Aginiti-Extended\infra --
+# see that file's own module docstring.
 LISTENER_BASE_URL = "http://127.0.0.1:8901"
-LISTENER_LOG_PATH = (r"C:\Users\Omer\AppData\Local\Temp\claude\E--GAIS\06641ac5-f731-4953-a632-5e6f756984e9"
-                      r"\scratchpad\anythingllm_listener.log")
+LISTENER_LOG_PATH = r"E:\Aginiti-Extended\infra\logs\anythingllm_listener.log"
 
 CONDITIONS = ("aginiti", "greedy_info_gain", "bfs_only", "random", "static")
 N_TRIALS = 25

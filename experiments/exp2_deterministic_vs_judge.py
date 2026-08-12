@@ -52,15 +52,17 @@ from aginiti.operators.dvaa_consensus_definitions import build_dvaa_consensus_li
 from aginiti.operators.mcp_filesystem_definitions import build_filesystem_mcp_library
 from experiments.results_io import save_result
 
+# 2026-08-12: both target installs moved off C:\...\Temp\claude\...
+# (an older session's ephemeral scratchpad, and C: was down to 10.9GB
+# free) onto E:\Aginiti-Extended\targets -- this project's own permanent
+# home for the target applications it depends on.
 MCP_FS_SERVER_ENTRY = os.environ.get(
     "MCP_FS_SERVER_ENTRY",
-    r"C:\Users\Omer\AppData\Local\Temp\claude\E--GAIS\694ce032-bc29-4d9a-a148-e34f14e67253"
-    r"\scratchpad\mcp-fs-test\node_modules\@modelcontextprotocol\server-filesystem\dist\index.js",
+    r"E:\Aginiti-Extended\targets\mcp-fs-test\node_modules\@modelcontextprotocol\server-filesystem\dist\index.js",
 )
 VOTING_SERVER_ENTRY = os.environ.get(
     "VOTING_SERVER_ENTRY",
-    r"C:\Users\Omer\AppData\Local\Temp\claude\E--GAIS\694ce032-bc29-4d9a-a148-e34f14e67253"
-    r"\scratchpad\dvaa\scenarios\consensus-manipulation\vulnerable\voting.cjs",
+    r"E:\Aginiti-Extended\targets\dvaa\scenarios\consensus-manipulation\vulnerable\voting.cjs",
 )
 SECRET_MARKER = "OUTSIDE_MARKER_XYZ_42"
 

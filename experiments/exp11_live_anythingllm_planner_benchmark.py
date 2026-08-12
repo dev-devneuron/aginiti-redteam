@@ -77,8 +77,11 @@ from aginiti.policies.static_policy import StaticPolicy
 BASE_URL = "http://localhost:3001"
 DEV_API_KEY = "5YAK747-MJ64GZW-HTSYBY7-HBF1E2A"
 LISTENER_BASE_URL = "http://127.0.0.1:8901"
-LISTENER_LOG_PATH = ("C:/Users/Omer/AppData/Local/Temp/claude/E--GAIS/"
-                      "694ce032-bc29-4d9a-a148-e34f14e67253/scratchpad/listener/listener_hits.log")
+# 2026-08-12: this already pointed at a since-superseded listener/log path
+# even before the project-wide move off C:\...\Temp\claude\... -- updated
+# to the current canonical listener/log, exfil_listener.py's own default,
+# both now living at E:\Aginiti-Extended\infra (see that file's docstring).
+LISTENER_LOG_PATH = "E:/Aginiti-Extended/infra/logs/anythingllm_listener.log"
 
 CONDITIONS = ("aginiti", "greedy_info_gain", "bfs_only", "random", "static")
 N_TRIALS = 6

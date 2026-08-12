@@ -7,3 +7,18 @@ venv/
 .pytest_cache/
 runs/
 *.log
+
+# 2026-08-12: third-party target applications (AnythingLLM, DVAA,
+# damn-vulnerable-llm-agent, the MCP filesystem test server, an
+# investigated-but-unused Onyx clone) relocated here from an ephemeral
+# C:\...\Temp\claude\... scratchpad -- vendored, independently-developed
+# software this project tests AGAINST, not part of Aginiti's own source.
+# Several have their own .git directories; never sweep them into this
+# repo's history. infra/ and archive/ are this project's own operational
+# scripts/logs/scratch history, kept locally for continuity but not
+# version-controlled here either (infra/exfil_listener.py and any other
+# file worth actually maintaining should be promoted into aginiti/ or
+# scripts/ properly, not left in infra/).
+targets/
+infra/
+archive/
