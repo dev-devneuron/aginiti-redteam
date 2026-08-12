@@ -43,9 +43,26 @@ def campaign_result_to_dict(condition: str, trial: int, seed: int | None, result
         "execution_log": [_json_safe(e) for e in result.execution_log],
         "final_claims": [
             {"key": c.key, "object": c.object, "status": c.status.value,
-             "confidence": c.confidence.value, "id": c.id, "supersedes": c.supersedes}
+             "confidence": c.confidence.value, "id": c.id, "supersedes": c.supersedes,
+             # 2026-08-12, added ahead of the next benchmark run (severity is one of its
+             # named metrics): these 4 dimensions were fully wired into the SSG and the
+             # Target Profile/graph-export reports, but this trial-log serializer -- the
+             # one every experiment's own analysis script actually reads -- never carried
+             # them, so a saved trial file couldn't answer "how severe was this finding"
+             # without re-running the whole campaign against a live target to re-derive it.
+             "security_boundary": result.ssg.claim_boundary.get(c.key),
+             "owasp_llm_category": result.ssg.claim_owasp_category.get(c.key),
+             "attack_category": result.ssg.claim_attack_category.get(c.key),
+             "mitre_atlas_technique": result.ssg.claim_atlas_technique.get(c.key)}
             for c in result.ssg.claims
         ],
+        # Headline rollups, same SSG methods target_profile.py's report now calls --
+        # computed once here so an analysis script reading the saved JSON doesn't have
+        # to reconstruct an SSG from final_claims just to re-derive them.
+        "highest_boundary_crossed": result.ssg.highest_boundary_crossed(),
+        "owasp_category_summary": result.ssg.owasp_category_summary(),
+        "attack_category_summary": result.ssg.attack_category_summary(),
+        "confirmed_atlas_techniques": result.ssg.confirmed_atlas_techniques(),
         "graph_size": result.ssg.size(),
         "ground_truth_mission_achieved": (
             result.execution_log[-1].ground_truth_mission_achieved if result.execution_log else False
