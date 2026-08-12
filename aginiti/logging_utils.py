@@ -53,7 +53,14 @@ def campaign_result_to_dict(condition: str, trial: int, seed: int | None, result
              "security_boundary": result.ssg.claim_boundary.get(c.key),
              "owasp_llm_category": result.ssg.claim_owasp_category.get(c.key),
              "attack_category": result.ssg.claim_attack_category.get(c.key),
-             "mitre_atlas_technique": result.ssg.claim_atlas_technique.get(c.key)}
+             "mitre_atlas_technique": result.ssg.claim_atlas_technique.get(c.key),
+             # 2026-08-12 hardening-pass fix: failure_diagnosis (Issue 4, added
+             # earlier the same day) was never added here -- the exact same
+             # "new taxonomy dimension, old serializer" bug this file's own
+             # comment above already documents being fixed once for the other
+             # four dimensions. A saved trial file couldn't answer "why did
+             # this specific attempt fail" without re-running the campaign.
+             "failure_diagnosis": result.ssg.claim_failure_diagnosis.get(c.key)}
             for c in result.ssg.claims
         ],
         # Headline rollups, same SSG methods target_profile.py's report now calls --

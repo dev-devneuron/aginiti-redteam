@@ -109,6 +109,41 @@ DEFAULT_BASE_URL = "http://localhost:3001"
 _RETRY_SECONDS_RE = re.compile(r"try again in ([\d.]+)s")
 
 
+class TargetUnavailable(Exception):
+    """Raised internally by _post_chat/_plant_document for any target-side
+    failure that ISN'T the specific handled rate-limit-retry case -- a
+    connection refused/DNS failure (target down/unreachable), a timeout, a
+    non-rate-limit HTTP error, or a response body that isn't valid JSON.
+
+    2026-08-12 hardening-pass fix: before this, every one of those raised
+    requests.exceptions.* / json.JSONDecodeError COMPLETELY UNCAUGHT,
+    propagating through ObservationAdapter.execute() and run_campaign()
+    with no classification at all -- contrast DVLAAdapter (aginiti/
+    adapters/dvla_adapter.py), which already wraps its own calls in
+    RateLimitError/APIStatusError/Exception and marks recovery text
+    is_synthetic=True. AnythingLLM is the adapter every live benchmark
+    since exp17 has actually used, and it was the LEAST defensive one --
+    found via a direct architecture audit, not a live failure.
+
+    `send()` catches this and returns an is_synthetic=True SendResult
+    instead of letting it kill the whole campaign: a target crash/timeout/
+    malformed response becomes an EXPLICIT, structurally-un-mistakable
+    non-event (ObservationAdapter's judge/extractor never sees this text
+    at all, so it can confirm neither a success NOR a defender-control
+    "blocked" claim), never a silent "attack failed" and never an
+    uncaught crash that discards everything the campaign already learned."""
+
+
+def _classify_requests_error(exc: Exception) -> str:
+    if isinstance(exc, requests.exceptions.Timeout):
+        return "target request timed out"
+    if isinstance(exc, requests.exceptions.ConnectionError):
+        return "could not connect to target (target down or unreachable)"
+    if isinstance(exc, requests.exceptions.HTTPError):
+        return f"target returned an HTTP error: {exc}"
+    return f"target request failed: {exc}"
+
+
 class AnythingLLMAdapter:
     """BaseAdapter for a running AnythingLLM instance. One instance
     addresses ONE workspace (workspace_slug) -- unlike DVAAAdapter's
@@ -163,11 +198,24 @@ class AnythingLLMAdapter:
         effective_mode = mode or self.chat_mode
         last_exc = None
         for attempt in range(max_retries):
-            resp = requests.post(
-                f"{self.base_url}/api/v1/workspace/{self.workspace_slug}/chat",
-                headers=self._headers(), timeout=self.timeout,
-                json={"message": prompt, "mode": effective_mode},
-            )
+            try:
+                resp = requests.post(
+                    f"{self.base_url}/api/v1/workspace/{self.workspace_slug}/chat",
+                    headers=self._headers(), timeout=self.timeout,
+                    json={"message": prompt, "mode": effective_mode},
+                )
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                # 2026-08-12 hardening-pass fix: previously uncaught -- a
+                # genuinely down/unreachable/hung target crashed the whole
+                # campaign instead of being classified. NOT retried here
+                # (unlike the rate-limit branch below): a target that's
+                # actually down won't recover in the few seconds this
+                # adapter would wait, and retrying a hung connection just
+                # burns the timeout budget 3x for no benefit -- raised
+                # immediately as TargetUnavailable, which send() converts
+                # into an explicit is_synthetic non-event rather than
+                # letting it kill the trial.
+                raise TargetUnavailable(_classify_requests_error(e)) from e
             if resp.status_code == 500 and "rate limit" in resp.text.lower():
                 match = _RETRY_SECONDS_RE.search(resp.text)
                 delay = float(match.group(1)) + 0.5 if match else 5.0
@@ -175,12 +223,50 @@ class AnythingLLMAdapter:
                 if attempt < max_retries - 1:
                     time.sleep(delay)
                     continue
-                raise last_exc
-            resp.raise_for_status()
-            return resp.json()
-        raise last_exc  # pragma: no cover -- loop always returns or raises above
+                raise TargetUnavailable(_classify_requests_error(last_exc)) from last_exc
+            try:
+                resp.raise_for_status()
+            except requests.exceptions.HTTPError as e:
+                # 2026-08-12 hardening-pass fix: any HTTP error OTHER than
+                # the specific rate-limit-retry pattern above (a genuine
+                # 4xx/5xx -- bad request, workspace not found, target-side
+                # crash) previously propagated uncaught. Not retried: a
+                # real error response, not a transient one.
+                raise TargetUnavailable(_classify_requests_error(e)) from e
+            try:
+                return resp.json()
+            except (ValueError, requests.exceptions.JSONDecodeError) as e:
+                # 2026-08-12 hardening-pass fix: a malformed/non-JSON body
+                # (e.g. an HTML error page from a proxy in front of the
+                # target, or a truncated response) previously raised
+                # uncaught inside a dict-shaped call site, producing a
+                # confusing downstream AttributeError far from the real
+                # cause instead of a classified target-side failure.
+                raise TargetUnavailable(f"target returned a malformed (non-JSON) response: {e}") from e
+        raise TargetUnavailable(_classify_requests_error(last_exc)) if last_exc else \
+            TargetUnavailable("target request failed after retries")  # pragma: no cover -- loop always returns/raises above
 
     def send(self, channel: str, prompt: str) -> SendResult:
+        """Thin wrapper: the real dispatch is _send_impl(); this catches
+        TargetUnavailable (2026-08-12 hardening-pass fix) uniformly across
+        all three channels (plant/automatic/direct) and converts it into
+        an explicit is_synthetic=True SendResult instead of letting a
+        target crash/timeout/malformed-response propagate uncaught and
+        kill the whole campaign. is_synthetic=True is a hard instruction
+        ObservationAdapter already enforces: this text can never confirm
+        OR refute any claim, so a target-side infrastructure failure can
+        never be misread as "attack failed" (a false defender-control
+        claim) or "attack succeeded" -- it's structurally a non-event,
+        visible in the trial's own Facts for audit trail, never in the
+        SSG's belief."""
+        try:
+            return self._send_impl(channel, prompt)
+        except TargetUnavailable as e:
+            final_text = f"[Aginiti: target unavailable -- {e}]"
+            self._raw_responses.append(final_text)
+            return SendResult(final_text=final_text, tool_trace=[], is_synthetic=True)
+
+    def _send_impl(self, channel: str, prompt: str) -> SendResult:
         if channel == "plant":
             # RAG document-poisoning primitive: `prompt` here is the
             # document's CONTENT to plant (not a chat message) -- real
@@ -265,16 +351,30 @@ class AnythingLLMAdapter:
         default plant mechanism: it needs no externally-reachable
         attacker-hosted URL, which this environment doesn't have one of,
         and is itself a completely standard, expected document-ingestion
-        path (a user/connector submitting a file), not a workaround."""
-        resp = requests.post(
-            f"{self.base_url}/api/v1/document/upload",
-            headers={"Authorization": f"Bearer {self.api_key}"},  # no Content-Type -- multipart sets its own boundary
-            timeout=self.timeout,
-            files={"file": (filename, content.encode("utf-8"), "text/plain")},
-            data={"addToWorkspaces": self.workspace_slug},
-        )
-        resp.raise_for_status()
-        return resp.json()
+        path (a user/connector submitting a file), not a workaround.
+
+        2026-08-12 hardening-pass fix: previously let requests.exceptions.*
+        and a malformed-JSON body propagate uncaught, same gap as the old
+        _post_chat -- now raises TargetUnavailable uniformly, caught by
+        send()'s wrapper exactly like every other channel."""
+        try:
+            resp = requests.post(
+                f"{self.base_url}/api/v1/document/upload",
+                headers={"Authorization": f"Bearer {self.api_key}"},  # no Content-Type -- multipart sets its own boundary
+                timeout=self.timeout,
+                files={"file": (filename, content.encode("utf-8"), "text/plain")},
+                data={"addToWorkspaces": self.workspace_slug},
+            )
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            raise TargetUnavailable(_classify_requests_error(e)) from e
+        try:
+            resp.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            raise TargetUnavailable(_classify_requests_error(e)) from e
+        try:
+            return resp.json()
+        except (ValueError, requests.exceptions.JSONDecodeError) as e:
+            raise TargetUnavailable(f"target returned a malformed (non-JSON) response: {e}") from e
 
     def upload_link(self, url: str) -> dict:
         """Plants content via AnythingLLM's REAL URL-scraping ingestion

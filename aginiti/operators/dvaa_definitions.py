@@ -290,6 +290,7 @@ from __future__ import annotations
 import json
 
 from aginiti.graph.attack_category import MULTI_STEP_CHAIN, TOOL_DISCOVERY, TOOL_MANIPULATION
+from aginiti.graph.failure_diagnosis import BLOCKED_BY_NETWORK_EGRESS, BLOCKED_BY_PRIVILEGE
 from aginiti.graph.mitre_atlas_refs import EXFILTRATION_VIA_TOOL_INVOCATION
 from aginiti.graph.owasp_llm_taxonomy import LLM06_EXCESSIVE_AGENCY
 from aginiti.graph.schema import ClaimStatus, RiskTier
@@ -549,7 +550,17 @@ def build_dvaa_library() -> OperatorLibrary:
                 ClaimEffect("mcp_unauthenticated_execution_succeeded", CONFIRMED, SUBGRAPH_TARGET, weight=3,
                             category=CATEGORY_MISSION_OUTCOME, attack_category=TOOL_MANIPULATION),
             ),
-            effects_failure=(ClaimEffect("mcp_endpoint_requires_authorization", CONFIRMED, SUBGRAPH_DEFENDER, weight=2),),
+            effects_failure=(
+                # failure_diagnosis=BLOCKED_BY_PRIVILEGE (2026-08-12, Issue 4) -- a textbook match
+                # for the user's own literal example ("this tool exists, but employee-level
+                # credentials cannot invoke it"): the tool was genuinely reached (mcp_tool_
+                # inventory_declared already confirmed it exists), and the failure is specifically
+                # an authorization check, not a content-detection or approval-checkpoint block. A
+                # pure metadata retrofit on an already-live-validated fact, not a new claim about
+                # DVAA's behavior.
+                ClaimEffect("mcp_endpoint_requires_authorization", CONFIRMED, SUBGRAPH_DEFENDER, weight=2,
+                            failure_diagnosis=BLOCKED_BY_PRIVILEGE),
+            ),
             cost_prompts=1, risk_tier=RiskTier.LOW,
             graph_edge=("mcp_recon", "mcp_unauthenticated_execution_succeeded"),
             branch="mcp",
@@ -622,7 +633,14 @@ def build_dvaa_library() -> OperatorLibrary:
             preconditions=(),
             effects_success=(ClaimEffect("tool_validates_fetch_destination", REFUTED, SUBGRAPH_DEFENDER, weight=2,
                                           attack_category=TOOL_MANIPULATION),),
-            effects_failure=(ClaimEffect("tool_validates_fetch_destination", CONFIRMED, SUBGRAPH_DEFENDER, weight=2),),
+            effects_failure=(
+                # failure_diagnosis=BLOCKED_BY_NETWORK_EGRESS (2026-08-12, Issue 4): destination
+                # validation on an outbound fetch IS a network-boundary control -- the request
+                # would otherwise leave toward an attacker-influenced destination, and this is
+                # specifically what stopped it, not a content-detection or privilege check.
+                ClaimEffect("tool_validates_fetch_destination", CONFIRMED, SUBGRAPH_DEFENDER, weight=2,
+                            failure_diagnosis=BLOCKED_BY_NETWORK_EGRESS),
+            ),
             cost_prompts=1, risk_tier=RiskTier.LOW,
             graph_edge=("start", "ssrf_pivot_possible"),
             branch="mcp",

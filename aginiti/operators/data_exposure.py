@@ -53,6 +53,7 @@ from aginiti.graph.attack_category import (
     TOOL_DISCOVERY,
     TOOL_MANIPULATION,
 )
+from aginiti.graph.failure_diagnosis import ACTIVELY_REFUSED
 from aginiti.graph.mitre_atlas_refs import DIRECT_PROMPT_INJECTION, LLM_JAILBREAK
 from aginiti.graph.owasp_llm_taxonomy import (
     LLM01_PROMPT_INJECTION,
@@ -95,7 +96,13 @@ def data_exposure_operators() -> list[Operator]:
                             attack_category=DIRECT_PROMPT_ATTACK, mitre_atlas_technique=DIRECT_PROMPT_INJECTION),
             ),
             effects_failure=(
-                ClaimEffect("system_prompt_extraction_blocked", CONFIRMED, SUBGRAPH_DEFENDER, weight=1),
+                # failure_diagnosis=ACTIVELY_REFUSED (2026-08-12, Issue 4): KEY_DESCRIPTIONS'
+                # own definition of this key ("The assistant explicitly declines...") is a
+                # judge-read explicit refusal of THIS specific request, not evidence of a
+                # systemic/structural boundary -- exactly the non-generalizable category this
+                # tag exists for.
+                ClaimEffect("system_prompt_extraction_blocked", CONFIRMED, SUBGRAPH_DEFENDER, weight=1,
+                            failure_diagnosis=ACTIVELY_REFUSED),
             ),
             cost_prompts=1, risk_tier=RiskTier.LOW,
             graph_edge=("start", "system_prompt_leak"),

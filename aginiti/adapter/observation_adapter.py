@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from aginiti.adapters.base import BaseAdapter
+from aginiti.adapters.base import BaseAdapter, SendResult
 from aginiti.graph.schema import ClaimStatus, next_id
 from aginiti.graph.ssg import SUBGRAPH_DEFENDER, SecurityStateGraph
 from aginiti.llm_client import chat_json, warn_if_parse_error
@@ -366,13 +366,60 @@ def _judge(operator: Operator, raw_signal: str, seed: int | None = None) -> dict
 
 
 class ObservationAdapter:
+    @staticmethod
+    def _send(agent: BaseAdapter, channel: str, prompt: str) -> SendResult:
+        """2026-08-12 hardening-pass fix -- the single choke point EVERY
+        operator execution passes through, and now the ONE place a target-
+        side failure (crash, timeout, connection refused, malformed
+        response) is guaranteed to be caught, regardless of which adapter
+        is in use.
+
+        Before this: `agent.send(...)` was called directly with no
+        exception handling at all. Individual adapters were left to
+        protect themselves -- DVLAAdapter does (RateLimitError/
+        APIStatusError/Exception, is_synthetic=True recovery text);
+        AnythingLLMAdapter didn't until this same pass (see that module's
+        TargetUnavailable); DVAAAdapter and McpStdioAdapter, audited
+        directly, still don't. That's a fragile, duplicated-responsibility
+        pattern: every NEW adapter has to remember to reimplement the same
+        protection, and forgetting it (as AnythingLLMAdapter did) silently
+        reintroduces "one transient network error crashes the whole
+        campaign, discarding every claim already confirmed." Centralizing
+        it here makes the guarantee structural instead of adapter-by-
+        adapter: `run_campaign()` can never be crashed by a target-side
+        failure, full stop, no matter which adapter is plugged in.
+
+        A well-behaved adapter (DVLA, AnythingLLM) may still catch a
+        SPECIFIC failure shape itself for a more informative, differentiated
+        message (e.g. distinguishing a rate limit from a genuine outage) --
+        this is a BACKSTOP for whatever slips through, not a replacement
+        for adapter-level handling where it adds real value.
+
+        is_synthetic=True is the same hard instruction it always is:
+        ObservationAdapter.execute() below will never let this text confirm
+        or refute ANY claim, so a target-side infrastructure failure can
+        never be misread as "attack failed" (a false defender-control
+        claim) or "attack succeeded" -- it becomes an explicit,
+        structurally-unmistakable non-event, visible in the Fact record for
+        audit trail, never in the SSG's belief."""
+        try:
+            return agent.send(channel, prompt)
+        except Exception as e:  # noqa: BLE001 -- deliberately broad: this is the last-resort
+            # backstop for whatever an adapter didn't already classify itself.
+            _logger.warning("agent.send() raised %s: %s -- treated as a target-side failure, "
+                             "not an attack outcome", type(e).__name__, e)
+            return SendResult(
+                final_text=f"[Aginiti: target adapter raised {type(e).__name__}: {e}]",
+                tool_trace=[], is_synthetic=True,
+            )
+
     def execute(self, operator: Operator, ssg: SecurityStateGraph, agent: BaseAdapter,
                 seed: int | None = None) -> ExecutionResult:
         # render_prompt substitutes in specifics already learned about the
         # target (e.g. a name/salary pulled from an earlier confirmed claim)
         # instead of sending the same canned text regardless of context.
         rendered_prompt = operator.render_prompt(ssg)
-        send_result = agent.send(operator.channel, rendered_prompt)
+        send_result = self._send(agent, operator.channel, rendered_prompt)
         raw_signal = send_result.final_text
 
         # Facts are recorded before any interpretation happens, and
@@ -439,7 +486,8 @@ class ObservationAdapter:
                               category=effect.category, security_boundary=effect.security_boundary,
                               owasp_llm_category=effect.owasp_llm_category,
                               attack_category=effect.attack_category,
-                              mitre_atlas_technique=effect.mitre_atlas_technique)
+                              mitre_atlas_technique=effect.mitre_atlas_technique,
+                              failure_diagnosis=effect.failure_diagnosis)
             if effect.status == ClaimStatus.CONFIRMED and effect.subgraph != SUBGRAPH_DEFENDER:
                 # The single highest-signal event this library produces: a
                 # real, confirmed finding against the target. WARNING, not

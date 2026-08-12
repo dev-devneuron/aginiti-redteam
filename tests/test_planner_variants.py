@@ -151,3 +151,39 @@ def test_bfs_only_ignores_potential_progress():
     planner = BFSOnlyPlanner()
     ranked = planner.rank(library, ssg, _mission(), prompts_used=0)
     assert ranked[0].potential_progress == 0.0
+
+
+def test_all_three_variants_ignore_failure_evidence_penalty():
+    """2026-08-12 hardening-pass regression: failure_evidence_penalty
+    (Issue 4, an unscaled additive term like severity_priority/gap_
+    priority/hypothesis_priority/branch_interest) was added to AginitiPlanner
+    without a matching override in any of these three "pure parameterization"
+    subclasses -- they silently absorbed real demotion behavior for one full
+    session, breaking their own documented "never silently absorb a new
+    base-class term" contract. This locks the fix in: a candidate whose
+    prospective failure would match a CONFIRMED generalizable diagnosis
+    elsewhere in the graph must score failure_evidence_penalty == 0.0 under
+    all three variants, even though the base AginitiPlanner would demote it."""
+    from aginiti.graph.failure_diagnosis import BLOCKED_BY_PRIVILEGE
+    from aginiti.operators.library import ClaimEffect
+
+    op = Operator(
+        id="candidate", description="x", prompt="x", channel="direct", preconditions=(),
+        effects_success=(ClaimEffect("candidate_win", ClaimStatus.CONFIRMED, weight=3),),
+        effects_failure=(ClaimEffect("candidate_blocked", ClaimStatus.CONFIRMED, weight=1,
+                                      failure_diagnosis=BLOCKED_BY_PRIVILEGE),),
+        cost_prompts=1, risk_tier=RiskTier.LOW,
+    )
+    library = OperatorLibrary([op])
+    ssg = SecurityStateGraph()
+    ssg.assert_claim("other_op_blocked", "true", ClaimStatus.CONFIRMED, failure_diagnosis=BLOCKED_BY_PRIVILEGE)
+
+    for planner_cls in (GreedyInfoGainPlanner, GreedyBusinessImpactPlanner, BFSOnlyPlanner):
+        planner = planner_cls()
+        assert planner.failure_evidence_penalty(op, ssg) == 0.0, f"{planner_cls.__name__} should ignore it"
+
+    # Sanity: the BASE planner genuinely would demote this candidate --
+    # proves the test fixture actually exercises real demotion evidence,
+    # not a no-op scenario that would pass trivially either way.
+    from aginiti.planner.aginiti_planner import AginitiPlanner
+    assert AginitiPlanner().failure_evidence_penalty(op, ssg) < 0.0

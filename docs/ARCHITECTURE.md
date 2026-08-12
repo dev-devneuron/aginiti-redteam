@@ -48,6 +48,19 @@ for everything it describes; it just stops before:
   hypothesis_priority + branch_interest + severity_priority`.
 - The test suite is now **770 tests** (was 252 when Section 2's directory
   tree was last accurate).
+- **2026-08-12, same-day second pass:** `ClassPrecondition` (multi-step
+  attack-path discovery from semantic tags instead of hardcoded
+  `Precondition` chains — see `aginiti/operators/library.py` and
+  `aginiti/graph/target_graph.py`'s new hub-node mechanism),
+  `composite_score.py` (severity-weighted campaign scoring), and
+  `failure_diagnosis.py` (a structured failure-diagnosis taxonomy feeding
+  a new `failure_evidence_penalty` planner term) — full detail in
+  `docs/MULTI_STEP_DISCOVERY_AND_SCORING.md`. Followed immediately by an
+  independent, from-scratch engineering-hardening audit that traced the
+  real execution path end-to-end and fixed 5 real bugs, 2 of them
+  architectural (`ObservationAdapter.execute()` had no exception handling
+  around `agent.send()` at all) — see
+  `docs/ENGINEERING_HARDENING_PASS.md`. Test suite is now **837 tests**.
 
 `docs/ROADMAP.md` and `docs/EVIDENCE_AND_EVALUATION.md` carry the same
 kind of gap and the same pointer forward; `docs/ATTACK_LIBRARY.md` and

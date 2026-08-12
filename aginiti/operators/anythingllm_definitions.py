@@ -37,6 +37,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from aginiti.graph.attack_category import INDIRECT_INJECTION, RAG_POISONING
+from aginiti.graph.failure_diagnosis import NOT_RETRIEVED
 from aginiti.graph.mitre_atlas_refs import INDIRECT_PROMPT_INJECTION, RAG_POISONING as ATLAS_RAG_POISONING
 from aginiti.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION, LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES
 from aginiti.graph.schema import ClaimStatus, RiskTier
@@ -148,7 +149,13 @@ def build_anythingllm_library(canary: str) -> OperatorLibrary:
                 # fires just as readily for "the query didn't retrieve the chunk at all" as for
                 # "it retrieved the chunk but declined to follow the embedded instruction." The
                 # raw_signal Fact is always available to tell the two apart on inspection.
-                ClaimEffect("anythingllm_rag_injection_not_retrieved", CONFIRMED, SUBGRAPH_DEFENDER, weight=1),
+                # failure_diagnosis=NOT_RETRIEVED (2026-08-12, Issue 4) is the single most
+                # directly-justified retrofit of this taxonomy in the whole repo -- the category
+                # exists specifically to formalize this EXACT, already-documented ambiguity as a
+                # real, non-generalizable planner-readable fact (see aginiti/graph/
+                # failure_diagnosis.py's own docstring).
+                ClaimEffect("anythingllm_rag_injection_not_retrieved", CONFIRMED, SUBGRAPH_DEFENDER, weight=1,
+                            failure_diagnosis=NOT_RETRIEVED),
             ),
             cost_prompts=1, risk_tier=RiskTier.LOW,
             graph_edge=("anythingllm_rag_document_planted", "anythingllm_rag_injection_executed"),

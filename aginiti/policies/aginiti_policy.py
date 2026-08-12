@@ -33,6 +33,7 @@ class AginitiPolicy:
                       "path_progress": rc.path_progress, "emergent_impact": rc.emergent_impact,
                       "potential_progress": rc.potential_progress, "chain_value": rc.chain_value,
                       "branch_interest": rc.branch_interest, "severity_priority": rc.severity_priority,
+                      "failure_evidence_penalty": rc.failure_evidence_penalty,
                       "alpha": rc.alpha, "beta": rc.beta},
             )
             for rc in ranked

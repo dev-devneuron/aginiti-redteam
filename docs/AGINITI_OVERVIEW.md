@@ -9,6 +9,32 @@ document's companions: the former goes deeper on the attack-category
 taxonomy and adaptive-discovery mechanics, the latter is the full
 citations ledger._
 
+## Update — 2026-08-12 (second pass, same day): 5 architectural fixes + an
+## independent engineering hardening audit
+
+Two more chapters landed the same day this document was first written,
+both fully reflected below where they touch existing sections, but with
+their own dedicated docs for full depth:
+
+- **[`docs/MULTI_STEP_DISCOVERY_AND_SCORING.md`](MULTI_STEP_DISCOVERY_AND_SCORING.md)**
+  — `ClassPrecondition` (multi-step attack-path discovery from semantic
+  tags, not hardcoded chains), `composite_score.py` (severity-weighted
+  campaign scoring), a graduated-difficulty benchmark pack, two new
+  agentic primitive types (approval gates, untrusted tool-output content),
+  and a structured failure-diagnosis taxonomy feeding a new
+  `failure_evidence_penalty` planner term. §2's utility formula and §3's
+  attack catalog below are updated to reflect these.
+- **[`docs/ENGINEERING_HARDENING_PASS.md`](ENGINEERING_HARDENING_PASS.md)**
+  — an independent, from-scratch architecture audit ("don't assume the
+  architecture is correct just because 500+ tests pass"): traced the real
+  execution path end-to-end, found and fixed 5 real bugs (2 serious —
+  `ObservationAdapter.execute()` had no exception handling around
+  `agent.send()` at all, so a target-side crash/timeout could kill an
+  entire campaign uncaught; `AnythingLLMAdapter` had no generic failure
+  handling), added a 10-scenario deterministic end-to-end test suite, and
+  ran a live smoke test against the real hardened AnythingLLM target.
+  837/837 tests passing.
+
 ---
 
 ## 1. What Aginiti is
@@ -80,7 +106,7 @@ identity that updates in place as evidence arrives). Full mechanics in
 `ARCHITECTURE.md` §5-6 — unchanged since it was written.
 
 **The planner's utility function** (`aginiti/planner/aginiti_planner.py`,
-current form — two terms added since `ARCHITECTURE.md` §6):
+current form — three terms added since `ARCHITECTURE.md` §6):
 
 ```
 utility(op) = alpha * (info_gain(op) + chain_value(op))
@@ -88,6 +114,7 @@ utility(op) = alpha * (info_gain(op) + chain_value(op))
                        + emergent_impact(op) + potential_progress(op))
             + gap_priority(op) + hypothesis_priority(op)
             + branch_interest(op) + severity_priority(op)
+            + failure_evidence_penalty(op)
 ```
 
 - `chain_value` — a plant operator gets discounted (0.5x) credit for its
@@ -97,8 +124,59 @@ utility(op) = alpha * (info_gain(op) + chain_value(op))
 - `severity_priority` — an unscaled additive nudge toward higher
   `security_boundary` (L0-L5) findings, the planner's first-ever
   awareness of finding *severity*, not just claim resolution.
+- `failure_evidence_penalty` (added same-day, second pass) — a negative,
+  bounded, additive nudge: if a CONFIRMED failure claim anywhere in the
+  graph carries a **generalizable** `failure_diagnosis` tag (`blocked_by_
+  privilege`, `blocked_by_network_egress`, `blocked_by_approval_gate` —
+  see `aginiti/graph/failure_diagnosis.py`) and a candidate operator's own
+  prospective failure would carry the identical tag, that candidate is
+  demoted. Reuses `ClassPrecondition`'s exact tag-matching idea, applied
+  to negative instead of positive evidence — the literal mechanism behind
+  "given what I just learned, what's now more/less promising."
 - Risk tier and budget remain **hard constraints** on the candidate set,
   never folded into this scalar.
+
+**Multi-step discovery without hardcoded chains** (added same-day, second
+pass): every chain before this point (below) was wired with `Precondition`
+— an author hardcoded that operator B needs the EXACT claim key operator A
+produces. `ClassPrecondition` (`aginiti/operators/library.py`) instead
+matches on the SEMANTIC TAG a claim carries (`category`, `attack_category`,
+or a minimum `security_boundary` rank) — a downstream operator gated this
+way is unlocked by *whichever* upstream operator happens to produce a
+matching claim, including one written later by a different author for a
+different subsystem. `aginiti/graph/target_graph.py`'s new hub-node
+mechanism (`category_hub()`/`attack_category_hub()`/`boundary_hub()`)
+makes this genuinely planner-visible: every one of `path_progress`/
+`chain_value`/`potential_progress`/`budget_feasible` gained the ability to
+reason over a discovered, non-hardcoded chain with **zero changes** to
+`aginiti_planner.py` itself. Demonstrated with a real 6-step chain
+(`aginiti/operators/discovery_chain_definitions.py`) matching the
+architecture's own founding example verbatim: discover capability →
+establish trust → poison retrieved context → trigger tool → reach
+sensitive resource → exfiltrate — with two independently-authored,
+mutually-substitutable "establish trust" operators proving the discovery
+is real (delete either one, the identical downstream chain still
+completes through the other, zero code changes). Full derivation,
+including a real cost-accounting bug this change introduced and fixed
+(hub traversal was initially double-counted as a real operator hop), in
+`docs/MULTI_STEP_DISCOVERY_AND_SCORING.md`.
+
+**Composite severity-weighted scoring** (`aginiti/composite_score.py`,
+added same day): `mission_success × security_boundary × business_impact ×
+cost_efficiency × evidence_quality`, multiplicative — a campaign that never
+satisfies its mission scores exactly 0.0, full stop, so no other factor can
+manufacture credit for a non-success. Built specifically to answer "given
+the same target, same budget, which system discovers more consequential
+attack paths" — a question flat attack-success-rate can't answer, since it
+treats a system-prompt leak and a real data exfiltration as the same
+"1 success." Validated against a real graduated-difficulty A–E candidate
+table (`aginiti/operators/graduated_difficulty_definitions.py`, 5
+candidates spanning a genuine cost/probability/severity tradeoff, true
+success rates hidden from every planner) — real finding: `AginitiPlanner`
+wins the raw success-rate race LESS often than a fixed-order baseline, but
+its wins are worth ~2x more on the composite score, because it commits to
+the highest-severity candidate first rather than the cheapest-and-most-
+likely one.
 
 ## 3. The attack catalog — every target, every family
 
@@ -117,6 +195,9 @@ time of writing), not estimates.
 | `aginiti/adaptive/encoding_discovery.py` | unbounded (search) | Same encoding-attack surface, but **searches** instead of enumerating — 10 singles, then role-play priming (SelfCipher), then live-synthesized cross-family stacks, stopping the instant one works |
 | `aginiti/adaptive/framing_discovery.py` | 5 pretexts + PAIR escalation | Direct/authority/urgency/compliance/role-play framings for the same underlying ask, escalating to LLM-driven prompt rewriting if every static framing fails |
 | `aginiti/adaptive/refinement.py` | n/a (wraps any operator) | PAIR-style (Chao et al. 2023) single-operator retry: rewrites a failed prompt using the target's own response as feedback |
+| `discovery_chain_definitions.py` (added 2026-08-12) | 8 | Genuine 6-step chain (discover → establish trust → poison context → trigger tool → reach resource → exfiltrate) gated ONLY by `ClassPrecondition`, plus 2 decoys — the ClassPrecondition/discovery demonstration pack, see §2 above |
+| `graduated_difficulty_definitions.py` (added 2026-08-12) | 5 | The A–E graduated-difficulty candidate table (independently-varied cost/severity, true success probability hidden from the planner) — the composite-scoring demonstration pack, see §2 above |
+| `agentic_primitives_definitions.py` (added 2026-08-12) | 6 | Two new primitive TYPES: an approval-gate (a sensitive action gated behind a second confirmation step, with a bypass-attempt operator) and untrusted tool-output content (a tool's own RETURN VALUE, not its input or a RAG document, carrying an embedded instruction) — target-agnostic, dry-run validated only; mapping onto a real target (DVAA) is explicitly deferred, see `docs/MULTI_STEP_DISCOVERY_AND_SCORING.md` §Issue 3 |
 
 ### Mock reference target (Payroll/Slack/GitHub/IT-Helpdesk)
 

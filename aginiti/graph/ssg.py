@@ -84,6 +84,7 @@ class SecurityStateGraph:
     claim_owasp_category: dict[str, str] = field(default_factory=dict)  # claim key -> OWASP LLM Top 10 tag (aginiti/graph/owasp_llm_taxonomy.py)
     claim_attack_category: dict[str, str] = field(default_factory=dict)  # claim key -> attack methodology tag (aginiti/graph/attack_category.py)
     claim_atlas_technique: dict[str, str] = field(default_factory=dict)  # claim key -> verified MITRE ATLAS technique id (aginiti/graph/mitre_atlas_refs.py)
+    claim_failure_diagnosis: dict[str, str] = field(default_factory=dict)  # claim key -> structured failure-diagnosis tag (aginiti/graph/failure_diagnosis.py)
     # Derived working memory (aginiti/graph/belief_state.py) -- a CACHE over
     # the fields above, not another source of truth. Deliberately excluded
     # from persistence.py; see that module's comment.
@@ -197,7 +198,8 @@ class SecurityStateGraph:
     def assert_claim(self, key: str, object_: str, status: ClaimStatus,
                       subgraph: str = SUBGRAPH_TARGET, category: str | None = None,
                       security_boundary: str | None = None, owasp_llm_category: str | None = None,
-                      attack_category: str | None = None, mitre_atlas_technique: str | None = None) -> Claim:
+                      attack_category: str | None = None, mitre_atlas_technique: str | None = None,
+                      failure_diagnosis: str | None = None) -> Claim:
         """Create a new Claim version for `key` with an explicit status.
         Confidence is derived from whatever Observations already reference
         this key (0 if none yet -> LOW). `category` is optional because the
@@ -210,7 +212,8 @@ class SecurityStateGraph:
         same optional, sticky-until-overwritten pattern -- see aginiti/
         graph/security_boundary.py, aginiti/graph/owasp_llm_taxonomy.py,
         aginiti/graph/attack_category.py, and aginiti/graph/
-        mitre_atlas_refs.py."""
+        mitre_atlas_refs.py. `failure_diagnosis` follows the identical
+        pattern -- see aginiti/graph/failure_diagnosis.py."""
         prior = self.current_claim(key)
         net = self._net_observation_score(key)
         claim = Claim.create(
@@ -232,6 +235,8 @@ class SecurityStateGraph:
             self.claim_attack_category[key] = attack_category
         if mitre_atlas_technique is not None:
             self.claim_atlas_technique[key] = mitre_atlas_technique
+        if failure_diagnosis is not None:
+            self.claim_failure_diagnosis[key] = failure_diagnosis
         self._update_hypotheses_for_claim(key, status)
         return claim
 
@@ -368,4 +373,19 @@ class SecurityStateGraph:
             claim = self.current_claim(key)
             if claim is not None and claim.status == ClaimStatus.CONFIRMED:
                 out[key] = technique
+        return out
+
+    def confirmed_failure_diagnoses(self) -> dict[str, str]:
+        """claim key -> structured failure-diagnosis tag (aginiti/graph/
+        failure_diagnosis.py), for every CURRENTLY-CONFIRMED claim that has
+        one -- i.e. every failure whose MECHANISM has been diagnosed, not
+        just recorded as a bare "*_blocked" fact. Same opt-in discipline as
+        confirmed_atlas_techniques(): absence means "not yet diagnosed,"
+        not "no diagnosis applies." See aginiti_planner.py's
+        failure_evidence_penalty() for the planner term that reads this."""
+        out = {}
+        for key, diagnosis in self.claim_failure_diagnosis.items():
+            claim = self.current_claim(key)
+            if claim is not None and claim.status == ClaimStatus.CONFIRMED:
+                out[key] = diagnosis
         return out

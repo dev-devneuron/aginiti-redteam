@@ -156,3 +156,65 @@ def test_load_ssg_bumps_id_counters_past_loaded_ids_to_avoid_collisions(tmp_path
 
 def test_bump_id_counter_ignores_malformed_ids():
     bump_id_counter("weird", "not-a-standard-id")  # must not raise
+
+
+def test_round_trip_preserves_all_five_taxonomy_dimensions(tmp_path):
+    """2026-08-12 hardening-pass fix: security_boundary/owasp_llm_category/
+    attack_category/mitre_atlas_technique/failure_diagnosis were silently
+    dropped by save_ssg/load_ssg entirely (only claim_subgraph/
+    claim_category round-tripped) -- a resumed campaign lost real,
+    functional planner signal, not just report cosmetics: ClassPrecondition
+    (aginiti/operators/library.py) reads claim_attack_category/
+    claim_boundary directly to decide operator eligibility."""
+    from aginiti.graph.attack_category import RAG_POISONING
+    from aginiti.graph.failure_diagnosis import BLOCKED_BY_PRIVILEGE
+    from aginiti.graph.mitre_atlas_refs import INDIRECT_PROMPT_INJECTION
+    from aginiti.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION
+    from aginiti.graph.security_boundary import BOUNDARY_L3
+
+    ssg = SecurityStateGraph()
+    ssg.assert_claim("k1", "true", ClaimStatus.CONFIRMED, security_boundary=BOUNDARY_L3,
+                      owasp_llm_category=LLM01_PROMPT_INJECTION, attack_category=RAG_POISONING,
+                      mitre_atlas_technique=INDIRECT_PROMPT_INJECTION)
+    ssg.assert_claim("k2_blocked", "true", ClaimStatus.CONFIRMED, failure_diagnosis=BLOCKED_BY_PRIVILEGE)
+
+    path = tmp_path / "graph.json"
+    save_ssg(ssg, path)
+    loaded = load_ssg(path)
+
+    assert loaded.claim_boundary["k1"] == BOUNDARY_L3
+    assert loaded.claim_owasp_category["k1"] == LLM01_PROMPT_INJECTION
+    assert loaded.claim_attack_category["k1"] == RAG_POISONING
+    assert loaded.claim_atlas_technique["k1"] == INDIRECT_PROMPT_INJECTION
+    assert loaded.claim_failure_diagnosis["k2_blocked"] == BLOCKED_BY_PRIVILEGE
+
+    # And the functional consequence: a ClassPrecondition gated on these
+    # tags must still be satisfiable against the RELOADED graph, not just
+    # the original one.
+    from aginiti.graph.schema import RiskTier
+    from aginiti.operators.library import ClassPrecondition, Operator
+
+    cpre_attack = ClassPrecondition(attack_category=RAG_POISONING)
+    probe = Operator(id="probe", description="x", prompt="x", channel="direct", preconditions=(),
+                      precondition_classes=(cpre_attack,),
+                      effects_success=(), effects_failure=(), cost_prompts=1, risk_tier=RiskTier.LOW)
+    assert probe.preconditions_met(loaded)
+
+
+def test_round_trip_on_a_graph_saved_before_these_five_dimensions_existed_defaults_to_empty(tmp_path):
+    # A graph saved by an older version of this project has none of these
+    # keys in its JSON -- load_ssg must default to empty dicts, not KeyError.
+    ssg = SecurityStateGraph()
+    ssg.assert_claim("k1", "true", ClaimStatus.CONFIRMED)
+    path = tmp_path / "graph.json"
+    save_ssg(ssg, path)
+
+    raw = json.loads(path.read_text())
+    for key in ("claim_boundary", "claim_owasp_category", "claim_attack_category",
+                "claim_atlas_technique", "claim_failure_diagnosis"):
+        del raw[key]
+    path.write_text(json.dumps(raw))
+
+    loaded = load_ssg(path)  # must not raise
+    assert loaded.claim_boundary == {}
+    assert loaded.claim_failure_diagnosis == {}

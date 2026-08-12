@@ -73,6 +73,25 @@ def save_ssg(ssg: SecurityStateGraph, path: str | Path) -> None:
         "operator_stats": {op_id: asdict(stats) for op_id, stats in ssg.operator_stats.items()},
         "claim_subgraph": ssg.claim_subgraph,
         "claim_category": ssg.claim_category,
+        # 2026-08-12 hardening-pass fix: these 4 dicts (added incrementally
+        # over several sessions -- security_boundary.py 08-09, owasp_llm_
+        # taxonomy.py/attack_category.py/mitre_atlas_refs.py 08-12,
+        # failure_diagnosis.py 08-12) were never added here, so any resumed
+        # campaign (scripts/generate_target_profile.py, exp5/exp6's
+        # understanding-loop experiments) silently lost every severity/
+        # taxonomy/failure-diagnosis tag on reload -- NOT cosmetic:
+        # ClassPrecondition (aginiti/operators/library.py) reads
+        # claim_attack_category/claim_boundary directly to decide operator
+        # eligibility, so a resumed campaign could make a genuinely-
+        # confirmed, class-gated downstream operator permanently
+        # unreachable, and severity_priority()/failure_evidence_penalty()
+        # would silently go blind. claim_category already round-tripped
+        # (above) and was the ONLY one of these five dimensions that did.
+        "claim_boundary": ssg.claim_boundary,
+        "claim_owasp_category": ssg.claim_owasp_category,
+        "claim_attack_category": ssg.claim_attack_category,
+        "claim_atlas_technique": ssg.claim_atlas_technique,
+        "claim_failure_diagnosis": ssg.claim_failure_diagnosis,
         # "_cls" (not "type") because Asset/DefenderControl both already
         # have a field literally named `type` -- tagging under that key
         # would get silently overwritten by the field's own value.
@@ -150,6 +169,16 @@ def load_ssg(path: str | Path) -> SecurityStateGraph:
 
     ssg.claim_subgraph.update(data.get("claim_subgraph", {}))
     ssg.claim_category.update(data.get("claim_category", {}))
+    # .get(..., {}) defaults: a graph saved before 2026-08-12's fix (or
+    # before whichever dimension was added) simply has none of these keys
+    # -- restoring nothing for them is the correct, safe behavior, not an
+    # error, matching every other backward-compatible .get() read in this
+    # function (e.g. priority_weight above).
+    ssg.claim_boundary.update(data.get("claim_boundary", {}))
+    ssg.claim_owasp_category.update(data.get("claim_owasp_category", {}))
+    ssg.claim_attack_category.update(data.get("claim_attack_category", {}))
+    ssg.claim_atlas_technique.update(data.get("claim_atlas_technique", {}))
+    ssg.claim_failure_diagnosis.update(data.get("claim_failure_diagnosis", {}))
 
     for n in data.get("structural_nodes", []):
         cls = _STRUCTURAL_TYPES.get(n.get("_cls"))

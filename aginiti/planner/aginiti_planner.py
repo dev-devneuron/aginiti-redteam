@@ -176,6 +176,20 @@ _CHAIN_VALUE_DISCOUNT = 0.5
 # severity_priority()'s own docstring for the full reasoning.
 _SEVERITY_WEIGHT_PER_LEVEL = 0.2
 
+# failure_evidence_penalty()'s magnitude -- deliberately the SAME order of
+# magnitude as severity_priority's max (1.0 at L5, rank 5 * 0.2), not an
+# independently-guessed number: a confirmed structural block (a REAL
+# negative signal) should be able to fully offset a candidate's max
+# severity-driven appeal, forcing genuine reconsideration rather than
+# blindly re-attempting something evidence already suggests is blocked --
+# but, matching every hard-constraint/soft-nudge split already established
+# in this module ("risk and budget are hard constraints... not penalty
+# terms inside the maximized quantity"), this stays a SOFT, bounded nudge,
+# not a hard exclusion: a candidate with strong OTHER evidence (high
+# info_gain, on-path chain_value) can still outrank a demoted one, exactly
+# as intended -- the penalty should inform, not veto.
+_FAILURE_PENALTY_WEIGHT = 1.0
+
 
 @dataclass
 class RankedCandidate:
@@ -191,6 +205,7 @@ class RankedCandidate:
     hypothesis_priority: float
     branch_interest: float
     severity_priority: float
+    failure_evidence_penalty: float
     alpha: float
     beta: float
 
@@ -735,6 +750,59 @@ class AginitiPlanner:
             return 0.0
         return _SEVERITY_WEIGHT_PER_LEVEL * best_rank
 
+    def failure_evidence_penalty(self, operator: Operator, ssg: SecurityStateGraph) -> float:
+        """Added 2026-08-12 at explicit user direction (Issue 4 of that
+        day's architectural directive: "give the planner better feedback
+        from failure"): "A failure shouldn't simply mean 'attack failed.'
+        It should produce structured evidence... Then the planner should
+        ask: given what I just learned, what attack path is now more
+        promising?"
+
+        Before this, a failure only ever removed ONE candidate from
+        contention -- the executed_ids one-shot-per-operator rule stops
+        Aginiti from blindly re-running the EXACT SAME operator, but
+        nothing generalized that evidence to a DIFFERENT operator that
+        would plausibly fail for the SAME structural reason. This closes
+        that gap: if a CONFIRMED failure claim anywhere in the graph
+        carries a GENERALIZABLE failure_diagnosis tag (aginiti/graph/
+        failure_diagnosis.py -- blocked_by_privilege, blocked_by_network_
+        egress, blocked_by_approval_gate; NOT not_retrieved/
+        actively_refused, which are deliberately excluded as
+        non-generalizable, see that module's own docstring), and THIS
+        candidate's own prospective failure effect carries the IDENTICAL
+        tag, that's real, specific evidence the same mechanism plausibly
+        blocks this candidate too -- demote it.
+
+        Reuses the exact tag-matching idea ClassPrecondition already
+        established for POSITIVE evidence (aginiti/operators/library.py)
+        -- this is the same mechanism applied to NEGATIVE evidence: "any
+        claim matching this semantic tag" rather than one exact key,
+        generalizing across operators that were never wired to reference
+        each other.
+
+        A negative, bounded, additive nudge -- same "soft nudge, not a
+        hard exclusion" discipline as severity_priority (see
+        _FAILURE_PENALTY_WEIGHT's own comment): a genuinely strong
+        candidate on every other term can still outrank a demoted one.
+        Untagged operators (no failure effect carries a failure_diagnosis
+        at all -- every operator in this repo before Issue 4) score
+        exactly 0.0, a true no-op."""
+        from aginiti.graph.failure_diagnosis import is_generalizable
+
+        prospective_diagnoses = {
+            effect.failure_diagnosis for effect in operator.effects_failure
+            if is_generalizable(effect.failure_diagnosis)
+        }
+        if not prospective_diagnoses:
+            return 0.0
+        for key, diagnosis in ssg.claim_failure_diagnosis.items():
+            if diagnosis not in prospective_diagnoses:
+                continue
+            claim = ssg.current_claim(key)
+            if claim is not None and claim.status == ClaimStatus.CONFIRMED:
+                return -_FAILURE_PENALTY_WEIGHT
+        return 0.0
+
     def rank(self, library: OperatorLibrary, ssg: SecurityStateGraph, mission: Mission,
               prompts_used: int, executed_ids: frozenset[str] = frozenset()) -> list[RankedCandidate]:
         alpha, beta = self._schedule(ssg, prompts_used, mission.budget)
@@ -753,16 +821,18 @@ class AginitiPlanner:
             hp = self.hypothesis_priority(op, ssg)
             bri = self.branch_interest(op, ssg)
             sp = self.severity_priority(op, ssg)
+            fep = self.failure_evidence_penalty(op, ssg)
             # cv joins ig in alpha's basket, not beta's: it is speculative
             # lookahead value (like ig, resolving what's currently
             # unknown), not yet-confirmed structural progress (what
             # beta's bi/pp/ep/pop terms are reserved for) -- see
-            # chain_value()'s own docstring. sp joins gp/hp/bri as an
-            # unscaled additive nudge -- see severity_priority()'s own
-            # docstring for why it must never be alpha/beta-weighted.
-            utility = alpha * (ig + cv) + beta * (bi + pp + ep + pop) + gp + hp + bri + sp
+            # chain_value()'s own docstring. sp and fep join gp/hp/bri as
+            # unscaled additive nudges -- see severity_priority()'s and
+            # failure_evidence_penalty()'s own docstrings for why they
+            # must never be alpha/beta-weighted.
+            utility = alpha * (ig + cv) + beta * (bi + pp + ep + pop) + gp + hp + bri + sp + fep
             if utility <= 0:
                 continue  # zero predicted value left -- a rational planner has no reason to run it
-            ranked.append(RankedCandidate(op, utility, ig, bi, pp, ep, pop, cv, gp, hp, bri, sp, alpha, beta))
+            ranked.append(RankedCandidate(op, utility, ig, bi, pp, ep, pop, cv, gp, hp, bri, sp, fep, alpha, beta))
         ranked.sort(key=lambda c: c.utility, reverse=True)
         return ranked

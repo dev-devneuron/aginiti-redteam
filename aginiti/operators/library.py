@@ -36,6 +36,70 @@ class Precondition:
 
 
 @dataclass(frozen=True)
+class ClassPrecondition:
+    """A precondition satisfied by ANY currently-current claim matching a
+    SEMANTIC CLASS, not one specific declared key -- added 2026-08-12 as
+    the mechanism for genuine multi-step attack-path discovery (design doc
+    directive: "don't tell Aginiti the chain. It should discover it from
+    observations").
+
+    `Precondition` above is exact-key matching: operator B requires the
+    SPECIFIC claim key a human predicted operator A would produce. That is
+    100% author-declared wiring -- every chain in this project before this
+    (anythingllm_rag_*, anythingllm_automatic_*, anythingllm_markdown_*,
+    anythingllm_multitool_*) is exactly that: a human wrote
+    `Precondition("anythingllm_document_planted", CONFIRMED)` into the
+    trigger operator, so the trigger can ONLY ever be unlocked by that one
+    named plant operator, even though nothing about the trigger's own
+    prompt or mechanism actually depends on which specific operator
+    produced the antecedent fact.
+
+    ClassPrecondition instead matches on the TAGS already carried by every
+    claim in this codebase (ssg.py's CATEGORY_* / attack_category.py /
+    security_boundary.py -- established, independently-maintained
+    dimensions, not new machinery invented for this purpose): "any
+    CONFIRMED claim tagged category=trust_edge", or "any CONFIRMED claim
+    tagged attack_category=rag_poisoning", or "any CONFIRMED claim at
+    security_boundary rank >= 2". A downstream operator gated this way is
+    unlocked by WHATEVER operator happens to produce a matching claim --
+    including one written after the downstream operator, by a different
+    author, targeting a completely different subsystem. That is the actual
+    discovery mechanism: the planner's candidate set changes because of
+    what was semantically LEARNED, not because a human pre-wired an exact
+    key into a precondition tuple.
+
+    At least one of category/attack_category/min_security_boundary_rank
+    must be set (__post_init__ raises otherwise) -- an all-None instance
+    would silently match the FIRST currently-current tagged claim
+    regardless of what it actually represents, which is not "genuinely
+    permissive," it's a latent correctness bug (an accidental universal
+    unlock). Combining more than one field means AND (every set field must
+    match the same claim key), for precision when a class needs to be
+    narrower than a single tag (e.g. "a trust_edge specifically established
+    via indirect_injection," not any trust_edge at all).
+
+    See Operator.preconditions_met() for the matching semantics (mirrors
+    exact-key Precondition's HYPOTHESIZED-means-wildcard-status rule for
+    consistency) and aginiti/graph/target_graph.py's category_hub() /
+    attack_category_hub() / boundary_hub() for how this same class concept
+    becomes real, planner-visible GRAPH EDGES -- not just a candidate-set
+    gate -- so path_progress/chain_value/potential_progress reason over
+    discovered chains with zero changes to aginiti_planner.py."""
+    category: str | None = None
+    attack_category: str | None = None
+    min_security_boundary_rank: int | None = None
+    status: ClaimStatus = ClaimStatus.CONFIRMED
+
+    def __post_init__(self) -> None:
+        if self.category is None and self.attack_category is None and self.min_security_boundary_rank is None:
+            raise ValueError(
+                "ClassPrecondition needs at least one of category / attack_category / "
+                "min_security_boundary_rank -- an all-None instance would match any tagged "
+                "claim at all, which is never the intent."
+            )
+
+
+@dataclass(frozen=True)
 class ClaimEffect:
     key: str
     status: ClaimStatus
@@ -89,6 +153,15 @@ class ClaimEffect:
     # case) means "not yet verified against ATLAS," not "no ATLAS
     # technique applies."
     mitre_atlas_technique: str | None = None
+    # WHY this effect represents a failure, structurally -- see
+    # aginiti/graph/failure_diagnosis.py for the 5-category taxonomy and
+    # why this is deliberately meaningful ONLY on effects_failure entries
+    # (a success effect has nothing to "diagnose"; setting this on a
+    # success effect is harmless but meaningless -- no code reads it
+    # there). Same opt-in discipline as every other tag: None (the
+    # default) preserves every existing operator's behavior unchanged,
+    # and means "not yet diagnosed," not "no diagnosis applies."
+    failure_diagnosis: str | None = None
 
     def __post_init__(self) -> None:
         if self.category is None:
@@ -153,6 +226,12 @@ class Operator:
     # default) leaves every existing operator on the judge-based path,
     # unchanged.
     extractor: Callable[[str], list[str]] | None = None
+    # Semantic-class preconditions -- see ClassPrecondition's own docstring.
+    # Defaults to () so every existing operator (all exact-key `preconditions`)
+    # is completely unaffected; ANDed with `preconditions` in
+    # preconditions_met() -- both tuples must be satisfied, so an operator can
+    # mix "this exact setup claim" with "any trust edge from anywhere."
+    precondition_classes: tuple[ClassPrecondition, ...] = ()
 
     def render_prompt(self, ssg: SecurityStateGraph) -> str:
         if not self.template_vars:
@@ -173,7 +252,46 @@ class Operator:
                 return False
             if pre.status != ClaimStatus.HYPOTHESIZED and claim.status != pre.status:
                 return False
+        for cpre in self.precondition_classes:
+            if not self._class_precondition_met(cpre, ssg):
+                return False
         return True
+
+    def _class_precondition_met(self, cpre: ClassPrecondition, ssg: SecurityStateGraph) -> bool:
+        """Is there ANY currently-current, non-refuted claim matching every
+        field `cpre` sets? See ClassPrecondition's own docstring for why
+        this is the actual chain-discovery mechanism -- this scan is the
+        only place that mechanism lives; target_graph.py's hub edges are a
+        SEPARATE, planner-visibility-only mirror of the same idea (a
+        confirmed-only edge into a shared hub node), not the source of
+        truth for eligibility.
+
+        Candidate keys are the union of every key ever tagged with
+        category/attack_category/security_boundary at all (most keys in a
+        real campaign have at least one of these tags by now, given how
+        pervasively this project's operator packs set them) -- narrowed by
+        whichever of cpre's three fields are actually set, then confirmed
+        against that key's CURRENT claim/status exactly as exact-key
+        Precondition does."""
+        from aginiti.graph.security_boundary import rank as boundary_rank
+
+        candidate_keys = set(ssg.claim_category) | set(ssg.claim_attack_category) | set(ssg.claim_boundary)
+        for key in candidate_keys:
+            if cpre.category is not None and ssg.claim_category.get(key) != cpre.category:
+                continue
+            if cpre.attack_category is not None and ssg.claim_attack_category.get(key) != cpre.attack_category:
+                continue
+            if cpre.min_security_boundary_rank is not None:
+                level = ssg.claim_boundary.get(key)
+                if level is None or boundary_rank(level) < cpre.min_security_boundary_rank:
+                    continue
+            claim = ssg.current_claim(key)
+            if claim is None or claim.status == ClaimStatus.REFUTED:
+                continue
+            if cpre.status != ClaimStatus.HYPOTHESIZED and claim.status != cpre.status:
+                continue
+            return True
+        return False
 
     def predicted_keys(self) -> set[str]:
         return {e.key for e in self.effects_success} | {e.key for e in self.effects_failure}

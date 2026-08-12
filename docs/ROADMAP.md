@@ -21,6 +21,15 @@ layer none of the phases below mention. Treat everything from "How we got
 here" onward in this file as the accurate history through
 **2026-08-09**, not the present.
 
+**2026-08-12 addendum:** two more chapters landed the same day —
+multi-step attack-path discovery without hardcoded chains, composite
+severity-weighted scoring, and a structured failure-diagnosis taxonomy
+(`docs/MULTI_STEP_DISCOVERY_AND_SCORING.md`), followed by an independent
+engineering-hardening audit that found and fixed 5 real bugs (2
+architectural) in the core execution path and added a 10-scenario
+deterministic end-to-end test suite plus a live smoke test against the
+real hardened AnythingLLM target (`docs/ENGINEERING_HARDENING_PASS.md`).
+
 ---
 
 ## Executive summary

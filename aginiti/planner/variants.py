@@ -95,6 +95,17 @@ class GreedyInfoGainPlanner(AginitiPlanner):
     def severity_priority(self, operator: Operator, ssg: SecurityStateGraph) -> float:
         return 0.0  # unscaled additive term, same reasoning as gap_priority/hypothesis_priority above
 
+    def failure_evidence_penalty(self, operator: Operator, ssg: SecurityStateGraph) -> float:
+        return 0.0  # unscaled additive term (added 2026-08-12, Issue 4) -- same "pure
+        # parameterization, never silently absorb a new base-class term" discipline as
+        # severity_priority immediately above. This override was MISSING for one full
+        # session after failure_evidence_penalty was added (found in the 2026-08-12
+        # hardening-pass audit) -- these three classes' whole reason to exist is staying
+        # true ablations of the formula as it existed when each was designed, so a new
+        # unscaled term silently leaking in defeats that purpose without ever raising an
+        # error, exactly the kind of "looks fine, quietly wrong" bug this pass exists to
+        # catch.
+
 
 class GreedyBusinessImpactPlanner(AginitiPlanner):
     """alpha=0, beta=1, fixed -- "exploit-first": ranks purely by predicted
@@ -122,6 +133,9 @@ class GreedyBusinessImpactPlanner(AginitiPlanner):
 
     def severity_priority(self, operator: Operator, ssg: SecurityStateGraph) -> float:
         return 0.0
+
+    def failure_evidence_penalty(self, operator: Operator, ssg: SecurityStateGraph) -> float:
+        return 0.0  # see GreedyInfoGainPlanner's own override for the full reasoning
 
 
 class BFSOnlyPlanner(AginitiPlanner):
@@ -156,6 +170,9 @@ class BFSOnlyPlanner(AginitiPlanner):
 
     def severity_priority(self, operator: Operator, ssg: SecurityStateGraph) -> float:
         return 0.0
+
+    def failure_evidence_penalty(self, operator: Operator, ssg: SecurityStateGraph) -> float:
+        return 0.0  # see GreedyInfoGainPlanner's own override for the full reasoning
 
     def _schedule(self, ssg: SecurityStateGraph, prompts_used: int, budget: int) -> tuple[float, float]:
         return 0.0, 1.0  # beta must be nonzero for path_progress's beta*(bi+pp) term to count at all
