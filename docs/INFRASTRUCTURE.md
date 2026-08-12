@@ -106,6 +106,56 @@ curl -H "Authorization: Bearer gw-full-admin-key" http://localhost:3002/api/v1/w
 curl http://localhost:8901/                                                   # listener
 ```
 
+## Python environment — also now fully inside the project
+
+Through 2026-08-12, every Python package Aginiti (and garak, its
+benchmark-comparison tool) depends on was installed into the **global**
+`C:\Python313` interpreter's site-packages, not anywhere project-scoped —
+including garak's own ~800MB+ of ML dependencies (torch, transformers,
+datasets, accelerate, litellm, ...), 100% specific to this project, sitting
+on the same nearly-full C: drive.
+
+A `.venv` already existed at `E:\Aginiti-Extended\.venv` (created early in
+the project, mostly populated, just never actually adopted) — completed it
+(added `flask`, `garak`) rather than rebuilding from scratch. Verified:
+**837/837 tests pass using this venv, and noticeably faster than the global
+interpreter (39s vs 90-110s)**, presumably less path-search overhead against
+a smaller, project-scoped site-packages.
+
+```bash
+# Run anything (tests, scripts, experiments) using the project's own venv:
+E:\Aginiti-Extended\.venv\Scripts\python.exe -m pytest -q
+E:\Aginiti-Extended\.venv\Scripts\python.exe -m aginiti.target_hardening.gateway_server
+E:\Aginiti-Extended\.venv\Scripts\python.exe -m garak --list_probes
+```
+
+`scripts/pre-commit` (and the installed `.git/hooks/pre-commit`) now prefer
+this venv automatically, falling back to global `python` only if the venv
+is missing.
+
+**garak's own data directory** (run reports/hitlogs — real evidence from
+the exp19 garak-vs-Aginiti comparison) moved from
+`C:\Users\Omer\.local\share\garak\` to
+`E:\Aginiti-Extended\infra\garak_data_root\garak\`, via the `XDG_DATA_HOME`
+environment variable (set persistently at the Windows user level to
+`E:\Aginiti-Extended\infra\garak_data_root` — garak resolves its data dir
+as `$XDG_DATA_HOME/garak`, confirmed live). Any future garak run from this
+machine writes here automatically, no per-run flag needed.
+
+The exclusively-garak-specific packages (torch, transformers, datasets,
+accelerate, litellm, nltk, sympy, cohere, anthropic, mistralai, replicate,
+ollama, huggingface_hub, sentencepiece, tokenizers, avidtools, cmd2, wn,
+deepl, langdetect, ftfy, and a few smaller ones — ~25 packages, unambiguous
+by name, not plausibly shared with anything else on this machine) were
+uninstalled from the global C: site-packages once confirmed working from
+the venv. Common, potentially-shared packages (`requests`, `click`,
+`jinja2`, `pandas`, `flask`, `openai`, `typer`, `boto3`, ...) were
+deliberately **left alone globally** — removing those carries real risk of
+breaking some other, unrelated tool on this machine that this project has
+no visibility into. If you want those fully migrated too, that's a
+judgment call for you to make explicitly, not something to do
+unilaterally.
+
 ## What's still genuinely temporary
 
 Nothing critical. The remaining Claude-session scratchpad content (this

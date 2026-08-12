@@ -13,7 +13,21 @@
 # any failure. Skip once, deliberately, with: git commit --no-verify
 
 echo "Running pytest before commit (see scripts/pre-commit)..."
-python -m pytest tests/ -q
+# 2026-08-12: prefer the project's own venv (.venv/, built with every
+# pinned requirement + garak) over whatever "python" happens to resolve to
+# globally -- this project's own dependencies now live entirely inside
+# E:\Aginiti-Extended, not scattered across a global site-packages on C:.
+# Falls back to global python if the venv isn't present (e.g. a fresh
+# clone that hasn't run `python -m venv .venv && pip install -r
+# requirements.txt` yet), so this hook still works either way.
+if [ -x ".venv/Scripts/python.exe" ]; then
+    PYTHON=".venv/Scripts/python.exe"
+elif [ -x ".venv/bin/python" ]; then
+    PYTHON=".venv/bin/python"
+else
+    PYTHON="python"
+fi
+"$PYTHON" -m pytest tests/ -q
 status=$?
 
 if [ $status -ne 0 ]; then
