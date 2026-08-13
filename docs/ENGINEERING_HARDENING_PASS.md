@@ -1,13 +1,18 @@
 # Aginiti — Engineering Hardening Pass (2026-08-12)
 
-_Companion to [`docs/MULTI_STEP_DISCOVERY_AND_SCORING.md`](MULTI_STEP_DISCOVERY_AND_SCORING.md)
+_Not rewritten with the rest of `docs/` on 2026-08-13 — already a
+from-scratch document, content unchanged, only cross-references updated.
+Companion to [`docs/MULTI_STEP_DISCOVERY_AND_SCORING.md`](MULTI_STEP_DISCOVERY_AND_SCORING.md)
 (the same-day feature work this pass audited). That document covers WHAT was
 built (multi-step discovery, composite scoring, graduated-difficulty
 benchmarking, agentic primitives, structured failure feedback). This one
 covers whether the SYSTEM AS A WHOLE actually works end-to-end, reliably,
 as one coherent architecture — a full independent audit requested explicitly
 ("Do NOT assume the architecture is correct just because 500+ tests pass"),
-not a self-report._
+not a self-report. `docs/ARCHITECTURE.md` §4.4 and §12 fold this audit's
+key findings (the three parallel execution paths, the exception-safety
+fix) directly into the living architecture reference — read that first for
+how this fits into the current picture._
 
 **Status: complete.** 837/837 tests passing, 5 real bugs found and fixed
 (4 mechanical, 1 architectural), a 10-scenario deterministic end-to-end

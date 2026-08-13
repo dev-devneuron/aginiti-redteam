@@ -1,10 +1,17 @@
-# Multi-step discovery, composite scoring, and all 5 architectural fixes
+# Aginiti — Multi-Step Discovery, Composite Scoring, and 5 Architectural Fixes
 
-**Date:** 2026-08-12
+**Date:** 2026-08-12. Not rewritten with the rest of `docs/` on 2026-08-13 —
+this is already a from-scratch document with no prior version to clean up,
+and its content is unchanged; only cross-references from other documents
+were updated. `docs/ARCHITECTURE.md` §6–9 and `docs/AGINITI_OVERVIEW.md`
+§3–5 both summarize this document's mechanisms in the context of the rest
+of the system; `docs/EVIDENCE_AND_EVALUATION.md` §0 cites its experiments
+directly — read those first for how this fits into the bigger picture.
+
 **Status:** All 5 issues are implemented, tested, and dry-run validated. Issue 3's scope was
 deliberately narrowed on honesty grounds — see that section for exactly what was and wasn't done.
-**No live experiment was run against any target while producing this document**, per the standing
-instruction currently in force.
+No live experiment was run against any target while producing this document, per the standing
+instruction in force at the time.
 
 This document responds to a five-part architectural critique: Aginiti's exp20 results were real
 (chain-pivoting behavior, L5 severity, ground-truth-verified — see `docs/EXP20_RESULTS.md`) but

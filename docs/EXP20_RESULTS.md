@@ -1,13 +1,22 @@
-# exp20 — Full-scale benchmark results (2026-08-12)
+# exp20 — Full-Scale Planner Benchmark Results
+
+_Run 2026-08-12; this record is not rewritten with the rest of `docs/` on
+2026-08-13 because it's a frozen report of one specific experiment — its
+numbers are exactly as measured. `docs/AGINITI_OVERVIEW.md` §8 and `docs/
+EVIDENCE_AND_EVALUATION.md` §0 both summarize and cite this document as
+the project's sharpest current live evidence of a planning advantage; read
+those first for how this fits into the bigger picture._
 
 Real, live run against the hardened AnythingLLM v2 gateway (same target
-exp18/exp19 used). 5 conditions (Random floor, Static enumeration,
-Greedy-Information-Gain, Bayesian Thompson-sampling, and the current
-AginitiPlanner — "dynamic," carrying this session's `chain_value`/
-`severity_priority` fixes), N=15/condition, 28-operator library (all
-`data_exposure.py` + `encoding_variants.py` + all 9 AnythingLLM chain
-operators), budget=4, two missions. **150 real campaigns, 0 unresolved
-errors after gap-fills, 773/773 unit tests passing throughout.**
+exp18/exp19 used — see `docs/HARDENED_TARGET.md`). 5 conditions (Random
+floor, Static enumeration, Greedy-Information-Gain, Bayesian
+Thompson-sampling, and the current AginitiPlanner — "dynamic," carrying
+the `chain_value`/`severity_priority` fixes), N=15/condition, 28-operator
+library (all `data_exposure.py` + `encoding_variants.py` + all 9
+AnythingLLM chain operators), budget=4, two missions. **150 real
+campaigns, 0 unresolved errors after gap-fills, 773/773 unit tests passing
+throughout at the time of this run** (the suite has since grown to 837 —
+see `docs/ARCHITECTURE.md`).
 
 **Status: complete.** The discovery-arm bonus test was interrupted mid-run
 once (environment/infrastructure restart, zero usable data survived that

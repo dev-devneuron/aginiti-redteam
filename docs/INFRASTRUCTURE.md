@@ -1,8 +1,10 @@
-# Aginiti — Where the live infrastructure actually lives
+# Aginiti — Where the Live Infrastructure Actually Lives
 
-_Added 2026-08-12. Quick reference for anyone (human or a future Claude
-session) trying to run a live campaign against a real target — the exact
-question that used to require reading old process command lines to answer._
+_Added 2026-08-12; not rewritten with the rest of `docs/` on 2026-08-13 —
+content unchanged, still fully current. Quick reference for anyone (human
+or a future Claude session) trying to run a live campaign against a real
+target — the exact question that used to require reading old process
+command lines to answer._
 
 ## Why this doc exists
 

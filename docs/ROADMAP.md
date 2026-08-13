@@ -1,34 +1,13 @@
 # Aginiti — Intelligence Roadmap
 
-## Update — 2026-08-12: what happened after this roadmap was last touched
-
-This roadmap's Phase 0 status below still reads as "the founding RQ1
-question is unresolved, blocked on Groq quota" — that framing is now
-superseded, not current. What actually happened, in order: the frozen
-DVLA-target RQ1 protocol was never completed as originally scoped, but
-the project moved to a new, real, harder target (**AnythingLLM**, a
-production-shaped RAG/agent platform) and ran a real sequence of planner
-experiments against it — **exp14 through exp19** — culminating in a real,
-fixed bug in the planner's own utility function (`chain_value`, closing
-the "a plant operator that structurally can't outrank a mediocre single-
-step decoy" gap Experiment 7-adjacent work surfaced) and a real,
-fair, external comparison against **garak** (NVIDIA's LLM vulnerability
-scanner) on a shared hardened target. **`docs/AGINITI_OVERVIEW.md` is now
-the authoritative current-state document** — it has the honest, current
-answer to "does Aginiti's planning actually help," the full attack
-catalog built since Phase 2 below, and the taxonomy/adaptive-discovery
-layer none of the phases below mention. Treat everything from "How we got
-here" onward in this file as the accurate history through
-**2026-08-09**, not the present.
-
-**2026-08-12 addendum:** two more chapters landed the same day —
-multi-step attack-path discovery without hardcoded chains, composite
-severity-weighted scoring, and a structured failure-diagnosis taxonomy
-(`docs/MULTI_STEP_DISCOVERY_AND_SCORING.md`), followed by an independent
-engineering-hardening audit that found and fixed 5 real bugs (2
-architectural) in the core execution path and added a 10-scenario
-deterministic end-to-end test suite plus a live smoke test against the
-real hardened AnythingLLM target (`docs/ENGINEERING_HARDENING_PASS.md`).
+_Last rewritten 2026-08-13. This is not a feature list — it's organized by
+what kind of reasoning capability Aginiti has, is building, or wants next.
+For every capability claimed below, exactly one label applies: **Proven**,
+**Partially proven**, or **Hypothesized**. Nothing is upgraded to Proven
+because the architecture supports it — only because it has been
+demonstrated on a real target, with a citation. Cross-reference `docs/
+EVIDENCE_AND_EVALUATION.md` for the evidence behind every label here; this
+file organizes it by phase, it doesn't re-derive it._
 
 ---
 
@@ -38,19 +17,28 @@ real hardened AnythingLLM target (`docs/ENGINEERING_HARDENING_PASS.md`).
 below is the detailed record behind each line.*
 
 - **What this roadmap tracks:** not features, but reasoning capabilities,
-  each labeled **Proven**, **Partially proven**, or **Hypothesized** — code
-  existing is never itself evidence.
+  each labeled Proven, Partially proven, or Hypothesized — code existing is
+  never itself evidence.
 
 - **The journey, compressed:** started as one question (does an
   evidence-driven planner beat simpler baselines) on a self-built mock
   target → expanded deliberately to real, independently-built targets
   (DVLA, DVAA, the official MCP filesystem server, DVAA's consensus
   scenario) → hit a real API-quota wall that's still the direct reason the
-  founding question is unanswered → made a deliberate governance decision
-  (Pivot 6) that this validation track shouldn't block other evidence-driven
-  capability work → found and fixed a real planning gap
-  (`emergent_impact`) the same day it was discovered. Full account,
-  roadblock by roadblock, in "How we got here" below.
+  founding question's frozen protocol is unanswered → made a deliberate
+  governance decision (Pivot 6) that validation shouldn't gate capability
+  work → integrated AnythingLLM, a real production-shaped RAG/agent
+  platform, as a new primary live target → built a self-hosted, hardened
+  gateway to test against something production-realistic rather than a
+  soft target → ran a real, fair external comparison against garak → found
+  and fixed two separate real planning gaps (`emergent_impact`,
+  `chain_value`) against live evidence → ran a 150-trial live benchmark
+  (exp20) that produced the strongest evidence yet of a real planning
+  advantage → built genuine multi-step attack-path *discovery*
+  (`ClassPrecondition`), not just execution of pre-wired chains → ran an
+  independent, from-scratch engineering audit that treated "500+ tests
+  pass" as insufficient proof of a sound architecture and found 5 real
+  bugs anyway.
 
 - **The governing rule (5 principles, in force since Pivot 6):** a new
   capability only gets built if it solves an *observed* limitation, helps
@@ -58,467 +46,394 @@ below is the detailed record behind each line.*
   exploitation (not just infrastructure), gets validated immediately
   against something real, and — if it's a comparative claim — gets an
   experiment, not intuition.
-  
+
 - **Phase status, at a glance:**
   - **Phase 0 (adaptive planning substrate)** — mechanism proven built and
-    tested; run for real against the mock target 2026-08-07
-    (`docs/EVIDENCE_AND_EVALUATION.md` Section 0) and the honest result is
-    mixed, not a win: tied Static-enumeration on success rate but at ~2.8x
-    the cost, and didn't lead on breadth either. The frozen DVLA-target RQ1
-    protocol itself is still unrun at a meaningful trial count.
-  - **Phase 1 (behavior understanding)** — complete, proven on all four
+    tested. The evidence picture is now genuinely mixed rather than
+    uniformly negative: against the mock target with the earlier planner
+    (2026-08-07), Aginiti tied Static-enumeration on success rate at ~2.8x
+    the cost — not a win. Against a real, hardened, production-shaped
+    target with the current planner (exp20, 2026-08-12), Aginiti produced
+    a real, mechanistically-traced planning advantage that four other
+    strategies — including a real Bayesian bandit — never reproduced. The
+    frozen DVLA-target RQ1 protocol itself remains unrun at a meaningful
+    trial count, still the single most consequential open item in this
+    roadmap.
+  - **Phase 1 (behavior understanding)** — complete, proven on all five
     real targets.
   - **Phase 2 (cross-protocol reasoning)** — the taxonomy is proven to
     generalize across three protocols; the graph noticing patterns
     *automatically* (rather than a human tagging them) is not built.
   - **Phase 3 (hypothesis lifecycle)** — the mechanism is proven; the full
     form→test→resolve cycle has been observed live exactly once.
-  - **Phase 4 (exploit reasoning)** — real multi-hop path reasoning already
-    works (a correction to this document's own earlier text); consequence
-    propagation was a genuine gap, found and fixed same-day; success
-    probability and true multi-step attack-graph search remain
-    Hypothesized, with no forcing target yet.
-  - **Phases 5–6 (cross-target learning, autonomous security scientist)**
-    — Hypothesized, explicitly not started, and — per the roadmap's own
+  - **Phase 4 (exploit reasoning)** — the most active phase in the project
+    right now. Multi-hop path reasoning toward a *known* target works;
+    consequence propagation toward an *unnamed* target (`emergent_impact`)
+    and value-informed chain credit (`chain_value`) are both found, fixed,
+    and evidence-backed; genuine multi-step *discovery* (`ClassPrecondition`)
+    — not just executing a chain a human pre-wired — now exists and is
+    proven offline. Success-probability modeling and full attack-graph
+    search (weighing multiple candidate paths, not just shortening a known
+    one) remain Hypothesized.
+  - **Phases 5–6 (cross-target learning, autonomous security scientist)** —
+    Hypothesized, explicitly not started, and — per the roadmap's own
     discipline — not to be started speculatively.
-- **What's next, in order:** finish RQ1 the moment quota allows; analyze
-  the result and which utility term is or isn't earning its place; only
-  then move toward reducing hand-authored operator/claim knowledge — via a
-  dynamic target that forces inference rather than a speculative
-  "operator-generation system" built ahead of evidence.
+- **What's next, in order:** run the frozen DVLA RQ1 protocol the moment
+  quota allows; get a larger N specifically on exp20's chain-required
+  mission, since the current pairwise result (p=0.224) is real but
+  underpowered; exercise `ClassPrecondition` against a live target with
+  genuinely undeclared topology, not a demonstration pack; validate the
+  agentic-primitives pack against a real target (DVAA, most likely);
+  unify the three parallel execution paths an independent audit
+  identified before adding more capability on top of them.
 - **For every term used above**, see `docs/ARCHITECTURE.md`'s Glossary. For
-  the underlying citations and what's proven vs. only research-motivated,
-  see `docs/EVIDENCE_AND_EVALUATION.md`.
-
----
-
-## New here? Start with this
-
-**What this roadmap is, and isn't.** Not a feature backlog — a map of
-reasoning capabilities (Phases 0–6, below) each labeled **Proven**,
-**Partially proven**, or **Hypothesized**, where "hypothesized" explicitly
-includes things that are fully *implemented* but never demonstrated against
-a real target. Code existing is not evidence; a cited live run or controlled
-experiment is. Cross-referenced throughout against
-`docs/EVIDENCE_AND_EVALUATION.md`, which carries the actual citations this
-file only organizes.
-
-**The trajectory.** The project started as a narrow RQ1 question — does an
-SSG-driven constrained-utility planner beat Random/Static-enumeration/
-Memory-guided baselines — tested against a self-built mock target. It
-expanded by deliberately seeking out real, independently-developed targets
-rather than deepening the mock one: `damn-vulnerable-llm-agent`, DVAA's
-API/MCP/A2A fleet, the official MCP filesystem reference server, DVAA's
-consensus/voting scenario. Each one surfaced real bugs only live execution
-could have found — an effect-clobbering bug and a judge-polarity bug from
-the original benchmark harness, an insight-duplication bug and a
-permanently-unresolvable-hypothesis bug from live DVAA runs, a judge
-under-reporting a compound effect and a hypothesis-matcher gap in a
-precondition chain found and fixed just this session. The Groq per-org
-daily token cap has repeatedly blocked benchmark execution — documented in
-detail below ("How we got here") because it's the direct, mundane reason
-RQ1 — the project's oldest open question — is still unmeasured.
-
-**The operating principle that matters most here.** Every capability that
-exists was built because a *specific, already-observed* limitation forced
-it, never because it seemed valuable in the abstract — formalized as five
-checkable principles (below) after a deliberate pivot decided RQ1 should
-validate progress rather than gate it. When that discipline was tested —
-a proposal to build browser-automation and exploit-chain machinery ahead of
-evidence — it got caught and re-scoped before any code was written. That
-discipline, not any single mechanism, is treated as the project's actual
-differentiator.
-
-**Where things stand.** Strong, proven, on the *understanding* half:
-Fact→Observation→Claim→Insight tiering, cross-protocol category-taxonomy
-reuse, deterministic extraction. Weaker on two fronts: **(1)** the planning
-advantage RQ1 asks about — tested against the mock target 2026-08-07 via a
-second LLM provider built specifically to route around Groq's exhausted
-quota, and the honest result doesn't currently show one (tied
-Static-enumeration on success rate at ~2.8x the cost; see
-`docs/EVIDENCE_AND_EVALUATION.md` Section 0) — the frozen DVLA-target
-protocol itself remains unrun at a meaningful trial count; and **(2)** how
-much hand-authored knowledge every new target still requires — operators,
-claim vocabularies, and `understanding_question`s are still human-written
-per target, which is the real ceiling on "point Aginiti at anything with
-little or no custom code."
-
-**What's next, in order.** Revisit the early-campaign alpha/beta schedule
-against a cost objective specifically — the concrete, evidence-backed
-suspect behind the mock-target cost gap, identified, not guessed at. Then
-complete the frozen DVLA-target RQ1 protocol at a real trial count, closing
-the oldest open question with real numbers instead of a mock-target proxy.
-Only then move toward
-reducing hand-authored knowledge — and explicitly not by starting with
-"build an operator-generation system" (too speculative, no forcing
-function yet), but by pointing Aginiti at a dynamic target where nothing
-is pre-written, so the system is forced to infer behavior rather than
-consume hand-authored operators, and letting whatever actually breaks
-there drive the next concrete increment. Full detail in the phases below.
-For every term used here, see `docs/ARCHITECTURE.md`'s Glossary; for the
-research this design is grounded in (and, just as importantly, exactly
-which comparisons are proven versus only architecturally motivated), see
-`docs/EVIDENCE_AND_EVALUATION.md`'s "Why this approach" section.
-
----
-
-_Living document. This is not a feature list — it's organized by what kind of
-reasoning capability Aginiti has, is building, or wants next. For every
-capability claimed below, exactly one label applies: **Proven**, **Partially
-proven**, or **Hypothesized**. Nothing is upgraded to Proven because the
-architecture supports it — only because it has been demonstrated on a real
-target, with a citation. Cross-reference `docs/EVIDENCE_AND_EVALUATION.md`
-for the evidence behind every Proven/Partially proven label here; this file
-does not re-derive that evidence, only organizes it by phase._
+  the underlying citations, see `docs/EVIDENCE_AND_EVALUATION.md`.
 
 ---
 
 ## How we got here
 
-This section exists because the roadmap only makes sense with the roadblocks
-and pivots attached — several phases below exist specifically *because*
-something upstream broke, was rejected, or forced a redirection. Chronological,
-not idealized.
+This section exists because the roadmap only makes sense with the
+roadblocks and pivots attached — several phases below exist specifically
+*because* something upstream broke, was rejected, or forced a
+redirection. Chronological, not idealized.
 
-**Stage 0 — Adaptive planning substrate (mock target).** The project started
-as a narrower question: does a Security-State-Graph-driven planner beat
-Random/Static/Memory-guided baselines at picking the next attack step, against
-a self-built mock Payroll/Slack/GitHub agent. Built the SSG core, the
-constrained-utility planner, all four policies, and a resumable 4-condition
-benchmark harness with persistent per-trial logging. **Two real bugs were
-found by the benchmark harness itself, not by manual testing** — an
-effect-clobbering bug (same claim key, opposite statuses, silently
-overwritten) and a judge-polarity bug (HYPOTHESIZED effects wrongly scored as
-negative evidence, which broke recon in a data-dependent fraction of every
-campaign). Both are recorded in the top-level `README.md` as a reminder that
-scale surfaces bugs single runs don't.
+**Stage 0 — Adaptive planning substrate (mock target).** The project
+started as a narrower question: does a Security-State-Graph-driven planner
+beat Random/Static/Memory-guided baselines at picking the next attack step,
+against a self-built mock Payroll/Slack/GitHub agent. Built the SSG core,
+the constrained-utility planner, all baseline policies, and a resumable
+4-condition benchmark harness with persistent per-trial logging. Two real
+bugs were found by the benchmark harness itself, not by manual testing —
+an effect-clobbering bug and a judge-polarity bug (HYPOTHESIZED effects
+wrongly scored as negative evidence).
 
-**Roadblock — Groq multi-key rotation didn't multiply budget.** Multiple API
-keys were pooled expecting 3x daily token budget; empirically, every rate-limit
-error across three "independent" keys referenced the same `org_...` id — Groq
-enforces its quota per-organization, not per-key. Keys from the same signup
-share one pool. This is the direct cause of every benchmark run in this
-project's history being small-trial-count and frequently interrupted
-mid-run (see `EVIDENCE_AND_EVALUATION.md` Section 4).
+**Roadblock — Groq multi-key rotation didn't multiply budget, and the pool
+can be collectively drained, not just one key.** Multiple API keys were
+pooled expecting 3x daily token budget; empirically, every rate-limit error
+across "independent" keys referenced the same `org_...` id — Groq enforces
+quota per-organization, not per-key. This is the direct cause of every
+benchmark run in this project's history being small-trial-count and
+frequently interrupted. Re-hit live on 2026-08-07 across two different
+org ids in the same pool, on the same day, independent of anything that
+session did. Fixed operationally (a realistic preflight probe, mid-run
+graceful stop-and-resume) — not a correctness bug in the pooling
+mechanism, an operational gap between "the mechanism works" and "a script
+can reliably tell whether now is a good time to spend budget."
 
-**Roadblock (recurrence, 2026-08-07) — the pool can be collectively drained,
-not just one key.** Re-hit live while running the controlled experiments in
-`experiments/`: across several fresh attempts at the same script, 429 errors
-came back referencing at least two DIFFERENT org ids
-(`org_01kzbs43gaes6twbzm55xrkf1w`, `org_01kzbfjbkjemvvvb76hhh1nwm3`), both
-sitting within a few hundred tokens of their own 100k/day cap, on the SAME
-day, independent of anything this session did (cumulative usage from earlier
-work on this long-running project). Two concrete lessons, both acted on
-immediately: (1) a naive preflight check that requests only a trivial number
-of tokens (an earlier version of `experiments/groq_quota.py` used
-`max_tokens=20`) is a false-positive machine -- `_call_with_rotation()` can
-always find SOME pooled key with a sliver of headroom for a tiny request,
-even when every key's real per-request budget (~500-2000 tokens for an
-actual operator/judge call) is already exhausted; fixed by sizing the
-preflight probe close to a real call's actual size. (2) key rotation state
-(`_current_idx` in `aginiti/llm_client.py`) is a module-level global that
-resets to the first key on every fresh process invocation -- so a string of
-short-lived `python experiments/exp3_*.py` processes each independently pay
-the "try the (possibly exhausted) first key, fail, rotate" cost at the start
-of their first real call, rather than a long-running process's rotation
-naturally converging on a working key and staying there. Neither of these
-is a correctness bug in the pooling mechanism itself (it still does what it
-says -- rotate on RateLimitError); they're two operational gaps between
-"the mechanism works" and "an experiment script can reliably tell whether
-now is a good time to spend a real campaign's budget." `experiments/exp3_*.py`
-and `exp4_*.py` were hardened in direct response: a realistic preflight
-check before committing to a multi-trial run, and mid-run `RateLimitError`
-handling that stops cleanly and preserves every already-completed trial on
-disk instead of crashing with a stack trace and (in one case, corrected
-immediately after) tempting a premature deletion of already-paid-for data
-to "fix" a budget mismatch instead of just documenting the mismatch as a
-known limitation.
-
-**Pivot 1 — from "does the planner win" to "graph-first, understanding-first."**
-A design conversation established that the SSG — not any single campaign — is
-the durable asset, and a campaign is one consumer of it among several
-(analyst queries, compliance checks, regression tests, report generation).
-This produced: `Fact` as a first-class citizen distinct from belief, graph
-persistence (a graph outlives the process that built it), the seven-plus
-analyst queries, and the Target Profile as the primary product artifact —
-replacing "did the campaign succeed" with "what does Aginiti now understand
-about this target" as the organizing question.
+**Pivot 1 — from "does the planner win" to "graph-first, understanding-
+first."** The SSG — not any single campaign — is the durable asset, and a
+campaign is one consumer of it among several. Produced: `Fact` as a
+first-class citizen, graph persistence, the analyst queries, and the
+Target Profile as the primary product artifact.
 
 **Roadblock — DVLA's original attack technique didn't survive a LangChain
-upgrade.** The first real external target, `damn-vulnerable-llm-agent`, had
-to be rebuilt on current LangChain (`create_agent`) because the original used
-a deprecated agent class. Its headline "ReAct-loop hijacking" technique
-(injecting fake Thought/Observation text into a text-parsed scratchpad)
-targets an architecture that no longer exists once tool-calling is native and
-structured — documented explicitly rather than silently dropped. The
-underlying SQL-injection vulnerability was unaffected; the delivery mechanism
-had to change.
+upgrade.** The first real external target had to be rebuilt on current
+LangChain (`create_agent`) because the original used a deprecated agent
+class; its headline technique targeted an architecture that no longer
+exists once tool-calling is native and structured. Documented explicitly
+rather than silently dropped.
 
 **Pivot 2 — Insight as a fourth tier, then Security Questions, then
-Hypotheses.** Once DVLA was live, claims alone read as a bag of facts, not
-reasoning a security engineer could evaluate or push back on. Built
-`Insight` (BEHAVIORAL/SECURITY/KNOWLEDGE_GAP, each carrying confidence,
-alternative explanations, and specific missing evidence — sharpened
-repeatedly against overclaiming), then inverted Security Questions to be
-question-keyed rather than operator-keyed ("doctors don't care about blood
-tests, they care about whether the patient has diabetes"), then extended
-knowledge gaps into testable `Hypothesis` objects — the one deliberately
-mutable, persistent-identity object in an otherwise append-only graph.
+Hypotheses.** Claims alone read as a bag of facts. Built `Insight`
+(sharpened repeatedly against overclaiming), inverted Security Questions
+to be question-keyed rather than operator-keyed, then extended knowledge
+gaps into testable `Hypothesis` objects.
 
 **Roadblock — a hypothesis that can never resolve is worse than no
-hypothesis.** Live DVAA runs surfaced a hypothesis permanently matched to an
-operator whose only effect is HYPOTHESIZED, never CONFIRMED — it would sit
-stuck at its prior confidence forever, giving a false impression of learning.
-Fixed by requiring a CONFIRMED-capable effect before forming a hypothesis at
-all: "better to form none than one permanently stuck."
+hypothesis.** Live DVAA runs surfaced a hypothesis permanently matched to
+an operator whose only effect is HYPOTHESIZED, never CONFIRMED. Fixed by
+requiring a CONFIRMED-capable effect before forming a hypothesis at all.
 
-**Pivot 3 — optimization discipline: "every new abstraction must justify its
-runtime and complexity."** With the core architecture judged sufficient, the
-explicit directive shifted from adding concepts to auditing existing ones.
-This surfaced and fixed the insight-duplication bug (≈13 near-duplicate
-insights per DVAA campaign, down to 4 distinct) and produced the deterministic
-extraction bypass (`Operator.extractor`) — skip the LLM judge entirely when a
-response is already structured data. **Explicitly rejected** in the same pass:
-parallel probe execution — "performance gain today doesn't justify the
-complexity — optimize against real bottlenecks, not hypothetical ones."
+**Pivot 3 — optimization discipline: "every new abstraction must justify
+its runtime and complexity."** Surfaced and fixed the insight-duplication
+bug and produced the deterministic-extraction bypass. Explicitly rejected
+in the same pass: parallel probe execution.
 
-**Pivot 4 — away from self-built targets, toward real ecosystems.** A
-deliberate redirection: "I don't want Aginiti's progress to become coupled to
-targets we designed ourselves." This is the direct cause of every target
-integrated since: DVAA's 19-agent fleet (memory/A2A/MCP), the official MCP
-filesystem reference server (a genuinely different, stronger transport with a
-real `initialize` handshake), and DVAA's standalone consensus/voting scenario.
-Each was chosen only after live local verification, never assumed from
-documentation.
+**Pivot 4 — away from self-built targets, toward real ecosystems.** Direct
+cause of every target integrated since: DVAA's 19-agent fleet, the
+official MCP filesystem reference server, DVAA's standalone consensus/
+voting scenario. Each chosen only after live local verification.
 
 **Roadblock — RAGBot and DVAA's real-LLM mode, both correctly abandoned.**
-RAGBot's declared retrieval-poisoning vulnerability returned `content: null`
-against prompts built from DVAA's own trigger list — the vulnerability is
-documented but not implemented in the simulator. Building operators against
-it would only validate the simulator's gaps, not Aginiti's reasoning — not
-pursued. Separately, DVAA's optional real-LLM backend only supports hardcoded
-OpenAI/Anthropic endpoints with no Groq support, and the project has no paid
-keys for either — set aside rather than requesting new credentials.
+RAGBot's declared retrieval-poisoning vulnerability is documented but not
+implemented in the simulator; DVAA's real-LLM backend has no Groq support
+and the project has no paid OpenAI/Anthropic keys. Both set aside rather
+than forced.
 
-**Pivot 5 — "next capability, not next protocol."** An explicit reframing:
-protocols are only ways of observing behaviors that outlive protocols. This
-retired "which protocol next" as the roadmap's organizing question in favor
-of "which class of AI-agent behavior does Aginiti not yet understand" —
-identity, memory, trust, tool execution, coordination, and so on. This is the
-lens the phases below are organized under.
+**Pivot 5 — "next capability, not next protocol."** Protocols are only
+ways of observing behaviors that outlive protocols. Retired "which
+protocol next" in favor of "which class of AI-agent behavior does Aginiti
+not yet understand."
 
-**Roadblock — Node.js ESM/CommonJS mismatch on the consensus scenario
-server.** `voting.js` uses `require()`, but the DVAA repo's root
-`package.json` declares `"type": "module"`, so Node refused to run it as
-written. Worked around locally with a `.cjs` copy of the file (a scratchpad
-fix, not a change to the vendored target) rather than editing the target's
-own source.
+**Pivot 6 (2026-08-07) — RQ1 validates, it doesn't gate.** Explicit
+decision: Phase 4 and beyond do not stay hard-gated behind RQ1 completing.
+RQ1 proves whether the *current* planner beats today's baselines on
+today's benchmark — valuable, but the project's actual objective is
+bigger than one benchmark, and waiting on an operational quota constraint
+would block real capability work. RQ1 moved from "gate" to "parallel
+validation track," governed instead by the five principles. Also added an
+explicit third vision pillar: "continuously learning from that
+understanding," alongside understanding and exploiting.
 
-**Pivot 6 (2026-08-07) — RQ1 validates, it doesn't gate.** A design
-conversation about a proposed dynamic-target/browser-adapter capability
-surfaced a bigger question: should Phase 4 (exploit reasoning) and beyond
-stay hard-gated behind RQ1 actually completing, as originally written below?
-Explicit decision: no. RQ1 proves whether the *current* planner beats
-today's baselines on today's benchmark — valuable for validation and
-publication, but the project's actual objective (understand real AI-agent
-security behavior through interaction, keep learning from it, exploit
-confirmed weaknesses rigorously) is bigger than winning one benchmark, and
-waiting on it would block real capability work for a constraint that's
-operational (Groq quota), not architectural. RQ1 still runs, still matters,
-still isn't optional — it moves from "gate" to "parallel validation track."
-What still governs whether a new capability gets built is not "did RQ1
-finish" but the five principles below, applied every time. Also folded in
-here: an expanded vision statement (`docs/EVIDENCE_AND_EVALUATION.md`'s
-Vision section was updated to add "continuously learning from that
-understanding" as an explicit third pillar alongside understanding and
-exploiting — not a new goal, a more precise statement of the one that was
-already implicit in Phase 5/6's existence).
+**The mock-target planning pass (2026-08-07) — a real result, not
+disqualifying, but not a win either.** With RQ1 no longer a gate, a
+smaller-scale pass ran anyway on the mock target via a Gemini-backed
+client built to route around the exhausted Groq quota. The honest result:
+Aginiti tied Static-enumeration on success rate but took ~2.8x more
+prompts, and didn't lead on breadth or security-relevant findings under a
+tight budget. Traced to a specific, understood mechanism (the utility
+schedule's early-campaign breadth-seeking costs prompts when a fixed order
+already happens to be near-optimal for a given library), not treated as
+disproof of the whole approach — but reported without spin, because that's
+the standard this document holds itself to.
 
-**Where this leaves us right now:** four real, independently-developed
-targets integrated and live-verified (DVLA; DVAA's memory/A2A/MCP surfaces;
-the official MCP filesystem server; DVAA's consensus scenario); the full
-Fact→Observation→Claim→Insight→Hypothesis pipeline proven end-to-end at least
-once each, with one complete hypothesis lifecycle (form→test→ACCEPTED) proven
-live exactly once; a category taxonomy (`CATEGORY_TRUST_EDGE` etc.) proven to
-generalize across three structurally unrelated protocols without any human
-having to invent a new category; and the original adaptive-planning question
-this project started with — **does Aginiti's planner actually beat the
-baselines** — still not answered at a meaningful sample size, entirely because
-of the Groq-quota roadblock above, not because of any architectural doubt.
-That gap is the single most consequential piece of unfinished business in the
-RQ1 validation track specifically (see Phase 0 below and
-`EVIDENCE_AND_EVALUATION.md` Section 4) — but per Pivot 6 above, it is no
-longer a precondition for capability work elsewhere in the roadmap.
+**Pivot 7 — a second real target, chosen for realism, not novelty.**
+AnythingLLM — a real, actively-developed, production-shaped RAG/agent
+platform — became the project's primary live target starting around
+exp11. Unlike DVLA/DVAA (vulnerable-by-design fixtures), AnythingLLM is a
+genuine production application; testing against it (and, later, a
+self-built hardened gateway in front of it) is testing against something
+closer to what an actual deployment looks like.
+
+**Two real planning gaps found and fixed against live evidence, not
+guessed at.** First, `emergent_impact` (an operator unlocking a valuable
+but unnamed follow-on compromise was indistinguishable from a dead end —
+found via a controlled offline experiment, fixed the same day). Second,
+`chain_value` (a multi-step plant operator was structurally incapable of
+outranking a mediocre single-step decoy regardless of its chain's real
+value — found against real AnythingLLM evidence during the exp16-18
+hardening chapter, fixed and regression-tested). Both closed a genuine
+"the SSG knows something the planner's utility function can't see yet"
+gap — the same category of bug, found twice, in two different places the
+utility formula wasn't yet reading the graph correctly.
+
+**Target hardening, twice — and a real fair external comparison.** Built
+a self-hosted gateway (`aginiti/target_hardening/`) adding the controls a
+real enterprise deployment would have — document sanitization, output
+redaction, service-account tiers, adaptive lockout, rate limiting — across
+two rounds, each live-verified against the actual running target, not
+simulated. Then ran a real, fair, externally-verifiable comparison against
+garak on the identical hardened target (exp19): 4 of 5 comparable
+categories agreed exactly; the 5th was investigated at the trace level and
+found not to be a fair comparison, reported as such rather than claimed as
+a win.
+
+**exp20 — the sharpest live result this project has produced.** A
+150-trial benchmark against the same hardened target, 5 conditions
+including a real Bayesian Thompson-sampling bandit. In a mission that
+structurally requires completing a multi-step chain, Aginiti scored 3/15
+real, ground-truth-verified compromises while every other condition —
+including the Bayesian bandit — scored 0/15, and never attempted a single
+chain operator across 120 combined trials. Real, mechanistic, not yet
+statistically bulletproof at this sample size, and didn't generalize to a
+broader mission shape. All three of those facts are reported together,
+not separately.
+
+**Multi-step discovery, composite scoring, and structured failure
+feedback — the newest chapter (2026-08-12).** exp20's chains were all
+human-authored, exact-key `Precondition` sequences — real evidence of
+chain *execution* and *pivoting*, but not evidence Aginiti could
+*discover* a path a human hadn't pre-wired. `ClassPrecondition` closes
+that gap: an operator gated on a semantic tag (category, attack category,
+or minimum severity) is unlocked by whichever upstream operator happens to
+produce a matching claim, proven with a 6-step chain where either of two
+interchangeable trust operators completes the identical downstream
+sequence. Alongside it: composite severity-weighted scoring (a campaign
+that never succeeds scores exactly 0, full stop — built to answer "which
+system finds more *consequential* paths," not just more paths), a
+graduated-difficulty benchmark pack that surfaced a real gap in the
+Bayesian planner's severity-awareness, and a structured failure-diagnosis
+taxonomy so a confirmed block can demote structurally similar candidates
+instead of leaving no reusable signal behind.
+
+**An independent engineering-hardening audit, on the same day, at explicit
+request.** "Do NOT assume the architecture is correct just because 500+
+tests pass." A from-scratch trace of the real execution path found the
+project has **three parallel execution paths**, not one unified benchmark
+harness — a real architectural characteristic, not previously stated
+plainly anywhere. Found and fixed 5 real bugs, the most consequential
+being that `ObservationAdapter.execute()` had zero exception handling
+around the actual call to a target, meaning a target-side crash or
+timeout could kill an entire campaign, and 3 of 4 real adapters were
+relying on this not happening rather than protecting themselves. Fixed
+once, at the one place every execution path funnels through, closing the
+gap everywhere at once. Verified with a 10-scenario deterministic
+end-to-end suite and a live smoke test against the real hardened
+AnythingLLM target.
+
+**Where this leaves us right now:** five real, independently-developed
+targets integrated and live-verified, plus a self-built hardened gateway
+resembling a production deployment; the full evidence pipeline proven
+end-to-end on all of them; a category taxonomy proven to generalize across
+three structurally unrelated protocols; the full hypothesis lifecycle
+proven live exactly once; two real planning gaps found and fixed against
+live evidence; genuine multi-step discovery built and proven offline; the
+strongest live evidence yet of a real planning advantage (exp20); and an
+independent audit that found the architecture broadly sound but not yet
+unified across its three execution paths. The original founding question
+— does Aginiti's planner beat the baselines, at the frozen protocol's
+required scale — is still not answered, entirely because of the
+Groq-quota roadblock, not because of any architectural doubt, and remains
+the single most consequential piece of unfinished business in the RQ1
+validation track specifically. Per Pivot 6, it is no longer a precondition
+for capability work elsewhere in the roadmap.
 
 ---
 
 ## Principles for adding new capabilities
 
-Replaces the old blanket "gated behind Phase 0" rule everywhere below. Every
-capability added from Pivot 6 onward is checked against all five before it
-starts, not just the general "which target required this" discipline the
-project already had:
+Every capability added from Pivot 6 onward is checked against all five
+before it starts:
 
-1. **Solves a limitation actually observed**, not one imagined in advance —
-   a specific claim key that stayed stuck, a matcher that picked the wrong
-   operator on a real run, a weight that measurably skewed a real result.
-   Not "this seems like it'll matter eventually."
-2. **Makes Aginiti better across many targets**, not tuned to one benchmark
-   or one target's quirks.
+1. **Solves a limitation actually observed**, not one imagined in advance.
+2. **Makes Aginiti better across many targets**, not tuned to one
+   benchmark or one target's quirks.
 3. **Improves understanding, planning, or exploitation** — not
-   infrastructure for its own sake. (Transport/adapter work is real and
-   sometimes necessary, but it's an enabler, not this list.)
-4. **Validated immediately against an existing real target** (or, where a
-   live target isn't the right instrument, a controlled experiment like
-   `experiments/` — see `docs/EVIDENCE_AND_EVALUATION.md` Section 0) —
+   infrastructure for its own sake.
+4. **Validated immediately against an existing real target** (or a
+   controlled experiment where a live target isn't the right instrument),
    whenever possible, before moving to the next thing.
-5. **Comparative claims need an experiment, not intuition.** If a capability
-   is justified by "this should make Aginiti better than X," that claim
-   gets a citation in `docs/EVIDENCE_AND_EVALUATION.md` or it doesn't get
-   made.
+5. **Comparative claims need an experiment, not intuition.** If a
+   capability is justified by "this should make Aginiti better than X,"
+   that claim gets a citation in `docs/EVIDENCE_AND_EVALUATION.md` or it
+   doesn't get made.
 
 ## Phase 0 — Adaptive planning substrate
 
-_Phase status: infrastructure complete; the question it exists to answer is
-unresolved._
+_Phase status: infrastructure complete; the question it exists to answer
+now has real, non-contradictory evidence pointing two different
+directions depending on target and planner version — genuinely mixed, not
+uniformly unresolved._
 
-- Constrained-utility planner (info gain / business impact / path progress /
-  gap priority / hypothesis priority), 4-condition benchmark harness,
-  resumable trial logging, Fisher's-exact comparison. **Proven** (built,
-  unit-tested, exercised in live partial runs).
-- **The planner outperforms Random/Static/Memory-guided baselines at a
-  statistically meaningful sample size.** **Hypothesized.** This is the
-  project's founding question and it has never been answered — every
-  benchmark run to date is either pre-bug-fix (unreliable) or was interrupted
-  by rate limits before completion. See `EVIDENCE_AND_EVALUATION.md` Section
-  4, item 1.
+- Constrained-utility planner (9 additive terms as of this chapter),
+  5-condition benchmark harness, resumable trial logging, Fisher's-exact
+  comparison. **Proven** (built, unit-tested, exercised in multiple live
+  runs).
+- **The planner outperforms simpler baselines at a statistically
+  meaningful sample size.** **Partially proven, evidence genuinely mixed.**
+  Against the mock target with the pre-`chain_value` planner (2026-08-07),
+  no — tied Static on success rate at ~2.8x the cost. Against a real,
+  hardened AnythingLLM target with the current planner (exp20,
+  2026-08-12), yes — a real, mechanistically-traced advantage on a
+  chain-required mission, though not yet significant at the pairwise
+  level (p=0.224) and not generalizing to a broader mission shape. The
+  frozen DVLA-target RQ1 protocol itself is still unrun at a meaningful
+  trial count — see `docs/EVIDENCE_AND_EVALUATION.md` §0/§5.
 
 ## Phase 1 — Behavior understanding
 
 _Phase status: complete._
 
-- Fact/Observation/Claim tiering, append-only provenance, confidence bands.
-  **Proven** — live on all four real targets.
-- Insight synthesis (Behavioral/Security/Knowledge-Gap), grounded and
-  dedup-guarded. **Proven** — live on DVLA, DVAA, DVAA-consensus; thinner but
-  present on the MCP filesystem server.
-- Target Profile as the primary product artifact, generated identically from
-  a live or reloaded-from-disk graph. **Proven** — four generated profiles on
-  disk (`runs/*_target_profile.md`).
+- Fact/Observation/Claim tiering, append-only provenance, confidence
+  bands. **Proven** — live on all five real targets.
+- Insight synthesis, grounded and dedup-guarded. **Proven** — live on
+  DVLA, DVAA, DVAA-consensus, AnythingLLM.
+- Target Profile as the primary product artifact. **Proven** — generated
+  profiles on disk for every real target.
 - Security Questions (question-keyed, evidence-aggregating). **Proven** —
   rendered in every generated profile.
 
 ## Phase 2 — Cross-protocol reasoning
 
-_Phase status: current, and further along than "current" usually implies —
-proven three times, not just designed._
+_Phase status: current — proven three times, not just designed._
 
-- A claim-category taxonomy that generalizes across protocols without being
-  reinvented per target. **Proven** — `CATEGORY_TRUST_EDGE` confirmed live
-  across mock/Slack, DVAA/A2A, and DVAA/consensus (`EVIDENCE_AND_EVALUATION.md`
-  Section 1, Cross-protocol reasoning).
-- Deterministic extraction as a general mechanism usable by any structured
-  target. **Proven** — live, zero-judge-call on MCP tool discovery, all
-  filesystem-server operators, all 3 consensus operators.
+- A claim-category taxonomy that generalizes across protocols without
+  being reinvented per target. **Proven** — `CATEGORY_TRUST_EDGE`
+  confirmed live across mock/Slack, DVAA/A2A, and DVAA/consensus.
+- Deterministic extraction as a general mechanism. **Proven** — live,
+  zero-judge-call on MCP tool discovery, all filesystem-server operators,
+  all 3 consensus operators.
 - The graph *automatically* noticing a recurring pattern across targets
   without a human choosing the category tag. **Hypothesized.** Not built —
-  every reuse of `CATEGORY_TRUST_EDGE` so far was a deliberate human choice
-  at operator-authoring time, not an inference the graph made on its own.
-  This is the actual boundary of "cross-protocol reasoning" today: the
-  *taxonomy* generalizes; the *recognition* doesn't, yet.
+  every reuse so far was a deliberate human choice at operator-authoring
+  time.
 
 ## Phase 3 — Hypothesis lifecycle
 
 _Phase status: current._
 
-- Persistent-identity, mutable Hypothesis object; get-or-create by normalized
-  statement; wired into `assert_claim` for automatic revision. **Proven** —
-  built, 17+ dedicated/integration tests.
+- Persistent-identity, mutable Hypothesis object; get-or-create by
+  normalized statement; wired into `assert_claim` for automatic revision.
+  **Proven** — built, 17+ dedicated/integration tests.
 - Full lifecycle (knowledge gap → formed hypothesis → tested → resolved).
   **Partially proven** — demonstrated live exactly once (DVAA consensus,
-  reached ACCEPTED at confidence 0.80 within a single 3-round campaign).
-  Never demonstrated reaching REJECTED live. Accept/reject thresholds are
-  uncalibrated v1 constants.
-- Hypotheses interacting with each other (resolving one informs another
-  related one). **Hypothesized.** Not modeled — each hypothesis resolves
-  independently today.
+  ACCEPTED at confidence 0.80). Never demonstrated reaching REJECTED live.
+  Accept/reject thresholds are uncalibrated v1 constants.
+- Hypotheses interacting with each other. **Hypothesized.** Not modeled.
 
 ## Phase 4 — Exploit reasoning
 
-_Phase status: underway, not complete — consequence propagation (the item
-Experiment 7 found and the same-day fix closed) is the first piece of this
-phase built on real evidence rather than guessed at; the rest still waits
-on their own forcing functions._
+_Phase status: the most active phase in the project right now — three
+real, evidence-backed capabilities landed in this chapter alone._
 
-- Multi-hop reasoning toward a KNOWN target. **Proven, and more built than
-  this phase's own earlier drafts gave it credit for** — `path_progress`
-  runs genuine BFS (`aginiti/graph/target_graph.py`) over the confirmed
-  subgraph, which finds shortest paths of any length, not one hop, and
-  recomputes every round as the graph grows. Confirmed and unit-tested
-  (`test_aginiti_planner.py`), and directly confirmed again by Experiment 7
-  before it went looking for a different gap. **Correction to this
-  document's earlier text**, which claimed only "one BFS hop" — that
-  understated a real, already-working capability.
-- **Consequence propagation — the actual, evidence-backed gap. Fixed
-  2026-08-07, same day it was found.** Experiment 7
-  (`docs/EVIDENCE_AND_EVALUATION.md` Section 0) demonstrated directly: a
-  stepping-stone operator that unlocks a genuinely more valuable follow-on
-  compromise got IDENTICAL utility to a structurally identical dead end,
-  because `business_impact`/`path_progress` are both computed strictly
-  against `Mission.success_criteria` — a frozen tuple fixed by a human at
-  authoring time, never expanded during a campaign. **Proven** (offline,
-  5 new unit tests) — `AginitiPlanner.emergent_impact()` now runs the same
-  BFS mechanism against every `CATEGORY_MISSION_OUTCOME`-tagged claim key
-  the library itself recognizes, not only the ones named in advance, and
-  correctly separates the two cases where the old code couldn't. Honest
-  scope, not overclaimed: this only helps once the downstream structure has
-  been established somewhere in the graph — a genuine cold start (nothing
-  ever confirmed on that chain) still can't be distinguished from a dead
-  end, the same "never assume unconfirmed connectivity" character
-  `path_progress` itself already has. **Not yet proven:** whether this
-  changes real live-campaign behavior — only validated offline so far, a
-  live re-run against a real target with a genuine unnamed follow-on
-  compromise is the natural next check, not done here.
+- Multi-hop reasoning toward a KNOWN target. **Proven** — `path_progress`
+  runs genuine BFS over the confirmed subgraph, recomputed every round,
+  confirmed and unit-tested.
+- **Consequence propagation toward an UNNAMED target (`emergent_impact`).**
+  **Proven** (offline, 5 unit tests) — a real gap where a stepping-stone
+  operator was indistinguishable from a dead end, found and fixed the same
+  day. Honest scope: only helps once downstream structure has been
+  established somewhere in the graph; a genuine cold start still can't be
+  distinguished from a dead end.
+- **Value-informed chain credit (`chain_value`).** **Proven, and now
+  live-consequential** — found against real AnythingLLM evidence, fixed,
+  and directly responsible for exp20's headline chain-pivoting result: in
+  every one of 15 chain-required trials, `chain_value` is the mechanism
+  that drove the planner to attempt a chain at all.
+- **Genuine multi-step attack-path DISCOVERY (`ClassPrecondition`), not
+  just execution of a pre-wired chain.** **Proven offline** — a real
+  6-step chain where either of two interchangeable upstream operators
+  unlocks the identical downstream sequence, with zero code changes
+  elsewhere; a second, independently-authored pack (agentic primitives)
+  cross-checks the mechanism generalizes. **Not yet proven live** —
+  exp20's chains were pre-wired, not discovered; a live campaign against a
+  target with genuinely undeclared topology is the natural next check.
+- **Structured failure feedback (`failure_diagnosis` +
+  `failure_evidence_penalty`).** **Proven offline** (an end-to-end ranking
+  test proves demotion actually changes candidate order) — **not yet
+  observed changing a live campaign's real behavior.**
+- **Composite severity-weighted scoring.** **Proven on synthetic data**
+  (a 300-trial Monte Carlo showing Aginiti wins less often but ~2x more
+  consequentially than a fixed-order baseline) — **not yet applied to any
+  real, already-reported campaign result.**
 - Expected success probability per exploit path. **Hypothesized.** No
-  probability model exists over exploit paths at all — `RankedCandidate`'s
-  `utility` is a planning-time score, not a success-probability estimate.
-  Not yet forced by any observed limitation; stays Hypothesized.
-- Attack-graph search beyond shortest-distance (e.g. weighing multiple
-  candidate paths against each other, not just "does this shorten the
-  known-shortest one"). **Hypothesized.** Not yet forced by any observed
-  limitation, and likely subsumed by consequence propagation once that
-  exists — revisit after, not before.
+  probability model exists over exploit paths at all.
+- Attack-graph search beyond shortest-distance (weighing multiple
+  candidate paths against each other). **Hypothesized.** Likely subsumed
+  by consequence propagation and `ClassPrecondition` once both are proven
+  live together — revisit after, not before.
 
 No longer hard-gated behind Phase 0 completing (Pivot 6) — governed by the
-five principles instead. Consequence propagation is the one item here with
-real evidence behind it now; the others stay Hypothesized until something
-similarly concrete forces them.
+five principles instead.
 
 ## Phase 5 — Continuous learning
 
 _Phase status: not started._
 
-- Graph diffs (what changed between two campaigns against the same target).
-  **Hypothesized.** Persistence exists (a graph can be reloaded and extended);
-  structured diffing between two graph states does not.
-- Cross-target learning (a pattern learned on target A changes how target B
-  is approached, automatically). **Hypothesized.** See Phase 2's honest
+- Graph diffs (what changed between two campaigns against the same
+  target). **Hypothesized.** Persistence exists; structured diffing does
+  not.
+- Cross-target learning (a pattern learned on target A changes how target
+  B is approached, automatically). **Hypothesized.** See Phase 2's honest
   boundary above — this is the automatic version of what's currently a
   manual, human-driven taxonomy choice.
-- Reusable exploit knowledge (an exploit-chain pattern proven on one target
-  becomes a prioritized hypothesis on a structurally similar new target).
-  **Hypothesized.** Depends on Phase 4 existing first.
+- Reusable exploit knowledge (an exploit-chain pattern proven on one
+  target becomes a prioritized hypothesis on a structurally similar new
+  target). **Hypothesized.** Depends on Phase 4's discovery work being
+  proven live first.
 
 ## Phase 6 — Autonomous security scientist
 
-_Phase status: not started; aspirational end-state, not a near-term target._
+_Phase status: not started; aspirational end-state, not a near-term
+target._
 
 - Proposes its own experiments (beyond ranking a fixed, human-authored
   operator library). **Hypothesized.**
 - Validates hypotheses without a human choosing which operator tests which
-  gap. **Hypothesized.** Today's `_match_probe_for_gap` is a human-designed
-  heuristic operating over a human-authored library — a step toward this, not
-  an instance of it.
+  gap. **Hypothesized.** Today's gap-matcher is a human-designed heuristic
+  operating over a human-authored library — a step toward this, not an
+  instance of it.
 - Updates beliefs and discovers genuinely new exploit classes (not
   pre-enumerated in any operator library). **Hypothesized.**
 
@@ -529,25 +444,25 @@ _Phase status: not started; aspirational end-state, not a near-term target._
 The founding bet of this project is that an evidence-grounded, persistent
 graph — not a stateless prompt-and-score loop — is the right substrate for
 understanding AI-agent security behavior, and that rigorous exploitation
-should be a *consequence* of that understanding rather than a parallel track.
-Four real, independently-developed targets across four structurally different
-protocol surfaces have now exercised that substrate without forcing a single
-unplanned architectural concept into the graph — every new abstraction in
-`docs/ARCHITECTURE.md` Section 9 traces to a specific target that required it,
-and every explicitly-considered addition that wasn't required (new graph
-concepts for consensus, parallel execution, a semantic gap-matcher) was
-turned down with the reasoning on record.
+should be a *consequence* of that understanding rather than a parallel
+track. Five real, independently-developed targets across genuinely
+different protocol surfaces, plus a self-built hardened gateway, have now
+exercised that substrate without forcing an unplanned architectural
+concept into the graph — every abstraction in `docs/ARCHITECTURE.md` §11
+traces to a specific target or experiment that required it, and every
+explicitly-considered addition that wasn't required was turned down with
+the reasoning on record.
 
-What the project has *not* yet done is close the loop back to the question it
-started with: whether any of this actually makes Aginiti a better planner
-than doing something dumber and cheaper. That's not a failure of the
-architecture — it's an unrun experiment, blocked by a mundane, well-understood
-constraint (API quota), not by any open design question. Per Pivot 6, that no
-longer blocks everything else — but it stays a parallel, non-optional
-validation track, and every capability added while it's outstanding still has
-to clear the five principles above on its own, not borrow justification from
-"the roadmap says this phase is next." Running RQ1 to completion remains
-worth doing for its own sake (it's the difference between an assumed and a
-measured planning advantage, and the project's own publication/validation
-story depends on it) — it's just no longer the precondition for everything
-built above it.
+What the project has *not* yet done is close the loop back to the question
+it started with, at the scale its own frozen protocol demands: whether
+Aginiti's planner is a better planner than doing something dumber and
+cheaper, measured against DVLA at a statistically meaningful trial count.
+The evidence that exists instead — a real, mechanistically-traced planning
+advantage on a different, real, hardened target (exp20) — is genuinely
+strong but doesn't substitute for that specific unrun experiment. That's
+not a failure of the architecture; it's an unrun experiment, blocked by a
+mundane, well-understood operational constraint. Per Pivot 6, that no
+longer blocks everything else — but running RQ1 to completion remains
+worth doing for its own sake, and every capability added while it's
+outstanding still has to clear the five principles above on its own, not
+borrow justification from "the roadmap says this phase is next."

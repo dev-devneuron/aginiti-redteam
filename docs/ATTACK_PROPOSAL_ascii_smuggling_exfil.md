@@ -1,20 +1,21 @@
-# Proposed operator: invisible Unicode-tag data exfiltration ("ASCII smuggling")
+# Aginiti — Proposed Operator: Invisible Unicode-Tag Data Exfiltration ("ASCII Smuggling")
 
-Status: **documented follow-up, not yet implemented — still true as of
-2026-08-12.** A markdown/network-exfiltration-adjacent expansion pass
-happened since this was written (`docs/ATTACK_LIBRARY.md`'s
-`markdown_network_exfiltration` category, `encoding_attack`'s chain-
-discovery layer), and this specific technique was NOT folded into it —
-it remains a real, well-cited, buildable gap, not overtaken by other
-work. See `docs/AGINITI_OVERVIEW.md`'s "Known gaps, stated plainly"
-section. This is the concrete
-output of Request E's "add latest very praised attacks that are highly
-effective in data leaks" ask for a genuinely NEW technique (distinct from
-the already-implemented `anythingllm_markdown_exfil_definitions.py`, which
-uses image-render auto-fetch, a different mechanism). Implementation was
-deliberately deferred this pass rather than built and live-tested against
-the real AnythingLLM target in the same turn a live benchmark run needed to
-be protected from any risk of interference or resource contention.
+_Last rewritten 2026-08-13._
+
+**Status: documented follow-up, not yet implemented.** Several rounds of
+expansion have landed in the markdown/network-exfiltration family since
+this proposal was first written (`docs/ATTACK_LIBRARY.md`'s
+`markdown_network_exfiltration` category, the `encoding_attack` chain-
+discovery layer) without folding this specific technique in — it remains a
+real, well-cited, buildable gap, not overtaken by other work. See `docs/
+AGINITI_OVERVIEW.md` §10 for where this sits among the project's other
+open gaps. This document is the concrete specification for a genuinely
+NEW technique, distinct from the already-implemented
+`anythingllm_markdown_exfil_definitions.py`, which uses image-render
+auto-fetch — a different mechanism entirely. Implementation has been
+deliberately deferred each time it came up, to avoid building and
+live-testing against the real AnythingLLM target in the same window a live
+benchmark run needed to be protected from resource contention.
 
 ## The security property
 

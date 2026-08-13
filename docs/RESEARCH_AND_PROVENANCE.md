@@ -1,14 +1,18 @@
-# Research, Repos & Provenance — everything Aginiti borrows from, and how
+# Aginiti — Research, Repos & Provenance
 
-_Written 2026-08-12. Every entry below was checked against a live source
-(GitHub API license metadata, arXiv, or a direct web search) either when
-the citing code was written, or freshly for this document — nothing here
-is recalled from training data and presented as verified without an
-actual check. Where a check couldn't be completed, that's stated, not
-silently skipped. Organized by REUSE TYPE, since "we referenced this
-paper's idea" and "we copied and adapted this repo's code" carry very
-different obligations — conflating them would itself be a citation
-error._
+_Last rewritten 2026-08-13 (content unchanged from the 2026-08-12 version
+this rewrite is based on — every entry below was already checked against a
+live source, GitHub API license metadata, arXiv, or a direct web search,
+either when the citing code was written or specifically for this document;
+nothing here is recalled from training data and presented as verified
+without an actual check. Where a check couldn't be completed, that's
+stated, not silently skipped). Organized by REUSE TYPE, since "we
+referenced this paper's idea" and "we copied and adapted this repo's code"
+carry very different obligations — conflating them would itself be a
+citation error. Companion to `docs/ATTACK_LIBRARY.md` (the taxonomy these
+citations ground) and `docs/EVIDENCE_AND_EVALUATION.md` (where the planner-
+level citations, like the reward-shaping papers behind `chain_value`, are
+tied to the specific experiments they motivated)._
 
 ---
 
