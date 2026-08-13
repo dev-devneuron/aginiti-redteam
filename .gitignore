@@ -22,3 +22,14 @@ runs/
 targets/
 infra/
 archive/
+
+# 2026-08-13: benchmarks/ pulled in from this repo's own `main` branch --
+# a structurally different "Aginiti Redteam" implementation (RAG data-
+# exfiltration probing: IKEA/SECRET/Interrogation attacks) whose target
+# agents (hardened_agent, healthcare_agent) are being reused here as NEW
+# live targets for the SSG-planner Aginiti this branch builds. Vendored
+# for the target apps only (FastAPI + ChromaDB reference agents, dataset
+# prep scripts) -- same "test AGAINST, don't own" treatment as targets/.
+# Never merge main's aginiti/ package into this branch's aginiti/; the two
+# have incompatible module layouts.
+benchmarks/
