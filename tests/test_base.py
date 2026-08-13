@@ -403,6 +403,124 @@ class TestFailoverProvider:
         assert models_tried == ["groq/llama-3.3-70b-versatile"] * 2
 
 
+# ---------------------------------------------------------------------------
+# Multi-key rotation (added 2026-08-12) — several keys for the SAME provider,
+# rotated on RateLimitError instead of waiting/failing over to another model.
+# ---------------------------------------------------------------------------
+
+def _make_attack_with_keys(api_keys: list) -> _BlackBoxOnlyAttack:
+    class _MultiKeyAttack(_BlackBoxOnlyAttack):
+        def __init__(self):
+            self.target_url = "http://localhost:8001"
+            self.llm = self._init_llm(
+                "groq/llama-3.3-70b-versatile", api_key=None, api_keys=api_keys,
+            )
+            self.otel = None
+
+    with patch("litellm.completion", return_value=MagicMock()):
+        return _MultiKeyAttack()
+
+
+class TestMultiKeyRotation:
+    def _fake_response(self, content: str) -> MagicMock:
+        resp = MagicMock()
+        resp.choices[0].message.content = content
+        return resp
+
+    def test_rotates_to_next_key_on_rate_limit_no_sleep(self):
+        attack = _make_attack_with_keys(["key-1", "key-2", "key-3"])
+
+        def side_effect(*args, **kwargs):
+            if kwargs.get("api_key") == "key-1":
+                raise _rate_limit_error("... try again in 10s ...")
+            return self._fake_response("ok")
+
+        with patch("litellm.completion", side_effect=side_effect) as mock_completion, \
+             patch("time.sleep") as mock_sleep:
+            result = attack.llm(messages=[{"role": "user", "content": "hi"}])
+
+        assert result == "ok"
+        mock_sleep.assert_not_called()
+        keys_tried = [c.kwargs["api_key"] for c in mock_completion.call_args_list]
+        assert keys_tried == ["key-1", "key-2"]
+
+    def test_current_key_sticky_across_calls(self):
+        # Once key-1 rate-limits, the NEXT call should start from key-2
+        # directly, not retry key-1 first.
+        attack = _make_attack_with_keys(["key-1", "key-2"])
+
+        call_log = []
+
+        def side_effect(*args, **kwargs):
+            key = kwargs.get("api_key")
+            call_log.append(key)
+            if key == "key-1":
+                raise _rate_limit_error("... try again in 10s ...")
+            return self._fake_response("ok")
+
+        with patch("litellm.completion", side_effect=side_effect), \
+             patch("time.sleep"):
+            attack.llm(messages=[{"role": "user", "content": "first"}])
+            call_log.clear()
+            attack.llm(messages=[{"role": "user", "content": "second"}])
+
+        # Second call went straight to key-2, no repeat attempt on key-1.
+        assert call_log == ["key-2"]
+
+    def test_wraps_back_to_first_key_after_full_cycle(self):
+        # All keys rate-limited once (first pass); key-1 recovers on the
+        # second pass — the wrap-around should try it again, not give up.
+        attack = _make_attack_with_keys(["key-1", "key-2"])
+        seen = {"key-1": 0, "key-2": 0}
+
+        def side_effect(*args, **kwargs):
+            key = kwargs.get("api_key")
+            seen[key] += 1
+            if key == "key-1" and seen[key] == 1:
+                raise _rate_limit_error("... try again in 10ms ...")
+            if key == "key-2":
+                raise _rate_limit_error("... try again in 10ms ...")
+            return self._fake_response("recovered")
+
+        with patch("litellm.completion", side_effect=side_effect), \
+             patch("time.sleep"):
+            result = attack.llm(messages=[{"role": "user", "content": "hi"}])
+
+        assert result == "recovered"
+        assert seen == {"key-1": 2, "key-2": 1}
+
+    def test_all_keys_rate_limited_falls_through_to_wait_then_retries(self):
+        attack = _make_attack_with_keys(["key-1", "key-2"])
+        call_count = {"n": 0}
+
+        def side_effect(*args, **kwargs):
+            call_count["n"] += 1
+            if call_count["n"] <= 2:  # both keys rate-limited on first pass
+                raise _rate_limit_error("... try again in 10ms ...")
+            return self._fake_response("recovered")
+
+        with patch("litellm.completion", side_effect=side_effect), \
+             patch("time.sleep") as mock_sleep:
+            result = attack.llm(messages=[{"role": "user", "content": "hi"}])
+
+        assert result == "recovered"
+        mock_sleep.assert_called_once()  # one wait, after the whole rotation failed
+
+    def test_single_key_behavior_unchanged_when_api_keys_not_given(self):
+        # api_keys omitted entirely -- degenerates to the pre-existing
+        # single-key path (api_key positional arg).
+        attack = _make_attack()
+        with patch("litellm.completion", return_value=self._fake_response_helper("ok")):
+            result = attack.llm(messages=[{"role": "user", "content": "hi"}])
+        assert result == "ok"
+
+    @staticmethod
+    def _fake_response_helper(content: str) -> MagicMock:
+        resp = MagicMock()
+        resp.choices[0].message.content = content
+        return resp
+
+
 def test_suppress_debug_info_enabled():
     # litellm's own noisy "Give Feedback / Get Help" print block fires on
     # every mapped exception unless this flag is set — verified by grepping

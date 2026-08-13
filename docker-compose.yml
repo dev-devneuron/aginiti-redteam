@@ -50,6 +50,31 @@ services:
       - ./benchmarks/scaled_evals/datasets:/app/benchmarks/scaled_evals/datasets
       - ./benchmarks/scaled_evals/agents/healthcare_agent/.chroma:/app/benchmarks/scaled_evals/agents/healthcare_agent/.chroma
 
+  prepare-hardened:
+    # Idempotent by default (skips if hardened_dataset_{ingested,held_out}.json
+    # already exist) — required, not just nice-to-have: CFPB's API is a live,
+    # daily-updating feed, so unlike prepare-healthcare's static HF snapshot,
+    # a bare re-run here is NOT guaranteed to reproduce the same sample. A
+    # real bug this project hit once: without this guard, every `docker
+    # compose up hardened_agent` silently re-fetched a new CFPB sample while
+    # seed-hardened skipped re-seeding (ChromaDB already populated) — ground
+    # truth and what's actually embedded quietly disagreed.
+    image: aginiti-redteam:latest
+    command: python benchmarks/scaled_evals/datasets/prepare_hardened_dataset.py
+    volumes:
+      - ./benchmarks/scaled_evals/datasets:/app/benchmarks/scaled_evals/datasets
+
+  seed-hardened:
+    image: aginiti-redteam:latest
+    env_file: [.env]
+    command: python -m benchmarks.scaled_evals.agents.hardened_agent.seed
+    depends_on:
+      prepare-hardened:
+        condition: service_completed_successfully
+    volumes:
+      - ./benchmarks/scaled_evals/datasets:/app/benchmarks/scaled_evals/datasets
+      - ./benchmarks/scaled_evals/agents/hardened_agent/.chroma:/app/benchmarks/scaled_evals/agents/hardened_agent/.chroma
+
   # ------------------------------------------------------------------
   # Reference agents — long-running FastAPI services. Default profile:
   # started by a plain `docker compose up`.
@@ -117,6 +142,33 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  hardened_agent:
+    # Runs inside Linux (like every other service here) specifically to
+    # sidestep a real, confirmed issue: HardenedAgent's ChromaDB retrieval
+    # path (PersistentClient + collection.query()) segfaults on native
+    # Windows Python on this machine (verified live 2026-08-07 — see
+    # plans/vanilla-target-agent.md §8.6). Seeding (writes) worked fine
+    # natively; only the read/query path is affected — running the whole
+    # agent here avoids needing to reason about which operations are safe
+    # where.
+    image: aginiti-redteam:latest
+    env_file: [.env]
+    command: uvicorn benchmarks.scaled_evals.agents.hardened_agent.main:app --host 0.0.0.0 --port 8004
+    ports:
+      - "8004:8004"
+    volumes:
+      - ./benchmarks/scaled_evals/agents/hardened_agent/.chroma:/app/benchmarks/scaled_evals/agents/hardened_agent/.chroma
+    depends_on:
+      seed-hardened:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
       interval: 10s
       timeout: 5s
       retries: 5

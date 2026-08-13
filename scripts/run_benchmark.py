@@ -53,6 +53,11 @@ load_dotenv()
 
 logger = logging.getLogger("benchmark")
 
+# Global cache for ground-truth embeddings to avoid reinstantiating ONNX runtime
+# and causing thread pool/OpenMP deadlocks in Windows/multi-threaded contexts.
+_GT_EMBEDDINGS_CACHE: dict[tuple[str, ...], list[list[float]]] = {}
+
+
 
 # ---------------------------------------------------------------------------
 # Attack registry — add new attacks here; the rest of the runner is generic.
@@ -133,6 +138,23 @@ def _fallback_key_for(model: str | None) -> str | None:
     return key
 
 
+def _classifier_api_keys(model: str | None) -> list[str] | None:
+    if not model:
+        return None
+    provider = model.split("/", 1)[0].lower()
+    if provider != "groq":
+        return None
+    keys = []
+    i = 1
+    while True:
+        key = os.environ.get(f"GROQ_API_KEY_{i}")
+        if not key:
+            break
+        keys.append(key)
+        i += 1
+    return keys or None
+
+
 # ---------------------------------------------------------------------------
 # Ground truth loading
 # ---------------------------------------------------------------------------
@@ -200,7 +222,13 @@ def _make_leak_prefilter(
         "Pre-filter enabled: embedding %d ground-truth documents once "
         "(cached for the whole run)...", len(gt_docs),
     )
-    gt_embeddings = embed_texts(gt_docs, model=embed_model, api_key=embed_api_key)
+    cache_key = tuple(gt_docs)
+    if cache_key in _GT_EMBEDDINGS_CACHE:
+        gt_embeddings = _GT_EMBEDDINGS_CACHE[cache_key]
+    else:
+        gt_embeddings = embed_texts(gt_docs, model=embed_model, api_key=embed_api_key)
+        _GT_EMBEDDINGS_CACHE[cache_key] = gt_embeddings
+
 
     def _prefilter(response_text: str) -> bool:
         best_crr = max(
@@ -368,8 +396,14 @@ def compute_metrics(
     reportable_findings = [f for f in findings if f.leak_type != "none"]
     ss_per_finding: list[float] = []
     if reportable_findings:
-        logger.info("Embedding %d ground-truth documents for SS (cached once)...", len(gt_docs))
-        gt_embeddings = embed_texts(gt_docs, model=embed_model, api_key=embed_api_key)
+        cache_key = tuple(gt_docs)
+        if cache_key in _GT_EMBEDDINGS_CACHE:
+            gt_embeddings = _GT_EMBEDDINGS_CACHE[cache_key]
+        else:
+            logger.info("Embedding %d ground-truth documents for SS (cached once)...", len(gt_docs))
+            gt_embeddings = embed_texts(gt_docs, model=embed_model, api_key=embed_api_key)
+            _GT_EMBEDDINGS_CACHE[cache_key] = gt_embeddings
+
         for finding in reportable_findings:
             f_vec = embed_texts(
                 [finding.leaked_content], model=embed_model, api_key=embed_api_key
@@ -455,11 +489,12 @@ def run_benchmark(
     enable_leak_prefilter: bool = False,
     prefilter_ss_threshold: float = 0.2,
     prefilter_crr_threshold: float = 0.15,
-    configure_logging: bool = True,
-    endpoint_kwargs: dict | None = None,
-    target_version: str | None = None,
     authorized_by: str | None = None,
     engagement_id: str | None = None,
+    extra_run_metadata: dict | None = None,
+    configure_logging: bool = True,
+    endpoint_kwargs: dict | None = None,
+    classifier_llm_provider: str | None = None,
 ) -> dict:
     """Run one attack against a live agent, score it, and write the results JSON.
 
@@ -490,6 +525,20 @@ def run_benchmark(
     is verified — this is a record-keeping field, not an access control —
     but its absence is called out explicitly in the report so a reader can't
     mistake an unset field for "authorization not required."
+
+    ``extra_run_metadata`` (added 2026-08-07): an opaque dict merged into
+    ``run_metadata`` verbatim, on top of the fields above — for target-
+    specific run context this generic core has no field for, e.g. which
+    persona/API-key a run against ``hardened_agent`` authenticated as, or
+    which of its on-device toggles (rate limiting / redaction / memory)
+    were active. Deliberately generic here (this function doesn't know or
+    care what's in it) so any future target can use the same mechanism
+    without another one-off parameter — see
+    ``scripts/run_ikea_hardened.py`` for the first real caller. Keys
+    here override same-named keys already in ``run_metadata`` if they
+    collide (last-write-wins), so a caller can't accidentally shadow this
+    with something meaningless, but be deliberate about key names to avoid
+    surprising overwrites.
 
     Two Markdown reports are written alongside the JSON: ``<output>.md``
     (full, including literal leaked content) and ``<output>_redacted.md``
@@ -531,6 +580,11 @@ def run_benchmark(
         fallback_llm_provider=fallback_llm_provider if fallback_key else None,
         fallback_api_key=fallback_key,
     )
+    if classifier_llm_provider:
+        attack_kwargs["classifier_llm_provider"] = classifier_llm_provider
+        attack_kwargs["classifier_api_key"] = _key_for(classifier_llm_provider)
+        attack_kwargs["classifier_api_keys"] = _classifier_api_keys(classifier_llm_provider)
+
     if endpoint_kwargs:
         attack_kwargs["endpoint_kwargs"] = endpoint_kwargs
     if theta_inter is not None:
@@ -559,21 +613,18 @@ def run_benchmark(
     )
     started_at = datetime.now(timezone.utc)
     t0 = time.perf_counter()
-    # Belt-and-suspenders (added 2026-07-13): IKEAAttack.execute_black_box
-    # already degrades gracefully on a persistent LLM failure (returns
-    # partial findings instead of raising — see aginiti/attacks/dra/ikea.py).
-    # This try/except catches anything that still escapes (e.g. a failure
-    # during _init_anchors, before any findings exist, or a genuinely
-    # unexpected bug) so a run NEVER produces zero output — a 50-query
-    # benchmark that dies at query 2 with nothing written to disk isn't
-    # usable for anything. On a caught exception, whatever findings exist
-    # (possibly none) are still scored and written, with the error recorded
-    # in run_metadata instead of a bare traceback, and the exception is
-    # re-raised afterward so the failure is still visible/non-silent.
     findings: list[LeakFinding] = []
     fatal_error: str | None = None
+    
+    # Checkpointing path logic
+    checkpoint_file = Path(output).with_suffix(".checkpoint.json")
+    
     try:
-        findings = attack_instance.execute(topic=topic, max_queries=queries)
+        findings = attack_instance.execute(
+            topic=topic, max_queries=queries, checkpoint_file=str(checkpoint_file)
+        )
+        if checkpoint_file.exists():
+            checkpoint_file.unlink() # Clean up checkpoint on successful completion
     except Exception as exc:
         fatal_error = f"{type(exc).__name__}: {exc}"
         logger.error(
@@ -584,16 +635,6 @@ def run_benchmark(
     runtime_seconds = time.perf_counter() - t0
     logger.info("Attack finished: %d finding(s) in %.1fs", len(findings), runtime_seconds)
 
-    # refused_queries / queries_sent (added 2026-07-2x): IKEAAttack always
-    # computed this internally (drives ERS penalty weighting) but previously
-    # discarded it — execute()'s return type is locked as list[LeakFinding]
-    # (CLAUDE.md §3), so this is read from the instance attribute afterward,
-    # same pattern as prefilter_skips/_llm_call_count just below.
-    # queries_sent = len(findings) + len(refused_queries) because every
-    # query the attack actually sends becomes exactly one or the other, no
-    # third outcome (see execute_black_box's main loop) — this is the exact,
-    # measured count of queries attempted, unlike `queries` (the configured
-    # budget), which can be higher if the run stopped early.
     refused_queries = getattr(attack_instance, "refused_queries", [])
     queries_sent = len(findings) + len(refused_queries)
 
@@ -614,12 +655,6 @@ def run_benchmark(
             "agent_url": agent_url,
             "dataset": dataset_label,
             "dataset_size": len(gt_docs),
-            # Optional — e.g. a pinned third-party target's version tag
-            # (see benchmarks/scaled_evals/agents/onyx_target/ONYX_VERSION),
-            # so a published result records exactly which target version it
-            # measured. None for targets with no meaningful version concept
-            # (e.g. this project's own reference agents).
-            "target_version": target_version,
             "authorized_by": authorized_by,
             "engagement_id": engagement_id,
             "topic": topic,
@@ -630,9 +665,6 @@ def run_benchmark(
             "theta_inter": theta_inter,
             "theta_anchor": theta_anchor,
             "fallback_llm_provider": fallback_llm_provider if fallback_key else None,
-            # Boolean only — never the dict itself, which typically carries a
-            # live Authorization header/API key. See run_benchmark's
-            # docstring above.
             "endpoint_kwargs_configured": bool(endpoint_kwargs),
             "leak_prefilter_enabled": enable_leak_prefilter,
             "leak_prefilter_ss_threshold": prefilter_ss_threshold if enable_leak_prefilter else None,
@@ -642,6 +674,7 @@ def run_benchmark(
             "timestamp": started_at.isoformat(),
             "runtime_seconds": round(runtime_seconds, 1),
             "fatal_error": fatal_error,
+            **(extra_run_metadata or {}),
         },
         "metrics": metrics,
         "findings": [dataclasses.asdict(f) for f in findings],
@@ -711,6 +744,8 @@ def main() -> None:
                              "for any run against a system you don't personally own.")
     parser.add_argument("--engagement-id", default=None,
                         help="Engagement/ticket ID this run belongs to (recorded in the report).")
+    parser.add_argument("--classifier-llm-provider", default="groq/llama-3.3-70b-versatile",
+                        help="LLM provider for classification. Defaults to Groq Llama 3.3 70B.")
     args = parser.parse_args()
 
     run_benchmark(
@@ -730,6 +765,7 @@ def main() -> None:
         prefilter_crr_threshold=args.prefilter_crr_threshold,
         authorized_by=args.authorized_by,
         engagement_id=args.engagement_id,
+        classifier_llm_provider=args.classifier_llm_provider,
     )
 
 

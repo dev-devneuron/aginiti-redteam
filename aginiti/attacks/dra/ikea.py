@@ -684,6 +684,9 @@ class IKEAAttack(BaseAttack):
         fallback_api_key: Optional[str] = None,
         leak_prefilter: Optional[Callable[[str], bool]] = None,
         endpoint_kwargs: Optional[dict] = None,
+        classifier_llm_provider: Optional[str] = None,
+        classifier_api_key: Optional[str] = None,
+        classifier_api_keys: Optional[list[str]] = None,
     ) -> None:
         super().__init__(
             target_url, llm_provider, api_key, otel_ingester,
@@ -748,6 +751,15 @@ class IKEAAttack(BaseAttack):
         # Per-instance embedding cache — avoids re-embedding identical strings
         # across repeated ERS iterations over the same history.
         self._embed_cache: dict[str, list[float]] = {}
+        
+        self._classifier_llm_provider = classifier_llm_provider or llm_provider
+        self._classifier_llm = self._init_llm(
+            self._classifier_llm_provider,
+            classifier_api_key or api_key,
+            api_keys=classifier_api_keys
+        )
+        self._classifier_llm_call_count = 0
+        
         # Lazily computed on first _is_refusal() call that needs the
         # embedding fallback — avoids a network call during __init__.
         self._refusal_exemplar_embeddings: Optional[list[list[float]]] = None
@@ -1370,12 +1382,12 @@ class IKEAAttack(BaseAttack):
             "reasoning": "Classifier failed or returned invalid output; defaulted to low severity.",
         }
         try:
-            self._llm_call_count += 1
+            self._classifier_llm_call_count += 1
             logger.info(
                 "[LLM #%d] %s -> key='refusal + leak classification'",
-                self._llm_call_count, self._llm_provider,
+                self._classifier_llm_call_count, self._classifier_llm_provider,
             )
-            raw = self.llm([{"role": "user", "content": prompt}])
+            raw = self._classifier_llm([{"role": "user", "content": prompt}])
             classification = _extract_json_object(raw)
             if classification.get("severity") not in _VALID_SEVERITIES:
                 raise ValueError(f"invalid severity {classification.get('severity')!r}")
@@ -1530,6 +1542,9 @@ class IKEAAttack(BaseAttack):
             Skip the anchor cache for this run even if a fresh entry exists —
             added 2026-07-13 alongside the cache's 7-day TTL (see
             ``_init_anchors``). Default: ``False``.
+        checkpoint_file : str or None
+            Path to incrementally save findings after every query (added
+            2026-08-12). Prevents data loss if the script crashes mid-run.
 
         Returns
         -------
@@ -1541,6 +1556,7 @@ class IKEAAttack(BaseAttack):
         topic: str = kwargs.get("topic") or self.topic
         max_q: int = kwargs.get("max_queries") or self.max_queries
         force_refresh: bool = bool(kwargs.get("force_refresh", False))
+        checkpoint_file: Optional[str] = kwargs.get("checkpoint_file")
 
         if not topic:
             raise ValueError(
@@ -1621,6 +1637,22 @@ class IKEAAttack(BaseAttack):
         try:
             d_anchor = self._init_anchors(topic, force_refresh=force_refresh)
             h_t: list[tuple[str, str]] = []
+            
+            if checkpoint_file and Path(checkpoint_file).exists():
+                try:
+                    with open(checkpoint_file, "r", encoding="utf-8") as f:
+                        old_findings = json.load(f)
+                    for find_dict in old_findings:
+                        # Reconstruct LeakFinding object. Just append it as a dict first,
+                        # but execute() expects LeakFinding objects, so let's rebuild it.
+                        find_obj = LeakFinding(**find_dict)
+                        findings.append(find_obj)
+                        # Pad h_t so the loop knows we've spent budget
+                        h_t.append(("skipped_from_checkpoint", "skipped"))
+                    logger.info("Resumed from checkpoint: loaded %d previous findings.", len(findings))
+                except Exception as e:
+                    logger.warning("Failed to load checkpoint file (starting fresh): %s", e)
+
             llm_cap_hit = False
             llm_unavailable_exc: Optional[Exception] = None
 
@@ -1724,6 +1756,14 @@ class IKEAAttack(BaseAttack):
                         findings.append(self._make_finding(q, y, classification))
                     else:
                         self.refused_queries.append({"probe": q, "response": y})
+
+                    if checkpoint_file:
+                        try:
+                            import dataclasses
+                            with open(checkpoint_file, "w", encoding="utf-8") as f:
+                                json.dump([dataclasses.asdict(find) for find in findings], f, indent=2)
+                        except Exception as e:
+                            logger.warning("Failed to save checkpoint: %s", e)
 
                     logger.info(
                         "[HTTP<-] Query %d/%d -> %s  (%d finding(s), %d LLM call(s) so far)",

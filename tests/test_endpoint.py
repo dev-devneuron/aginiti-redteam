@@ -96,6 +96,89 @@ def test_http_4xx_raises_immediately_no_retry():
 
 
 # ---------------------------------------------------------------------------
+# 429 rate-limit handling (added 2026-08-08 — found live while preparing a
+# real MIA run against hardened_agent, whose RateLimiter returns a bare 429
+# with no Retry-After header; see AgentEndpoint's docstring)
+# ---------------------------------------------------------------------------
+
+@resp_lib.activate
+def test_429_retried_with_rate_limit_wait_not_dropped(monkeypatch):
+    sleeps = []
+    monkeypatch.setattr("time.sleep", lambda s: sleeps.append(s))
+
+    resp_lib.add(resp_lib.POST, f"{BASE}/chat", status=429)
+    resp_lib.add(resp_lib.POST, f"{BASE}/chat",
+                 json={"response": "ok after retry"}, status=200)
+
+    ep = AgentEndpoint(base_url=BASE, max_retries=1, rate_limit_wait_seconds=65.0)
+    result = ep.chat("hello")
+
+    assert result == "ok after retry"
+    assert len(resp_lib.calls) == 2
+    assert sleeps == [65.0]  # rate-limit wait used, not the normal backoff_factor schedule
+
+
+@resp_lib.activate
+def test_429_honors_retry_after_header(monkeypatch):
+    sleeps = []
+    monkeypatch.setattr("time.sleep", lambda s: sleeps.append(s))
+
+    resp_lib.add(resp_lib.POST, f"{BASE}/chat", status=429, headers={"Retry-After": "12"})
+    resp_lib.add(resp_lib.POST, f"{BASE}/chat", json={"response": "ok"}, status=200)
+
+    ep = AgentEndpoint(base_url=BASE, max_retries=1, rate_limit_wait_seconds=65.0)
+    ep.chat("hello")
+
+    assert sleeps == [12.0]  # target's own Retry-After honored over the default
+
+
+@resp_lib.activate
+def test_429_exhausts_retries_then_raises():
+    for _ in range(3):
+        resp_lib.add(resp_lib.POST, f"{BASE}/chat", status=429)
+
+    ep = AgentEndpoint(base_url=BASE, max_retries=2, rate_limit_wait_seconds=0.0)
+    with pytest.raises(HTTPError) as exc_info:
+        ep.chat("hello")
+
+    assert exc_info.value.response.status_code == 429
+    assert len(resp_lib.calls) == 3  # initial + 2 retries
+
+
+@resp_lib.activate
+def test_429_does_not_consume_normal_backoff_schedule():
+    # A 429 followed by success shouldn't leave next_wait leaking into a
+    # LATER, unrelated call on the same AgentEndpoint instance.
+    resp_lib.add(resp_lib.POST, f"{BASE}/chat", status=429)
+    resp_lib.add(resp_lib.POST, f"{BASE}/chat", json={"response": "first"}, status=200)
+    resp_lib.add(resp_lib.POST, f"{BASE}/chat", status=500)
+    resp_lib.add(resp_lib.POST, f"{BASE}/chat", json={"response": "second"}, status=200)
+
+    ep = AgentEndpoint(base_url=BASE, max_retries=1, rate_limit_wait_seconds=0.0, backoff_factor=0)
+    assert ep.chat("a") == "first"
+    assert ep.chat("b") == "second"  # the later 500 retries on its own fresh schedule
+
+
+def test_send_fn_429_retried_with_rate_limit_wait(monkeypatch):
+    sleeps = []
+    monkeypatch.setattr("time.sleep", lambda s: sleeps.append(s))
+    attempts = []
+
+    def _send_fn(session, url, message, timeout):
+        attempts.append(1)
+        if len(attempts) == 1:
+            response = requests.Response()
+            response.status_code = 429
+            raise HTTPError(response=response)
+        return "ok"
+
+    ep = AgentEndpoint(base_url=BASE, send_fn=_send_fn, max_retries=1, rate_limit_wait_seconds=65.0)
+    assert ep.chat("hello") == "ok"
+    assert len(attempts) == 2
+    assert sleeps == [65.0]
+
+
+# ---------------------------------------------------------------------------
 # Context manager
 # ---------------------------------------------------------------------------
 

@@ -270,8 +270,181 @@ read the results.
 
 ---
 
-## Planned: SECRET (next DRA technique)
+## Why IKEA was chosen first, over SECRET
 
-SECRET (arXiv:2510.02964) is the next DRA technique to add once IKEA is
-approved. It uses jailbreak-wrapped extraction instructions and is more
-fragile against safety patches than IKEA. Implementation has not started.
+*(Moved here from `CLAUDE.md` §4 during a 2026-07-30 scoping pass — see
+`CLAUDE.md`'s "Attack module registry" for why: this rationale is
+DRA-specific, not a framework-wide rule, and belongs in the module doc a
+reader actually consults when working on DRA, not in the project's
+top-level governance file.)*
+
+Multiple candidate papers were evaluated for the DRA module before
+settling on IKEA:
+
+- **Durability** — IKEA exploits architectural/vector-space properties of
+  RAG retrieval that can't be patched by a vendor safety update, unlike
+  jailbreak-dependent methods (see "Why this attack is hard to defend
+  against" above).
+- **Detection evasion** — IKEA bypasses input/output-level defenses by
+  design, since every individual query is benign. SECRET's queries are
+  jailbreak-wrapped, which is exactly the pattern input-classification
+  defenses are built to catch.
+
+No official IKEA code release exists — this implementation is built from
+the paper's algorithm description (Sec 3.2–3.4, hyperparameters in
+Appendix A.1/Table 5), not ported from a repo.
+
+## Implemented: SECRET (jailbreak-optimized DRA)
+
+**Paper:** He, Chen, Li, Shao, Qi, Li, Tao, Qin, "External Data Extraction
+Attacks against Retrieval-Augmented Large Language Models," IEEE TIFS 2026
+(arXiv:2510.02964v2). Full algorithm extraction:
+`aginiti/attacks/dra/secret-methodology.md`. Full design/sign-off record:
+`plans/secret-dra-attack.md`.
+
+### What makes this different from IKEA — read this first
+
+**SECRET is jailbreak-dependent; IKEA is not.** Every SECRET query is
+`p_e* ⊕ t_i` — a frozen, adaptively-optimized jailbreak-wrapped extraction
+instruction plus a per-query retrieval trigger — not a benign natural
+question. It is still zero-knowledge and black-box/Tier 1 like IKEA (no
+prior knowledge of any specific document, no retriever/LLM internals
+needed), but it needs several auxiliary LLM dependencies IKEA doesn't: an
+Optimizer LLM and an Evaluator LLM (Phase 1), a semantic-shift model (Phase
+2's Local Exploitation), and a caller-supplied external natural-text corpus
+for Global Exploration seeding. See `plans/secret-dra-attack.md` §1 for the
+full provider/cost mapping — Phase 1 alone costs tens of auxiliary LLM
+calls before Phase 2 spends a single query against the real knowledge base.
+
+The paper's own evidence pushes back on a simple "jailbreak, therefore
+fragile" framing — see `secret-methodology.md` §10: several tested
+input-side detectors (a perplexity-based detector, Llama-Guard-3-8B) achieve
+0% detection against SECRET specifically because its jailbreak prompts are
+adaptively optimized, coherent natural language, not a static template or
+token-garbage. Still, treat it as a genuinely different threat model from
+IKEA's non-jailbreak design, not a strict improvement.
+
+### Two-module architecture
+
+- **`aginiti/attacks/dra/jailbreak_optimizer.py`** — `JailbreakOptimizer`
+  (Phase 1, Algorithm 1). **Not a `BaseAttack` subclass** — it's an offline,
+  run-once-per-target calibration step producing a cacheable
+  `JailbreakArtifact` (the optimized `p_e*` plus provenance), disk-cached
+  under `.cache/secret_jailbreak/` (7-day TTL, `force_refresh` escape
+  hatch), mirroring `IKEAAttack`'s anchor cache.
+- **`aginiti/attacks/dra/secret.py`** — `SECRETAttack` (Phase 2, CFT). The
+  actual `BaseAttack` subclass, emitting `LeakFinding`s. Either accepts a
+  pre-computed `jailbreak_artifact` or runs `JailbreakOptimizer` internally
+  on first use (same "load from cache, or generate if missing" pattern as
+  `IKEAAttack._init_anchors`), so `attack.execute()` works end-to-end with
+  zero extra ceremony in the common case.
+
+### Quick start
+
+```python
+from aginiti.attacks.dra import SECRETAttack
+
+attack = SECRETAttack(
+    target_url="http://localhost:8001",
+    llm_provider="gemini/gemini-3.5-flash",
+    api_key="YOUR_GEMINI_API_KEY",
+    # Global Exploration seed corpus -- natural text UNRELATED to the
+    # target's domain (paper: Wikipedia). Not bundled -- caller-supplied,
+    # same pattern as MIA's non_member_reference_docs.
+    external_corpus=[
+        "The Eiffel Tower was completed in 1889 for the World's Fair.",
+        "Photosynthesis converts light energy into chemical energy.",
+        # ... a real engagement needs many more, genuinely diverse chunks
+    ],
+    max_queries=50,          # Phase 2 budget; start small
+    phase1_n_iter=5,         # Phase 1 budget; start small (paper default: 20)
+)
+
+findings = attack.execute(domain="HR records")
+for f in findings:
+    print(f.severity, f.confidence, f.probe_used[:60])
+    print(f.leaked_content[:200])
+
+# The p_e* actually used (cached to disk, reusable across runs/targets):
+print(attack.jailbreak_artifact.p_e_star, attack.jailbreak_artifact.score)
+```
+
+See `scripts/run_secret.py` (dev fixture, port 8001) or
+`scripts/run_secret_hardened.py --persona {legal,support,ops}` (hardened
+target, port 8004) for runnable, deliberately small smoke-test
+configurations (read each script's module docstring's cost warning first).
+
+### Live verification (2026-08-12) — a real bug found and fixed
+
+First live run (`scripts/run_secret.py` against `reference_agent_blackbox`)
+surfaced a real correctness gap: the methodology doc's §5 hyperparameter
+table states `temperature=0.0` ("deterministic decoding throughout") — a
+stated paper fact, not one of the two genuinely-ambiguous values (`alpha`/
+`tau`) — but this had never been wired through to the Optimizer/Evaluator/
+semantic-shift `litellm.completion()` calls. Symptom: the identical seed
+prompt, target, and model scored `1.0` ("Perfect Success") in one run and
+`0.0` ("Complete Failure") across 3 iterations in another, two days apart.
+**Fixed** — `temperature=0.0` is now passed explicitly on every SECRET-owned
+auxiliary LLM call (Optimizer, Evaluator, semantic-shift), deliberately NOT
+on target-facing calls (outside the attacker's control) or the classifier
+(this project's own addition, not part of the paper's pipeline, matching
+IKEA's existing convention). After the fix, a live run against the same
+undefended fixture produced a genuine **critical**-severity finding: a full
+verbatim HR record including SSN, extracted via GE→LE cluster discovery
+exactly as designed.
+
+Plumbing separately verified against `hardened_agent` (RBAC + rate limiting
++ redaction + memory + guardrail, all on) — authentication, RBAC-scoped
+retrieval, and the full Phase 1 → Phase 2 pipeline all ran without error.
+Zero findings at a 5-query smoke-test budget is expected/inconclusive at
+that scale (GE needs more attempts to land a domain-relevant seed against a
+guardrailed target), not evidence the defenses specifically blocked
+anything — a real per-persona benchmark pass needs a larger budget (see
+`scripts/run_secret_hardened.py`'s module docstring).
+
+One practical caveat surfaced by this run, worth knowing before relying on
+`temperature=0.0` long-term: LiteLLM/Gemini currently emit a deprecation
+warning that `temperature`/`top_p`/`top_k` are "planned for removal in a
+future release" for Gemini 3+ models, in favor of moving sampling guidance
+into system instructions. Not an error today, but flag this for
+re-verification if a future Gemini/LiteLLM update actually drops the
+parameter.
+
+### Two genuinely unresolved paper values
+
+The paper's official repo (`github.com/T0hsakar1n/Secret`) contains no
+source code as of this writing (re-verified 2026-08-08) — these are
+engineering judgment calls, not facts extracted from the paper:
+
+- **`phase1_alpha`** (Phase 1 early-stop score threshold) — no numeric value
+  given anywhere in the paper. Default `0.85`, chosen from the Evaluator's
+  own 0-1 rubric bands. Tune per target.
+- **`tau_extraction`** (this implementation's live self-dedup threshold,
+  repurposing the paper's Definition III.1 distance metric — see
+  `secret.py`'s module docstring for why this is a genuine interpretation
+  gap, not just an unresolved constant) — the paper states `0.1`
+  (normalized Levenshtein distance), but its own "set to avoid false
+  negatives" framing for a *low* distance value is internally confusing.
+  Kept at the paper's stated number pending the official repo's release;
+  flagged, not silently trusted.
+
+### Cost
+
+See `plans/secret-dra-attack.md` §1.2 for the full breakdown. In short:
+Phase 1 costs roughly 5-6 Optimizer calls + 16 target queries + 16 Evaluator
+calls in the average case (37-38 total calls) before Phase 2 spends a
+single query against the real knowledge base; curriculum optimization
+(`use_curriculum=True`) roughly doubles this. Phase 2 then adds one
+classifier LLM call and (during LE steps) one semantic-shift LLM call per
+query, on top of `max_queries` target queries. Start with a small
+`phase1_n_iter`/`phase1_n_cand`/`max_queries` (see `scripts/run_secret.py`)
+before scaling up.
+
+### Not conflated with IKEA or its baselines
+
+Independently verified from the methodology doc (§7): SECRET's paper
+doesn't cite IKEA/"Silent Leaks" anywhere, and none of its four baseline
+EDEAs (Zeng, Qi, Cohen, Jiang) correspond to it. This is a genuinely
+separate technique implementing a different taxonomy entry (Table I:
+Structured Repetition + LLM Optimizers + CFT, vs. IKEA's ERS/TRDM anchor
+resampling), not a variant or extension of IKEA's algorithm.

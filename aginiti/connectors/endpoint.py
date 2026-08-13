@@ -24,6 +24,23 @@ class AgentEndpoint:
     "any HTTP-accessible agent" (this project's Tier 1 promise) realistically
     includes authenticated ones. See ``benchmarks/scaled_evals/agents/onyx_target/connector.py``
     for the first real caller of both.
+
+    ``rate_limit_wait_seconds`` (added 2026-08-08, additive, default keeps
+    prior behavior's *shape* but closes a real gap): a target that rate-
+    limits (429) is a realistic defense — ``benchmarks/scaled_evals/agents/hardened_agent``
+    is the first one this project actually has — and until now, a 429 was
+    treated identically to every other 4xx: raised immediately, no retry
+    ("4xx errors are the caller's fault"). That's correct for 400/401/403/404,
+    but wrong for 429, whose entire meaning is "you're fine, just slow
+    down." Found live while preparing a real MIA run against
+    ``hardened_agent`` (its `RateLimiter` returns a bare 429 with no
+    ``Retry-After`` header — see its own ``main.py``), not discovered via a
+    dev-fixture test, since none of the dev-fixture/healthcare targets rate-
+    limit at all. Behavior: a 429 response is retried (within the existing
+    ``max_retries`` budget) using ``rate_limit_wait_seconds`` as the wait —
+    honoring a standards-compliant ``Retry-After`` header if the target
+    happens to send one, falling back to this default otherwise. Every
+    other 4xx status is unchanged: raised immediately, no retry.
     """
 
     def __init__(
@@ -36,6 +53,7 @@ class AgentEndpoint:
         backoff_factor: float = 0.5,
         headers: Optional[dict] = None,
         send_fn: Optional[Callable[[requests.Session, str, str, int], str]] = None,
+        rate_limit_wait_seconds: float = 65.0,
     ):
         self.base_url = base_url.rstrip("/")
         self.request_key = request_key
@@ -43,6 +61,7 @@ class AgentEndpoint:
         self.timeout = timeout
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
+        self.rate_limit_wait_seconds = rate_limit_wait_seconds
         # Static extra headers (e.g. {"Authorization": "Bearer ..."}), sent
         # on every request this class makes (chat AND check_reachable) —
         # some authenticated targets gate the health endpoint too.
@@ -62,10 +81,18 @@ class AgentEndpoint:
     def chat(self, message: str, endpoint: str = "/chat") -> str:
         url = f"{self.base_url}{endpoint}"
         last_exc: Optional[Exception] = None
+        # Set by a 429 response so the *next* iteration's sleep uses the
+        # rate-limit wait instead of the normal exponential backoff — see
+        # rate_limit_wait_seconds' docstring above.
+        next_wait: Optional[float] = None
 
         for attempt in range(self.max_retries + 1):
             if attempt > 0:
-                time.sleep(self.backoff_factor * (2 ** (attempt - 1)))
+                time.sleep(
+                    next_wait if next_wait is not None
+                    else self.backoff_factor * (2 ** (attempt - 1))
+                )
+                next_wait = None
             try:
                 if self.send_fn is not None:
                     return self.send_fn(self._session, url, message, self.timeout)
@@ -80,7 +107,19 @@ class AgentEndpoint:
                     )
                 return data[self.response_key]
             except requests.exceptions.HTTPError as exc:
-                # 4xx errors are the caller's fault — don't retry
+                if exc.response is not None and exc.response.status_code == 429:
+                    # Rate-limited, not the caller's fault — retry with a
+                    # real wait, honoring Retry-After if the target sends
+                    # one (most simple in-memory limiters, including this
+                    # project's own hardened_agent, don't).
+                    retry_after = exc.response.headers.get("Retry-After")
+                    try:
+                        next_wait = float(retry_after) if retry_after else self.rate_limit_wait_seconds
+                    except ValueError:
+                        next_wait = self.rate_limit_wait_seconds
+                    last_exc = exc
+                    continue
+                # Every other 4xx is the caller's fault — don't retry
                 if exc.response is not None and exc.response.status_code < 500:
                     raise
                 last_exc = exc

@@ -29,7 +29,14 @@ COPY aginiti ./aginiti
 
 # [benchmarks] extra (datasets + rouge-score) is included because the shared
 # image also runs scripts/run_healthcare_benchmark.py, which needs both.
-RUN pip install --no-cache-dir -e ".[benchmarks]"
+# [dev] extra is ALSO required here despite the name: fastapi/uvicorn/faker
+# live there (moved out of core `dependencies` so a bare `pip install
+# aginiti-redteam` stays lean — see pyproject.toml's comment), but every
+# agent this image runs (uvicorn ASGI apps, Faker-based fixtures) needs them.
+# Bug found live 2026-08-07: an image built with only `.[benchmarks]` starts
+# and crash-loops on `ModuleNotFoundError: No module named 'fastapi'` the
+# instant any agent's main.py imports it — silent until someone rebuilds.
+RUN pip install --no-cache-dir -e ".[benchmarks,dev]"
 
 # Now the rest of the source tree: benchmarks/ (agents + datasets), scripts/,
 # tests/. Bind-mounted paths in docker-compose.yml (.chroma/, results/,

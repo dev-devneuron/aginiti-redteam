@@ -37,6 +37,12 @@ from typing import Optional
 # ahead of time; _OWASP_DEFAULT covers any attack_type not in this dict.
 _OWASP_MAPPING = {
     "DRA": "LLM06:2025 - Sensitive Information Disclosure",
+    # MIA (InterrogationAttack, added 2026-07-30): a confirmed membership
+    # verdict is itself a sensitive information disclosure (existence of a
+    # record can be sensitive independent of content — e.g. confirming a
+    # specific patient/whistleblower/customer record's presence) — same
+    # OWASP category as DRA, distinct attack mechanism.
+    "MIA": "LLM06:2025 - Sensitive Information Disclosure",
 }
 _OWASP_DEFAULT = "OWASP LLM Top 10 mapping not yet defined for this attack type"
 
@@ -55,6 +61,26 @@ _ATTACK_DISPLAY_NAMES = {
 }
 
 _FULL_RESPONSE_TRUNCATE_CHARS = 200
+
+# Display labels for known target_toggle_state keys (see _normalize's
+# "target_toggle_state" field) — generic and extensible on purpose: any
+# future defense/attack target that reports a "<name>_enabled" key not
+# listed here still renders correctly via the fallback in _toggle_label,
+# just without a hand-tuned label. Not hardened_agent-specific despite
+# hardened_agent being the first real caller.
+_TOGGLE_LABELS = {
+    "rbac_enabled": "RBAC",
+    "rate_limit_enabled": "Rate Limiting",
+    "redaction_enabled": "Output Redaction",
+    "memory_enabled": "Conversation Memory",
+    "guardrail_enabled": "System-Prompt Guardrail",
+}
+
+
+def _toggle_label(key: str) -> str:
+    if key in _TOGGLE_LABELS:
+        return _TOGGLE_LABELS[key]
+    return key.replace("_enabled", "").replace("_", " ").title()
 
 
 def _format_runtime(seconds: float) -> str:
@@ -97,6 +123,14 @@ def _normalize(report: dict) -> dict:
             "metrics": report.get("metrics"),
             "authorized_by": meta.get("authorized_by"),
             "engagement_id": meta.get("engagement_id"),
+            # Both optional, generic (not hardened_agent-specific) —
+            # populated via run_benchmark()'s extra_run_metadata by any
+            # caller that authenticates as a specific identity and/or has
+            # independently-toggleable target-side defenses to report.
+            # First real caller: scripts/run_ikea_hardened.py. Absent
+            # for callers that don't set these (e.g. run_healthcare_benchmark.py).
+            "persona": meta.get("persona"),
+            "target_toggle_state": meta.get("target_toggle_state"),
         }
     if "run" in report:
         meta = report["run"]
@@ -121,6 +155,8 @@ def _normalize(report: dict) -> dict:
             "metrics": None,
             "authorized_by": meta.get("authorized_by"),
             "engagement_id": meta.get("engagement_id"),
+            "persona": meta.get("persona"),
+            "target_toggle_state": meta.get("target_toggle_state"),
         }
     raise ValueError(
         "Unrecognized report schema — expected a 'run_metadata' key "
@@ -349,6 +385,30 @@ def generate_markdown_report(
         "treat them as directional, not precise, especially at low query counts."
     )
     lines.append("")
+
+    # Target Configuration (added 2026-08-10): generic, not hardened_agent-
+    # specific despite that being the first real caller — renders whenever
+    # a run recorded a persona/identity and/or a target-side toggle state
+    # via extra_run_metadata (see _normalize). Silently omitted for runs
+    # that don't set either (e.g. run_healthcare_benchmark.py), rather than
+    # showing an empty/misleading section.
+    persona = data.get("persona")
+    toggle_state = data.get("target_toggle_state")
+    if persona or toggle_state:
+        lines.append("## Target Configuration")
+        if persona:
+            lines.append(f"**Authenticated as:** {persona}")
+        if isinstance(toggle_state, dict) and toggle_state:
+            lines.append("")
+            lines.append("| Defense | State |")
+            lines.append("|---------|-------|")
+            for key, value in toggle_state.items():
+                lines.append(f"| {_toggle_label(key)} | {'On' if value else 'Off'} |")
+        elif isinstance(toggle_state, str):
+            # e.g. "unknown (config fetch failed)" -- run_ikea_hardened.py's
+            # fallback when /config couldn't be reached at run time.
+            lines.append(f"**Target toggle state:** {toggle_state}")
+        lines.append("")
 
     lines.append("## Risk Summary")
     lines.append("| Severity | Count |")

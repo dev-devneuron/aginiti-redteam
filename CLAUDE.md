@@ -167,65 +167,22 @@ it unilaterally.
 - **`LeakFinding` dataclass and `BaseAttack` abstract class** in
   `aginiti/attacks/base.py` are locked. Field names, types, and the
   `execute()` dispatch logic (black_box vs traces based on `self.otel`) must
-  not change without explicit sign-off.
-  **Sign-off history:** 2026-07-13, `LeakFinding` gained three additive
-  optional fields (`full_response`, `leak_type`, `reasoning`) for LLM-as-judge
-  leak classification; same date, `BaseAttack._init_llm`'s `_call` closure
-  gained a provider-agnostic rate-limit retry (catches `litellm.RateLimitError`
-  — normalized across all providers by litellm — parses a "try again in Xs"
-  hint if present, else waits a flat 60s, up to 5 retries) since litellm's own
-  `num_retries` backoff retries too fast to survive a real per-minute RPM/TPM
-  window. Neither changed `execute()`'s dispatch logic or any existing field.
-  Same-day follow-up (after a live Groq TPM-limit run): wait now escalates
-  (doubles) if the same call keeps failing after waiting the hinted amount,
-  capped at 60s — a single hinted wait is trusted once, but not repeated
-  blindly. `num_retries` default dropped from 3 to 0 — litellm's own internal
-  retry was *also* retrying rate-limit errors near-instantly, wasting
-  requests against an already-exhausted budget and flooding the console with
-  its own noise; `litellm.suppress_debug_info = True` set to silence that
-  console noise (litellm's own `Router` sets this same flag for the same
-  reason). Trade-off flagged: a one-off non-rate-limit transient error (bad
-  connection, DNS blip) no longer gets an automatic litellm-level retry.
-  Second same-day follow-up (after a live Groq **TPD**, not TPM, exhaustion —
-  real waits of 2-7+ minutes, which the 60s cap was truncating, causing all 5
-  retries to fail and then an uncaught crash with 0 findings saved):
-  `_rate_limit_wait_seconds` now parses compound durations ("7m12s") fully
-  and returns the real, uncapped duration. Waits below a new 90s
-  `_RATE_LIMIT_FAILOVER_THRESHOLD_SECONDS` still sleep+retry as before; waits
-  at/above it are no longer slept through at all — `BaseAttack.__init__`/
-  `_init_llm` gained optional additive `fallback_llm_provider`/
-  `fallback_api_key` params, and a long wait immediately tries that backup
-  provider for the call instead of blocking. No fallback configured (or the
-  fallback also failing) means the exception is raised immediately (no
-  wasted sleep) — `IKEAAttack.execute_black_box` (`aginiti/attacks/dra/ikea.py`)
-  now catches `openai.APIError` (the true common base of every
-  litellm-normalized provider exception — verified via MRO that
-  `litellm.RateLimitError` is *not* a subclass of `litellm.APIError` despite
-  the name, they're siblings under `openai.APIError`) around the
-  per-chain `_generate_query` call and degrades gracefully: stops the attack
-  loop and returns whatever findings were already collected, instead of
-  crashing. `scripts/run_benchmark.py`'s `run_benchmark()` also wraps
-  `attack_instance.execute(...)` as a second safety net, so results are
-  always written to disk (with the error recorded in `run_metadata`) even if
-  something still escapes both layers.
-  Third follow-up (2026-07-23, Onyx integration — see
-  `plans/onyx-integration.md`): building a connector for Onyx (an
-  authenticated target with a non-flat-JSON chat API) surfaced a real gap —
-  `execute_black_box` hardcoded `AgentEndpoint(base_url=self.target_url)`
-  with no way to pass auth headers or a differently-shaped request/response.
-  `IKEAAttack.__init__` gained one additive `endpoint_kwargs: Optional[dict]
-  = None` param (default `{}`, every existing caller unaffected), passed
-  straight through as `AgentEndpoint(base_url=self.target_url,
-  **self._endpoint_kwargs)`. Deliberately generic plumbing, not Onyx-specific
-  logic — the actual Onyx request/response handling lives entirely outside
-  `aginiti/`, in `benchmarks/scaled_evals/agents/onyx_target/connector.py`,
-  which builds the `headers`/`send_fn` dict and hands it in as an opaque
-  value, same separation-of-concerns pattern as `leak_prefilter`. Did not
-  change `execute()`'s dispatch logic, `LeakFinding`, or any existing field/
-  parameter's behavior when `endpoint_kwargs` is omitted (verified: the full
-  test suite, including two new tests asserting `AgentEndpoint`'s
-  constructor receives exactly `{"base_url": ...}` when no `endpoint_kwargs`
-  is passed, stays green).
+  not change without explicit sign-off. This applies to **every** attack
+  module (DRA, MIA, and anything added later) — it is not IKEA-specific.
+  **Current state, in one line:** `LeakFinding` has 9 original fields plus 3
+  additive ones from 2026-07-13 (`full_response`, `leak_type`, `reasoning`)
+  — `leak_type` is a plain `str`, not an enforced enum, currently documented
+  as `"none"/"schema"/"pii"/"sensitive_data"/"verbatim"/"unknown"` (DRA) plus
+  `"membership"` (MIA, added 2026-07-30). `BaseAttack._init_llm` has a
+  provider-agnostic rate-limit retry with optional fallback-provider
+  failover, and `AgentEndpoint`/`endpoint_kwargs` support authenticated/
+  non-flat-JSON targets. `execute()`'s dispatch logic itself has never
+  changed since inception.
+  **Full sign-off history** (every individual additive change, in
+  chronological order, with reasoning) moved to `docs/how-it-works.md` §12
+  during a 2026-07-30 scoping pass — that's implementation journal content,
+  not a standing rule; this file states what's locked and what's currently
+  true, not the story of how it got there.
 - **LLM provider abstraction is mandatory everywhere.** Every LLM call inside
   the library goes through LiteLLM via `BaseAttack._init_llm`. Never hardcode
   a provider, an SDK, or assume a specific response shape. Default dev/test
@@ -281,50 +238,43 @@ it unilaterally.
 
 ---
 
-## 4. DRA paper selection — decided, with reasoning (read this before touching dra.py)
+## 4. Attack module registry
 
-We evaluated multiple candidate papers for the DRA module. Final decision:
+*(Restructured 2026-07-30 — was "DRA paper selection," a single-attack
+section that made sense when IKEA was the only attack in the codebase.
+Now that MIA exists too, with SECRET and FIA still on the roadmap, this
+needed to generalize into a framework-wide index rather than one attack
+owning a whole top-level section. Per-attack rationale/paper-selection
+detail now lives in each module's own `README.md`, linked below — this
+section is deliberately short: a map of what exists and where to read
+more, not the content itself.)*
 
-### Primary implementation target: **IKEA / "Silent Leaks"** (arXiv 2505.15420)
-- Mechanism: benign-query, no-jailbreak knowledge extraction via two
-  components — **Experience Reflection Sampling** (anchor concept sampling
-  weighted against past unrelated/refused queries) and **Trust Region
-  Directed Mutation** (iterative anchor mutation under cosine similarity
-  constraints to maximize unexplored coverage).
-- Fully black-box (Tier 1) by construction — the attacker's mechanism never
-  touches the target's retriever, embedding model, or LLM internals, only
-  query/response text via the attacker's *own* embedding model. That
-  attacker-side embedding model defaults to `chromadb/all-MiniLM-L6-v2` (local
-  ONNX, zero API cost) — see the **locked embedding architecture** in §3. The
-  paper used `all-mpnet-base-v2`, so benchmark numbers differ from its Table 1;
-  this is documented, not hidden.
-- No official code release exists. Implement from the paper's algorithm
-  description (Sec 3.2–3.4, hyperparameters in Appendix A.1/Table 5). Do not
-  go looking for a GitHub repo — there isn't one.
-- Why this one first, over SECRET: durability (exploits architectural/vector-
-  space properties that can't be patched by a vendor safety update, unlike
-  jailbreak-dependent methods) and detection evasion (bypasses input/output
-  defenses by design, since queries are benign). Full reasoning is in
-  project history — ask devneuron if context is needed.
+| Category | Implementation | Paper | Status | Module doc |
+|---|---|---|---|---|
+| DRA (Data Reconstruction) | `IKEAAttack` — `aginiti/attacks/dra/ikea.py` | IKEA / "Silent Leaks," arXiv:2505.15420 | Done | `aginiti/attacks/dra/README.md` |
+| DRA (2nd technique) | `JailbreakOptimizer` (Phase 1) — `aginiti/attacks/dra/jailbreak_optimizer.py`; `SECRETAttack` (Phase 2) — `aginiti/attacks/dra/secret.py` | SECRET, arXiv:2510.02964, IEEE TIFS 2026 | Done (2026-08-09) — two-module split per the design record (Phase 1 offline/cacheable, Phase 2 the `BaseAttack` subclass); 111 tests, all passing. **Live-verified 2026-08-12** against `reference_agent_blackbox` — found and fixed a real bug: the paper's stated `temperature=0.0` (methodology doc §5, a stated fact, not one of the two genuinely-ambiguous values) had never been wired through to the Optimizer/Evaluator/semantic-shift `litellm.completion()` calls, confirmed as the likely cause of wild Phase 1 score variance (1.0 vs 0.0 on an identical seed/target/model across two runs). Fixed; live run after the fix produced a genuine critical-severity verbatim leak (full HR record incl. SSN) via `scripts/run_secret.py`. Plumbing also verified against `hardened_agent` (auth, RBAC-scoped retrieval, all 5 defenses active, no crashes) via `scripts/run_secret_hardened.py`, but not yet a full per-persona benchmark pass (needs a larger query budget than the 5-query plumbing check to be a meaningful effectiveness signal). `alpha`/`tau` remain documented engineering judgment calls, not paper facts (official repo still has no code as of 2026-08-08) | `aginiti/attacks/dra/README.md` ("Implemented: SECRET"), `aginiti/attacks/dra/secret-methodology.md` (algorithm source of truth), `plans/secret-dra-attack.md` |
+| MIA (Membership Inference) | `InterrogationAttack` — `aginiti/attacks/mia/interrogation.py` | "Riddle Me This! Stealthy Membership Inference for RAG," ACM CCS 2025, arXiv:2502.00306 | Done (2026-07-30) | `aginiti/attacks/mia/README.md`, `plans/mia-interrogation-attack.md` |
+| FIA (Feature/Attribute Inference) | not started | not yet selected | Lowest priority, build last (§2) | — |
 
-### Documented as planned v0.x follow-up: **SECRET** (arXiv 2510.02964)
-- Mechanism: three-component framework — extraction instruction + jailbreak
-  operator (LLM-as-optimizer generates jailbreak wrappers) + cluster-focused
-  retrieval triggering.
-- Also black-box (Tier 1) by threat model, but jailbreak-dependent — more
-  fragile against vendor patches and more detectable by input-level
-  defenses than IKEA.
-- This is the next DRA technique to add (e.g. `aginiti/attacks/dra/secret.py`
-  or similar), **not yet started**. Do not begin implementing this until
-  IKEA is built, tested, and explicitly approved.
+**Rules that apply to every row above, framework-wide, not attack-specific**
+(see §3 for the full statement of each):
 
-### Both papers — Tier 1/Tier 2 implementation note
-Neither paper requires OTel to function. When implementing each attack's
-`execute_with_traces`, do not reimplement the extraction logic — call
-`execute_black_box` internally, then post-process each `LeakFinding` by
-checking `self.otel` for matching retrieval spans and upgrading
-`confirmed`/`severity` when a match is found. This keeps Tier 1 the single
-source of attack logic and Tier 2 a pure confidence-upgrade layer.
+- No attack requires OTel to produce real Tier 1 findings.
+- `execute_with_traces` must call `execute_black_box` internally and only
+  post-process the result — never reimplement extraction logic. This keeps
+  Tier 1 the single source of attack logic and Tier 2 a pure
+  confidence-upgrade layer, for every attack, not just IKEA.
+- Every attack inherits `BaseAttack` and emits `LeakFinding` — no
+  attack-specific schema forks (see §3's lock).
+- Do not begin implementing the next unstarted row without an explicit
+  go-ahead (§7).
+
+**Note on MIA's threat model, worth knowing before touching it**: unlike
+DRA, MIA is not zero-knowledge — it requires the candidate document's full
+text and a non-member reference set as inputs, not just an HTTP endpoint.
+See `aginiti/attacks/mia/README.md`'s "What makes this different from DRA"
+section before assuming every attack in this table shares DRA's exact
+access model.
 
 ---
 
@@ -346,9 +296,9 @@ source of attack logic and Tier 2 a pure confidence-upgrade layer.
 | `docs/benchmarking.md` | Done |
 | `aginiti/instrument/` — OTel span ingester | Stub only |
 | `aginiti/reporting/` — Markdown assessment report generator | Done (2026-07-13) — `generate_markdown_report()`, wired into `scripts/run_ikea.py` and `scripts/run_benchmark.py` (so `run_healthcare_benchmark.py` gets it too); 19 tests |
-| MIA module | Not started |
+| MIA module — `aginiti/attacks/mia/` (`InterrogationAttack`, "Riddle Me This," CCS 2025, arXiv:2502.00306v2) | Done (2026-07-30), **live-verified 2026-08-08** — see `plans/mia-interrogation-attack.md` for the design/sign-off record; 71 tests, all passing. First live run against `reference_agent_blackbox` found and fixed a real threshold-boundary false-positive bug (`docs/how-it-works.md` §13) — decision is now strict `score > threshold`, with warnings on degenerate/small calibration reference sets. Not zero-knowledge like DRA — requires candidate document text + a non-member reference set. Deferred to v2: Appendix-C contamination diagnostic; not wired into `scripts/run_benchmark.py`'s CLI registry yet (core library module only) |
 | FIA module | Not started |
-| SECRET (second DRA technique) | Documented, not started |
+| SECRET (second DRA technique) — `aginiti/attacks/dra/jailbreak_optimizer.py` + `secret.py` | Done (2026-08-09), 111 tests, all passing. **Live-verified 2026-08-12** against `reference_agent_blackbox` (found+fixed a missing `temperature=0.0` bug, then produced a real critical verbatim leak); plumbing-verified against `hardened_agent` (all 5 defenses on, auth/RBAC/no crashes), full per-persona benchmark pass not yet run |
 | `RandomDRAAttack` baseline / multi-domain 500+ dataset / guardrail env-var dimension | Not started (roadmap) |
 | `aginiti/cli.py` | Not started |
 
@@ -384,8 +334,10 @@ bars from the start, not retroactively:
 
 - **Do not start implementing the next roadmap item on your own initiative.**
   Wait for an explicit instruction from devneuron in the terminal before
-  beginning `dra.py`, the OTel ingester, the reporting module, MIA, FIA, or
-  anything else. Finishing a task and then immediately starting the next
+  beginning the OTel ingester, FIA, the CLI, or anything else in §4/§5 marked
+  "not started" (SECRET was implemented 2026-08-09 on explicit instruction —
+  see its §4 row; it is no longer in this "wait" category, but is still not
+  live-verified). Finishing a task and then immediately starting the next
   listed item without being asked is not acceptable, even if the next step
   seems obvious from this file.
 - When asked to implement something, **state your plan before writing code**
@@ -400,6 +352,10 @@ bars from the start, not retroactively:
 - If something in this file seems wrong, outdated, or in conflict with a
   new instruction, say so — don't just follow it blindly, and don't just
   follow the new instruction blindly either. Surface the conflict.
-- Keep Section 5 (build status) and Section 4 (paper decisions) updated as
-  work progresses and decisions evolve — this file should remain accurate,
-  not just exist.
+- Keep Section 5 (build status) and Section 4 (attack module registry)
+  updated as work progresses and decisions evolve — this file should remain
+  accurate, not just exist. Per the 2026-07-30 scoping pass, detailed
+  per-attack rationale/history belongs in that attack's own `README.md` (or
+  `docs/how-it-works.md` for implementation journal content) — keep this
+  file's own entries short and pointer-based, don't let it re-accumulate the
+  kind of single-attack sprawl that pass cleaned up.

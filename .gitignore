@@ -38,6 +38,7 @@ benchmarks/scaled_evals/agents/healthcare_agent/.chroma/
 # store, and per-run results are all generated locally, never committed.
 benchmarks/scaled_evals/datasets/*.json
 benchmarks/scaled_evals/agents/healthcare_agent/vector_store.json
+benchmarks/scaled_evals/agents/hardened_agent/.chroma/
 benchmarks/scaled_evals/results/
 
 # Onyx benchmark integration — PAUSED, not yet verified against a live

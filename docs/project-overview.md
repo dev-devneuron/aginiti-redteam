@@ -35,8 +35,15 @@ queries.
 | Membership Inference | MIA | Does a specific document exist in the knowledge base? |
 | Feature/Attribute Inference | FIA | Can I infer sensitive attributes without extracting the full document? |
 
-**Current build status:** DRA (IKEA) is complete. MIA and FIA are not yet
-started. Everything in the codebase today supports DRA.
+**Current build status:** DRA now has two techniques — IKEA (non-jailbreak,
+`aginiti/attacks/dra/ikea.py`) and SECRET (jailbreak-optimized,
+`aginiti/attacks/dra/jailbreak_optimizer.py` + `secret.py`, implemented
+2026-08-09, not yet live-verified) — plus MIA (Interrogation Attack). FIA is
+not yet started. See "`aginiti/attacks/mia/interrogation.py` — the
+Interrogation Attack (MIA)" in §4 below for what's different about MIA's
+threat model before assuming it works like DRA, and
+"`aginiti/attacks/dra/secret.py` — the SECRET attack (2nd DRA technique)"
+below for what's different about SECRET vs. IKEA.
 
 ---
 
@@ -64,10 +71,18 @@ aginiti-redteam/
 │   ├── attacks/
 │   │   ├── __init__.py
 │   │   ├── base.py               ← LeakFinding + BaseAttack (locked schema)
-│   │   └── dra/
-│   │       ├── __init__.py       ← exports IKEAAttack
-│   │       ├── ikea.py           ← IKEA attack implementation
-│   │       └── README.md         ← DRA module usage docs
+│   │   ├── dra/
+│   │   │   ├── __init__.py            ← exports IKEAAttack, JailbreakOptimizer, JailbreakArtifact, SECRETAttack
+│   │   │   ├── ikea.py                 ← IKEA attack implementation
+│   │   │   ├── jailbreak_optimizer.py  ← SECRET Phase 1 (JailbreakOptimizer — Algorithm 1)
+│   │   │   ├── secret.py               ← SECRET Phase 2 (SECRETAttack — CFT, BaseAttack subclass)
+│   │   │   ├── secret-methodology.md   ← SECRET paper algorithm extraction (source of truth)
+│   │   │   └── README.md               ← DRA module usage docs (IKEA + SECRET)
+│   │   └── mia/
+│   │       ├── __init__.py       ← exports InterrogationAttack
+│   │       ├── interrogation.py  ← Interrogation Attack implementation
+│   │       ├── ia-methodology.md ← paper algorithm extraction (source of truth)
+│   │       └── README.md         ← MIA module usage docs
 │   ├── connectors/
 │   │   ├── __init__.py
 │   │   ├── endpoint.py           ← AgentEndpoint HTTP client
@@ -112,7 +127,8 @@ aginiti-redteam/
 ├── tests/
 │   ├── test_base.py                    ← 11 tests: LeakFinding + BaseAttack
 │   ├── test_endpoint.py                ← 9 tests: AgentEndpoint HTTP client
-│   └── test_ikea.py                    ← 69 tests: full IKEAAttack suite
+│   ├── test_ikea.py                    ← 69 tests: full IKEAAttack suite
+│   └── test_interrogation.py           ← 66 tests: full InterrogationAttack suite
 │
 ├── docs/
 │   ├── dev_setup.md                    ← install, seed, start agents, env vars
@@ -385,7 +401,123 @@ __all__ = ["IKEAAttack"]
 ```
 
 Allows `from aginiti.attacks.dra import IKEAAttack` instead of the full
-internal path.
+internal path (now also `JailbreakOptimizer`, `JailbreakArtifact`,
+`SECRETAttack` — see below).
+
+---
+
+### `aginiti/attacks/dra/jailbreak_optimizer.py` + `secret.py` — the SECRET attack (2nd DRA technique)
+
+Implements **SECRET** (He et al., "External Data Extraction Attacks against
+Retrieval-Augmented Large Language Models," IEEE TIFS 2026,
+arXiv:2510.02964v2). Full usage docs: `aginiti/attacks/dra/README.md`. Full
+algorithm extraction: `aginiti/attacks/dra/secret-methodology.md`. Full
+design/sign-off record: `plans/secret-dra-attack.md`.
+
+**Two modules, not one attack class** — this is the one structural
+departure from IKEA/MIA's "one file, one `BaseAttack` subclass" shape, and
+it's deliberate (see `plans/secret-dra-attack.md` §2 for the full
+reasoning):
+
+- **`jailbreak_optimizer.py` — `JailbreakOptimizer`** (Phase 1, Algorithm
+  1). **Not a `BaseAttack` subclass** — it runs a live Optimizer/Evaluator
+  LLM feedback loop against the target to calibrate a single jailbreak
+  prompt (`p_e*`), then freezes it. Its output is a `JailbreakArtifact`
+  dataclass (the prompt + score + provenance), not `list[LeakFinding]`, so
+  `BaseAttack`'s contract doesn't fit. Disk-cached under
+  `.cache/secret_jailbreak/` (7-day TTL, `force_refresh` escape hatch) —
+  same pattern as `IKEAAttack`'s anchor cache, reusable across targets
+  believed to run the same underlying model (the paper's own
+  transferability finding).
+- **`secret.py` — `SECRETAttack`**. The actual `BaseAttack` subclass,
+  emitting `LeakFinding`s. Either accepts a pre-computed
+  `jailbreak_artifact=` or runs `JailbreakOptimizer` internally on first use
+  (mirrors `IKEAAttack._init_anchors`'s "load from cache, or generate if
+  missing" pattern) before running Cluster-Focused Triggering (CFT): Global
+  Exploration (GE) samples a caller-supplied `external_corpus` to seed
+  cluster discovery; Local Exploitation (LE) fuses a discovered document
+  with a fresh corpus sample (via a configurable semantic-shift LLM) to
+  probe nearby, still-undiscovered content, alternating back to GE on
+  stagnation (a hard local query cap, a consecutive-empty-steps counter, or
+  the cluster collection emptying out — whichever fires first).
+
+**Jailbreak-dependent, unlike IKEA** — every query is `p_e* ⊕ t_i`, not a
+benign question. Still black-box/Tier 1 and zero-knowledge of any specific
+document, but needs more auxiliary LLM dependencies than IKEA (Optimizer,
+Evaluator, semantic-shift model) — see `plans/secret-dra-attack.md` §1 for
+the full provider/cost table.
+
+**A genuine interpretation gap worth knowing about**: the paper's
+Definition III.1 (extraction-success distance threshold `tau`) requires
+ground-truth access a black-box Tier 1 attacker never has. This
+implementation repurposes the same normalized-Levenshtein-distance
+machinery for the attacker's own live self-dedup during the run (is a newly
+parsed segment meaningfully different from what's already been discovered)
+rather than for offline ground-truth scoring — flagged explicitly in
+`secret.py`'s module docstring, not silently assumed equivalent to the
+paper's evaluation-time usage.
+
+**Two numeric values remain engineering judgment calls, not paper facts**
+(the paper's official repo has no published code as of 2026-08-08):
+`phase1_alpha` (Phase 1's early-stop score threshold, default 0.85) and
+`tau_extraction` (the live self-dedup threshold above, default 0.1 per the
+paper's stated number, despite its own "avoid false negatives" framing
+being internally confusing for a low distance value).
+
+Tested via `tests/test_jailbreak_optimizer.py` (45 tests) and
+`tests/test_secret.py` (66 tests) — both fully mocked, no live API/network
+calls. Not yet run against a live target; `scripts/run_secret.py` exists
+for that smoke test (deliberately small hyperparameters — see its module
+docstring's cost warning) but hasn't been executed yet.
+
+---
+
+### `aginiti/attacks/mia/interrogation.py` — the Interrogation Attack (MIA)
+
+Implements the **Interrogation Attack (IA)** from Naseh, Peng, Suri,
+Chaudhari, Oprea, Houmansadr, "Riddle Me This! Stealthy Membership
+Inference for Retrieval-Augmented Generation," ACM CCS 2025
+(arXiv:2502.00306). Full usage docs in `aginiti/attacks/mia/README.md`;
+full design/sign-off record in `plans/mia-interrogation-attack.md`. This
+section covers only how it connects to the rest of the codebase.
+
+**Answers a different question than DRA.** DRA (IKEA) asks "what can I
+extract from this knowledge base." MIA asks "does this *specific* document
+I already hold exist in it." That difference has a real architectural
+consequence: **MIA is not zero-knowledge the way IKEA is.**
+`InterrogationAttack.__init__` requires `non_member_reference_docs` — a
+non-member reference document set — as a constructor argument, not an
+optional extra, because the attack's aggregation score has no principled
+yes/no cutoff without a calibrated threshold built from it.
+
+**Three stages, one method group each** (mirrors `IKEAAttack`'s
+one-method-per-algorithm-step structure):
+
+| Method | What it does |
+|---|---|
+| `_generate_retrieval_summary` / `_generate_probe_questions` | Stage A — LLM calls via `self.llm` (the attacker's own LiteLLM closure, inherited from `BaseAttack`), produce a natural lead-in (`s*`) and `n` (default 30) yes/no questions grounded in a candidate document's own facts |
+| `_compose_query` (module-level function) | `s* + " " + p_i` — validated against a literal fixture from the paper's own Table 4, not guessed (see `plans/mia-interrogation-attack.md` §6) |
+| `_generate_ground_truth_answers` | Stage B — one call per probe question against `self.shadow_llm`, a **second**, independently-configured LLM closure (also built via `BaseAttack._init_llm`, same rate-limit retry machinery as `self.llm`) |
+| `_score_document` | Stage C — the paper's aggregation formula, `(1/n) * Σ[𝟙(r_i=g_i) − λ·𝟙(r_i=UNK)]` |
+| `_calibrate_threshold` | Runs the full pipeline against every `non_member_reference_docs` entry, disk-caches the result (`.cache/ia_calibration/`, 7-day TTL — same pattern as `IKEAAttack`'s anchor cache) |
+| `execute_black_box(documents=[...])` | Batch entry point — tests membership of every document in `documents`, returns one `LeakFinding` per **confirmed** member; non-members tracked in `self.non_member_results`, same transparency precedent as `IKEAAttack.refused_queries` |
+
+**No embedding model.** Unlike IKEA, `InterrogationAttack` takes no
+`embed_model`/`embed_api_key` — Stage C's scoring is literal Yes/No/"I
+don't know" string matching (word-boundary regex, not naive substring
+checks — see `_parse_yes_no_unk`), not cosine similarity. `embed_texts()`
+is not imported anywhere in this module.
+
+**`LeakFinding` mapping worth knowing about**: `leak_type="membership"`
+(an additive value alongside DRA's existing ones — `leak_type` is a plain
+`str`, not an enforced enum, so this needed no schema change).
+`severity` is a fixed `"medium"` for every confirmed finding in this
+version — MIA confirms *existence*, not *content*, so it has no way to
+judge a specific document's real-world sensitivity from inside itself;
+that judgment is left to the reporting/human-review layer, not invented
+here. `full_response` is repurposed to hold the complete 30-question audit
+trail (JSON) rather than a single raw response, since a MIA verdict is an
+aggregate over many query/response pairs, not one.
 
 ---
 
@@ -887,6 +1019,43 @@ IKEAAttack (ikea.py)
     │     └── chromadb/* → local ONNX (default); every other provider → litellm.embedding
     └── execute_with_traces calls execute_black_box + OTel ingester (future)
 
+JailbreakOptimizer (jailbreak_optimizer.py)
+    ├── NOT a BaseAttack subclass — uses a throwaway _LLMInitHelper(BaseAttack)
+    │     internally only to reuse _init_llm's rate-limit retry machinery
+    ├── optimize() creates AgentEndpoint(target_url) as a local var (real-target
+    │     stage) and, if use_curriculum=True, a bare LLM closure (weak-model stage,
+    │     no HTTP endpoint involved)
+    ├── uses litellm.completion (via optimizer_llm/evaluator_llm closures)
+    └── returns a JailbreakArtifact, disk-cached under .cache/secret_jailbreak/
+
+SECRETAttack (secret.py)
+    ├── inherits BaseAttack (base.py)
+    │     stores: self.target_url, self.llm (used for response classification),
+    │     self.otel; self.semantic_shift_llm built via self._init_llm directly
+    ├── execute_black_box lazily runs JailbreakOptimizer internally (unless a
+    │     jailbreak_artifact was supplied at construction) — see jailbreak_optimizer.py above
+    ├── execute_black_box creates AgentEndpoint(self.target_url) as a local var
+    │     └── AgentEndpoint (endpoint.py) — same HTTP client IKEAAttack uses
+    ├── uses litellm.completion (self.llm for classification, self.semantic_shift_llm
+    │     for LE trigger generation) — no other library calls beyond embed_texts
+    ├── uses embed_texts (embedding.py) — ONLY if use_priority_queue=True (surrogate
+    │     embedder for LE's centroid-distance prioritization)
+    └── execute_with_traces calls execute_black_box + OTel ingester (future) —
+          same dispatch pattern as IKEAAttack
+
+InterrogationAttack (interrogation.py)
+    ├── inherits BaseAttack (base.py)
+    │     stores: self.target_url, self.llm, self.otel
+    ├── self.shadow_llm — a SECOND BaseAttack._init_llm closure, independent
+    │     of self.llm (separate provider/key, defaults to the same as self.llm)
+    ├── execute_black_box creates AgentEndpoint(self.target_url) as a local var
+    │     └── AgentEndpoint (endpoint.py) — same HTTP client IKEAAttack uses
+    ├── uses litellm.completion (via self.llm/self.shadow_llm) — no other
+    │     library calls; does NOT use embed_texts (no embedding model)
+    └── execute_with_traces calls execute_black_box + OTel ingester (future) —
+          same dispatch pattern as IKEAAttack, weaker Tier-2 mapping (see
+          aginiti/attacks/mia/interrogation.py's execute_with_traces docstring)
+
 reference_agent_blackbox/
     ├── seed.py reads ground_truth.json → ChromaDB collection (local ONNX embeddings)
     ├── agent.py queries the ChromaDB collection (ONNX) → litellm.completion
@@ -899,9 +1068,23 @@ reference_agent_otel/
 tests/
     ├── test_base.py — imports from aginiti.attacks.base
     ├── test_endpoint.py — imports from aginiti.connectors.endpoint
-    └── test_ikea.py — imports from aginiti.attacks.dra.ikea
-                         patches litellm.completion and AgentEndpoint.chat;
-                         injects embeddings via self.attack._embed (no ChromaDB)
+    ├── test_ikea.py — imports from aginiti.attacks.dra.ikea
+    │                    patches litellm.completion and AgentEndpoint.chat;
+    │                    injects embeddings via self.attack._embed (no ChromaDB)
+    ├── test_jailbreak_optimizer.py — imports from aginiti.attacks.dra.jailbreak_optimizer
+    │                    (45 tests) patches optimizer.optimizer_llm/evaluator_llm
+    │                    directly (plain callables) and AgentEndpoint.check_reachable;
+    │                    orchestration (curriculum two-stage flow, cache hit/miss)
+    │                    tested by patching _run_algorithm1 directly
+    ├── test_secret.py — imports from aginiti.attacks.dra.secret (66 tests)
+    │                    patches attack.llm/attack.semantic_shift_llm/attack._embed
+    │                    directly and AgentEndpoint.chat/check_reachable; GE/LE
+    │                    orchestration tested by patching _process_response and
+    │                    _ensure_jailbreak_artifact directly
+    └── test_interrogation.py — imports from aginiti.attacks.mia.interrogation
+                         patches attack.llm/attack.shadow_llm directly (both
+                         plain callables) and AgentEndpoint.chat; no ChromaDB,
+                         no embeddings anywhere in this module
 
 pyproject.toml
     └── declares aginiti-redteam package, pins all dependencies,
@@ -916,9 +1099,8 @@ pyproject.toml
 |---|---|---|
 | `aginiti/instrument/` | Stub | OTel span ingester — needed for `execute_with_traces` to work |
 | `aginiti/reporting/` | **Done (2026-07-13, extended 2026-07-25)** | `generate_markdown_report()` — human-readable CISO-facing Markdown report (risk summary, key metrics vs. paper baseline, OWASP LLM Top 10-mapped findings, methodology). Handles both `scripts/run_ikea.py`'s and `scripts/run_benchmark.py`'s JSON schemas; wired into both scripts so a `.md` (and, since 2026-07-25, a `_redacted.md`) is written alongside every run's JSON. 2026-07-25 additions: globally-unique finding IDs, coverage caveat, confirmed-vs-schema-only status line, authorization/engagement metadata, `redact=True` mode, top-line overall-risk verdict — see `docs/how-it-works.md` §11 |
-| MIA module | Not started | Membership Inference Attack |
 | FIA module | Not started | Feature/Attribute Inference Attack |
-| SECRET (second DRA) | Documented, not started | arXiv:2510.02964, jailbreak-based DRA |
+| SECRET (second DRA) | **Done (2026-08-09)** | `jailbreak_optimizer.py` (Phase 1) + `secret.py` (Phase 2), arXiv:2510.02964, jailbreak-based DRA. 111 tests, all passing. Not yet live-verified against a running target — `scripts/run_secret.py` exists for that smoke test |
 | CLI (`aginiti/cli.py`) | Not started | Command-line entrypoint |
 | Benchmark runner | **Done** | `scripts/run_benchmark.py` (flexible CLI, EE/ASR/CRR/SS) + `scripts/run_healthcare_benchmark.py` (preset). See `docs/benchmarking.md`. Infra built; benchmark not yet run |
 | Full benchmark dataset + agent | **Done (single domain)** | `benchmarks/scaled_evals/` — HealthCareMagic-1k prep + `healthcare_agent` (port 8003). Multi-domain 500+ record expansion still roadmap |

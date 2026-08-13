@@ -12,6 +12,8 @@ Unlike generic LLM security tools, Aginiti Redteam is built from the ground up f
 ## 🚀 Key Features
 
 * **IKEA Data Reconstruction Attack (DRA):** Plugs in the arXiv:2505.15420 methodology. Generates natural-sounding, benign-looking queries using Embedding-space Resampling (ERS) and Topic-restricted Random Walk Mutation (TRDM) to bypass traditional keyword/jailbreak detectors.
+* **SECRET — jailbreak-optimized DRA:** Plugs in the arXiv:2510.02964 (IEEE TIFS 2026) methodology — a second, genuinely different Data Reconstruction technique. An Optimizer/Evaluator LLM loop adaptively calibrates a jailbreak prompt against the live target (Phase 1, cached), then Cluster-Focused Triggering (Phase 2) alternates Global Exploration and Local Exploitation to extract knowledge-base clusters. Unlike IKEA, every query is jailbreak-wrapped — see [`aginiti/attacks/dra/README.md`](aginiti/attacks/dra/README.md) for the threat-model tradeoffs before assuming it behaves like IKEA.
+* **Interrogation Attack — Membership Inference (MIA):** Plugs in the "Riddle Me This!" methodology (ACM CCS 2025, arXiv:2502.00306) — confirms or denies whether a specific document you already hold exists in the target's knowledge base, via benign yes/no probing scored against a calibrated non-member reference set. A different threat model from DRA: see [`aginiti/attacks/mia/README.md`](aginiti/attacks/mia/README.md) for what it requires before assuming it works like DRA.
 * **Tiered Probing Architecture:**
   * **Tier 1 (Black-Box):** Probes the agent's HTTP endpoint. Evaluates exfiltration risk strictly from conversational responses.
   * **Tier 2 (White-Box/OTel):** Hooked into OpenTelemetry. Upgrades findings to "confirmed" by cross-referencing exfiltrated data with RAG retrieval spans.
@@ -28,8 +30,13 @@ aginiti-redteam/
 ├── aginiti/
 │   ├── attacks/
 │   │   ├── base.py              # Base class (BaseAttack) & findings schema (LeakFinding)
-│   │   └── dra/
-│   │       ├── ikea.py          # IKEA attack loop (ERS + TRDM)
+│   │   ├── dra/                 # Data Reconstruction Attack
+│   │   │   ├── ikea.py                 # IKEA attack loop (ERS + TRDM)
+│   │   │   ├── jailbreak_optimizer.py  # SECRET Phase 1 (Algorithm 1 — jailbreak calibration)
+│   │   │   ├── secret.py               # SECRET Phase 2 (CFT extraction, BaseAttack subclass)
+│   │   │   └── README.md
+│   │   └── mia/                 # Membership Inference Attack
+│   │       ├── interrogation.py # Interrogation Attack (3-stage: query gen, shadow-LLM ground truth, aggregation)
 │   │       └── README.md
 │   ├── connectors/
 │   │   ├── endpoint.py          # HTTP client for target agents
@@ -58,7 +65,7 @@ aginiti-redteam/
 ### Prerequisites
 * Python 3.10+
 * A valid API key for any LiteLLM-supported provider (e.g., `GEMINI_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, etc.) as the attack loop and LLM-as-a-judge classification are fully provider-agnostic.
-* **Windows Users:** It is highly recommended to run inside **WSL2** (Windows Subsystem for Linux). Running native binary dependencies like `onnxruntime` under native Windows can cause DLL loading errors or crashes.
+* **Windows Users:** It is highly recommended to run inside **WSL2** (Windows Subsystem for Linux), or via Docker — see [`docs/docker.md`](docs/docker.md) for the full containerized setup (all reference agents, seeding, and attack runs, including the RBAC/rate-limit/redaction/memory ablation-lab target). Running native binary dependencies like `onnxruntime` under native Windows can cause DLL loading errors or crashes.
 
 ### Install & Configure
 Clone the repository, set up a virtual environment, and install the library in editable mode:
@@ -155,10 +162,10 @@ pytest tests/ -v
   * [x] LLM-as-a-judge leak classification
   * [x] CISO-facing markdown reporter
   * [x] HealthCareMagic-1k benchmarking suite
+* [x] **Membership Inference Attack (MIA)** — Interrogation Attack ("Riddle Me This," CCS 2025); see [`aginiti/attacks/mia/README.md`](aginiti/attacks/mia/README.md)
+* [x] **SECRET DRA Technique** (jailbreak-optimized extraction, arXiv:2510.02964) — see [`aginiti/attacks/dra/README.md`](aginiti/attacks/dra/README.md); not yet live-verified against a running target
 * [ ] **Tier 2 OTel Trace Collector Integration** (Langfuse / OpenTelemetry ingress)
-* [ ] **Membership Inference Attack (MIA)**
 * [ ] **Feature/Attribute Inference Attack (FIA)**
-* [ ] **SECRET DRA Technique** (Jailbreak-based exfiltration runner)
 * [ ] **Command-Line Interface (`aginiti` CLI wrapper)**
 
 ---

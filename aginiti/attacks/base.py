@@ -120,7 +120,11 @@ class LeakFinding:
     # every pre-existing LeakFinding(...) call site keeps working unchanged.
     full_response: str = ""    # complete agent response, for analyst review
                                 # (leaked_content holds only the evidence quote)
-    leak_type: str = "unknown"  # "none"/"schema"/"pii"/"sensitive_data"/"verbatim"/"unknown"
+    leak_type: str = "unknown"  # "none"/"schema"/"pii"/"sensitive_data"/"verbatim"/"unknown"/
+                                 # "membership" (added 2026-07-30 for MIA/InterrogationAttack —
+                                 # aginiti/attacks/mia/interrogation.py; a confirmed membership
+                                 # verdict, distinct from DRA's content-extraction leak types —
+                                 # see plans/mia-interrogation-attack.md §3)
     reasoning: str = ""         # one-sentence classifier explanation
 
 
@@ -157,6 +161,7 @@ class BaseAttack(ABC):
         api_key: str,
         fallback_llm_provider: Optional[str] = None,
         fallback_api_key: Optional[str] = None,
+        api_keys: Optional[list[str]] = None,
     ):
         # Returns a callable: (messages: list[dict], **kwargs) -> str
         # llm_provider is a LiteLLM model string, e.g.:
@@ -173,8 +178,26 @@ class BaseAttack(ABC):
         # one extra doomed primary attempt per call but keeps the logic
         # simple and never leaves the object stuck on a fallback it might not
         # need once the primary recovers.
+        #
+        # api_keys (added 2026-08-12): optional list of MULTIPLE keys for the
+        # SAME llm_provider — e.g. several free-tier Groq keys, to spread
+        # rate limits across accounts instead of waiting them out or failing
+        # over to a different model. Takes precedence over the singular
+        # api_key when given. On a RateLimitError, the NEXT key in the
+        # rotation is tried immediately (no sleep — per-key RPM/TPM windows
+        # are independent of each other), cycling through every key before
+        # falling through to the wait/backoff/fallback-provider logic below.
+        # The "current key" is sticky ACROSS calls (persisted on the closure
+        # via _key_idx, not reset per call) — once key 1 rate-limits,
+        # subsequent calls start from key 2, since the key that JUST
+        # rate-limited is the one least likely to have already recovered;
+        # wrapping back to key 1 only happens after every other key has also
+        # been tried, by which point its own window has likely reset.
         _model = llm_provider
-        _key = api_key or None
+        _keys = list(api_keys) if api_keys else [api_key or None]
+        _key_idx = [0]  # mutable 1-element container so _call (below) can
+                         # persist the current key across separate
+                         # invocations without needing `nonlocal`
         _fallback_model = fallback_llm_provider
         _fallback_key = fallback_api_key or None
 
@@ -223,51 +246,74 @@ class BaseAttack(ABC):
             last_exc: Optional[Exception] = None
             wait_s = 0.0
             for attempt in range(_RATE_LIMIT_MAX_RETRIES + 1):
-                try:
-                    return _attempt(_model, _key, messages, **kwargs)
-                except litellm.RateLimitError as exc:
-                    last_exc = exc
-                    hinted_wait = _rate_limit_wait_seconds(exc)
-
-                    if hinted_wait >= _RATE_LIMIT_FAILOVER_THRESHOLD_SECONDS:
-                        if _fallback_model:
+                # Key-rotation pass (2026-08-12): try every key in the
+                # rotation, starting from the sticky current index, before
+                # counting this as one "attempt" for the wait/backoff loop
+                # below. With a single key (the default — api_keys not
+                # given), this degenerates to exactly the old try/except,
+                # unchanged.
+                start_idx = _key_idx[0]
+                for offset in range(len(_keys)):
+                    idx = (start_idx + offset) % len(_keys)
+                    try:
+                        result = _attempt(_model, _keys[idx], messages, **kwargs)
+                        _key_idx[0] = idx
+                        return result
+                    except litellm.RateLimitError as exc:
+                        last_exc = exc
+                        _key_idx[0] = (idx + 1) % len(_keys)
+                        if len(_keys) > 1:
                             logger.warning(
-                                "[RATE LIMIT] %s — reported wait %.1fs exceeds the "
-                                "%.0fs failover threshold; failing over to backup "
-                                "provider %r for this call instead of blocking.",
-                                exc, hinted_wait,
-                                _RATE_LIMIT_FAILOVER_THRESHOLD_SECONDS, _fallback_model,
+                                "[RATE LIMIT] key %d/%d rate-limited (%s) — "
+                                "rotating to the next key immediately.",
+                                idx + 1, len(_keys), exc,
                             )
-                            try:
-                                return _attempt(_fallback_model, _fallback_key, messages, **kwargs)
-                            except Exception as fallback_exc:
-                                logger.error(
-                                    "[RATE LIMIT] Backup provider %r also failed: %s "
-                                    "— giving up on this call.",
-                                    _fallback_model, fallback_exc,
-                                )
-                                raise
-                        logger.error(
-                            "[RATE LIMIT] %s — reported wait %.1fs exceeds the %.0fs "
-                            "failover threshold and no fallback_llm_provider is "
-                            "configured — giving up rather than blocking the whole "
-                            "run for minutes.",
-                            exc, hinted_wait, _RATE_LIMIT_FAILOVER_THRESHOLD_SECONDS,
-                        )
-                        raise
 
-                    if attempt >= _RATE_LIMIT_MAX_RETRIES:
-                        break
-                    wait_s = min(max(hinted_wait, wait_s * 2), _RATE_LIMIT_FAILOVER_THRESHOLD_SECONDS)
-                    logger.warning(
-                        "[RATE LIMIT] %s — waiting %.1fs before retry %d/%d …",
-                        exc, wait_s, attempt + 1, _RATE_LIMIT_MAX_RETRIES,
+                # Every key in the rotation was rate-limited this round —
+                # fall through to the existing wait/backoff/fallback logic
+                # using the last exception seen.
+                exc = last_exc
+                hinted_wait = _rate_limit_wait_seconds(exc)
+
+                if hinted_wait >= _RATE_LIMIT_FAILOVER_THRESHOLD_SECONDS:
+                    if _fallback_model:
+                        logger.warning(
+                            "[RATE LIMIT] %s — reported wait %.1fs exceeds the "
+                            "%.0fs failover threshold; failing over to backup "
+                            "provider %r for this call instead of blocking.",
+                            exc, hinted_wait,
+                            _RATE_LIMIT_FAILOVER_THRESHOLD_SECONDS, _fallback_model,
+                        )
+                        try:
+                            return _attempt(_fallback_model, _fallback_key, messages, **kwargs)
+                        except Exception as fallback_exc:
+                            logger.error(
+                                "[RATE LIMIT] Backup provider %r also failed: %s "
+                                "— giving up on this call.",
+                                _fallback_model, fallback_exc,
+                            )
+                            raise
+                    logger.error(
+                        "[RATE LIMIT] %s — reported wait %.1fs exceeds the %.0fs "
+                        "failover threshold and no fallback_llm_provider is "
+                        "configured — giving up rather than blocking the whole "
+                        "run for minutes.",
+                        exc, hinted_wait, _RATE_LIMIT_FAILOVER_THRESHOLD_SECONDS,
                     )
-                    time.sleep(wait_s)
-                    logger.info(
-                        "[RATE LIMIT] resumed after %.1fs — retrying now (attempt %d/%d)",
-                        wait_s, attempt + 1, _RATE_LIMIT_MAX_RETRIES,
-                    )
+                    raise exc  # type: ignore[misc]
+
+                if attempt >= _RATE_LIMIT_MAX_RETRIES:
+                    break
+                wait_s = min(max(hinted_wait, wait_s * 2), _RATE_LIMIT_FAILOVER_THRESHOLD_SECONDS)
+                logger.warning(
+                    "[RATE LIMIT] %s — waiting %.1fs before retry %d/%d …",
+                    exc, wait_s, attempt + 1, _RATE_LIMIT_MAX_RETRIES,
+                )
+                time.sleep(wait_s)
+                logger.info(
+                    "[RATE LIMIT] resumed after %.1fs — retrying now (attempt %d/%d)",
+                    wait_s, attempt + 1, _RATE_LIMIT_MAX_RETRIES,
+                )
 
             raise last_exc  # type: ignore[misc]
 

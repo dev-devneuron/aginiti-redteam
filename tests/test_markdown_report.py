@@ -53,6 +53,7 @@ def _finding(
 def _run_benchmark_schema(
     findings, metrics=None, queries_sent=None, refused_queries=None,
     authorized_by=None, engagement_id=None,
+    persona=None, target_toggle_state=None,
 ):
     run_metadata = {
         "attack": "ikea",
@@ -74,6 +75,10 @@ def _run_benchmark_schema(
         run_metadata["authorized_by"] = authorized_by
     if engagement_id is not None:
         run_metadata["engagement_id"] = engagement_id
+    if persona is not None:
+        run_metadata["persona"] = persona
+    if target_toggle_state is not None:
+        run_metadata["target_toggle_state"] = target_toggle_state
     report = {
         "run_metadata": run_metadata,
         "metrics": metrics or {
@@ -543,6 +548,62 @@ class TestAuthorizationMetadata:
         markdown = generate_markdown_report(report, tmp_path / "r.md")
         assert "**Authorized by:** Jane Doe (CISO)" in markdown
         assert "**Engagement:**" not in markdown
+
+
+class TestTargetConfiguration:
+    """Generic 'Target Configuration' section (added 2026-08-10) — not
+    hardened_agent-specific despite that being the first real caller; any
+    attack target that reports a persona/identity and/or toggle state via
+    extra_run_metadata renders here the same way."""
+
+    def test_shown_when_toggle_state_present(self, tmp_path):
+        report = _run_benchmark_schema(
+            [_finding()],
+            persona="legal",
+            target_toggle_state={
+                "rbac_enabled": True,
+                "rate_limit_enabled": True,
+                "redaction_enabled": True,
+                "memory_enabled": True,
+                "guardrail_enabled": False,
+            },
+        )
+        markdown = generate_markdown_report(report, tmp_path / "r.md")
+        assert "## Target Configuration" in markdown
+        assert "**Authenticated as:** legal" in markdown
+        assert "| RBAC | On |" in markdown
+        assert "| System-Prompt Guardrail | Off |" in markdown
+
+    def test_unknown_toggle_key_falls_back_to_title_case_label(self, tmp_path):
+        # A future defense this test file doesn't know about yet -- proves
+        # the section stays usable without a _TOGGLE_LABELS update.
+        report = _run_benchmark_schema(
+            [_finding()], target_toggle_state={"some_new_defense_enabled": True},
+        )
+        markdown = generate_markdown_report(report, tmp_path / "r.md")
+        assert "| Some New Defense | On |" in markdown
+
+    def test_string_toggle_state_shown_as_a_note_not_a_table(self, tmp_path):
+        # run_ikea_hardened.py's fallback when /config couldn't be reached.
+        report = _run_benchmark_schema(
+            [_finding()], target_toggle_state="unknown (config fetch failed)",
+        )
+        markdown = generate_markdown_report(report, tmp_path / "r.md")
+        assert "**Target toggle state:** unknown (config fetch failed)" in markdown
+        assert "| Defense | State |" not in markdown
+
+    def test_omitted_entirely_when_neither_field_present(self, tmp_path):
+        markdown = generate_markdown_report(
+            _run_benchmark_schema([_finding()]), tmp_path / "r.md",
+        )
+        assert "## Target Configuration" not in markdown
+
+    def test_persona_shown_without_toggle_state(self, tmp_path):
+        report = _run_benchmark_schema([_finding()], persona="ops")
+        markdown = generate_markdown_report(report, tmp_path / "r.md")
+        assert "## Target Configuration" in markdown
+        assert "**Authenticated as:** ops" in markdown
+        assert "| Defense | State |" not in markdown
 
 
 class TestOverallRiskVerdict:
