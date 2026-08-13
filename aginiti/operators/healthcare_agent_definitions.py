@@ -40,6 +40,7 @@ from aginiti.graph.owasp_llm_taxonomy import LLM02_SENSITIVE_INFORMATION_DISCLOS
 from aginiti.graph.schema import ClaimStatus, RiskTier
 from aginiti.graph.security_boundary import BOUNDARY_L1
 from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
+from aginiti.operators.adaptive_followups import adaptive_followup_operators
 from aginiti.operators.data_exposure import data_exposure_operators
 from aginiti.operators.encoding_variants import build_encoding_evasion_operators
 from aginiti.operators.library import ClaimEffect, Operator
@@ -117,5 +118,6 @@ def build_healthcare_agent_library(index: VerbatimDisclosureIndex) -> list[Opera
     return [
         *data_exposure_operators(),
         *build_encoding_evasion_operators(),
+        *adaptive_followup_operators(),
         _build_verbatim_disclosure_operator(index),
     ]

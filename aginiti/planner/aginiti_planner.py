@@ -141,8 +141,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from aginiti.graph.hypothesis import HypothesisStatus
+from aginiti.graph.novelty import operator_family_diversification
 from aginiti.graph.schema import IMPORTANCE_WEIGHT, ClaimStatus, InsightCategory
 from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, CATEGORY_TRUST_EDGE, SecurityStateGraph
+from aginiti.graph.target_belief import TargetBeliefState
 from aginiti.graph.target_graph import (
     build_graph,
     build_static_graph,
@@ -190,6 +192,16 @@ _SEVERITY_WEIGHT_PER_LEVEL = 0.2
 # as intended -- the penalty should inform, not veto.
 _FAILURE_PENALTY_WEIGHT = 1.0
 
+# hypothesis_escalation_bonus()'s magnitude -- added 2026-08-14 (Issue: "make
+# genuine attack-chain construction VISIBLE in ranking, not merely possible").
+# Deliberately larger than severity_priority/failure_evidence_penalty's 1.0
+# ceiling: this fires only in the specific moment a ClassPrecondition-gated
+# operator's eligibility just opened up from a RECENT confirmation -- i.e. a
+# genuine "a follow-up just became available" event, not a generic tiebreaker
+# -- so it's calibrated to compete with gap_priority/hypothesis_priority's own
+# _HYPOTHESIS_WEIGHT ceiling (4.0) rather than the smaller nudge-class terms.
+_HYPOTHESIS_ESCALATION_WEIGHT = 3.0
+
 
 @dataclass
 class RankedCandidate:
@@ -206,6 +218,8 @@ class RankedCandidate:
     branch_interest: float
     severity_priority: float
     failure_evidence_penalty: float
+    family_diversification: float
+    hypothesis_escalation_bonus: float
     alpha: float
     beta: float
 
@@ -247,10 +261,36 @@ class AginitiPlanner:
     ablation test + cross-target regression this was evaluated against
     before any default was considered."""
 
-    def __init__(self, info_gain_normalization: str = "sum") -> None:
+    def __init__(self, info_gain_normalization: str = "sum",
+                 enable_family_diversification: bool = False,
+                 enable_hypothesis_escalation_bonus: bool = False) -> None:
+        """`enable_family_diversification`/`enable_hypothesis_escalation_
+        bonus` -- added 2026-08-14, both default False so an unparameterized
+        `AginitiPlanner()` is BYTE-IDENTICAL in ranking behavior to every
+        version of this class before this pair existed (config "A" in the
+        ablation this pair exists to support -- see experiments/
+        exp22_adaptive_planner_ablation.py). Independently toggleable,
+        per the explicit instruction that drove them both:
+
+        - `enable_family_diversification` turns on
+          `family_diversification()` (aginiti/graph/novelty.py): demotes a
+          candidate whose ATTACK FAMILY (attack_category) already looks
+          saturated (2+ same-family confirmations, zero successes) and
+          gives a small bonus to a genuinely untried family once another
+          one looks saturated -- the deterministic "stop burning budget on
+          semantically-equivalent attacks, investigate another boundary"
+          mechanism.
+        - `enable_hypothesis_escalation_bonus` turns on
+          `hypothesis_escalation_bonus()`: rewards a `ClassPrecondition`-
+          gated operator whose eligibility just opened up from a RECENTLY
+          confirmed claim -- makes genuine, discovered (not hard-coded)
+          chain continuation an explicit, visible ranking preference
+          rather than something that merely becomes possible."""
         if info_gain_normalization not in ("sum", "mean"):
             raise ValueError(f'info_gain_normalization must be "sum" or "mean", got {info_gain_normalization!r}')
         self.info_gain_normalization = info_gain_normalization
+        self.enable_family_diversification = enable_family_diversification
+        self.enable_hypothesis_escalation_bonus = enable_hypothesis_escalation_bonus
 
     def _recently_confirmed_in_category(self, ssg: SecurityStateGraph, category: str,
                                          recency_window: int) -> bool:
@@ -803,10 +843,76 @@ class AginitiPlanner:
                 return -_FAILURE_PENALTY_WEIGHT
         return 0.0
 
+    def family_diversification(self, operator: Operator, belief: TargetBeliefState) -> float:
+        """Thin wrapper over aginiti/graph/novelty.py's pure function --
+        see that module's own docstring for the full reasoning. Returns
+        0.0 unconditionally when `enable_family_diversification` is off,
+        matching every other opt-in term's "untagged/disabled -> true
+        no-op" discipline."""
+        if not self.enable_family_diversification:
+            return 0.0
+        return operator_family_diversification(operator, belief)
+
+    def _recently_satisfied_class_precondition(self, cpre, ssg: SecurityStateGraph,
+                                                 recency_window: int) -> bool:
+        """Same semantic-tag matching `Operator.preconditions_met()` already
+        performs for ELIGIBILITY (aginiti/operators/library.py's
+        ClassPrecondition) -- scoped here to whether a MATCHING claim was
+        confirmed RECENTLY (mirrors `_recently_confirmed_in_category`'s own
+        position-based recency window above), i.e. did this operator's
+        eligibility genuinely just open up versus having sat eligible for a
+        while already. Deliberately a parallel implementation rather than a
+        call into Operator's own private `_class_precondition_met` -- that
+        method has no recency concept to thread through."""
+        from aginiti.graph.security_boundary import rank as boundary_rank
+
+        candidate_keys = set(ssg.claim_category) | set(ssg.claim_attack_category) | set(ssg.claim_boundary)
+        total = len(ssg.claims)
+        cutoff = max(0, total - recency_window)
+        for key in candidate_keys:
+            if cpre.category is not None and ssg.claim_category.get(key) != cpre.category:
+                continue
+            if cpre.attack_category is not None and ssg.claim_attack_category.get(key) != cpre.attack_category:
+                continue
+            if cpre.min_security_boundary_rank is not None:
+                level = ssg.claim_boundary.get(key)
+                if level is None or boundary_rank(level) < cpre.min_security_boundary_rank:
+                    continue
+            claim = ssg.current_claim(key)
+            if claim is None or claim.status != ClaimStatus.CONFIRMED:
+                continue
+            idx = ssg.claims.index(claim)
+            if idx >= cutoff:
+                return True
+        return False
+
+    def hypothesis_escalation_bonus(self, operator: Operator, ssg: SecurityStateGraph,
+                                     recency_window: int) -> float:
+        """Rewards a `ClassPrecondition`-gated operator whose eligibility
+        just opened up from a claim confirmed RECENTLY -- see this class's
+        __init__ docstring for the full motivation. 0.0 for any operator
+        with no precondition_classes at all (every operator predating
+        2026-08-12's ClassPrecondition mechanism, and most still today),
+        or when disabled -- a true no-op either way."""
+        if not self.enable_hypothesis_escalation_bonus:
+            return 0.0
+        if not operator.precondition_classes:
+            return 0.0
+        for cpre in operator.precondition_classes:
+            if self._recently_satisfied_class_precondition(cpre, ssg, recency_window):
+                return _HYPOTHESIS_ESCALATION_WEIGHT
+        return 0.0
+
     def rank(self, library: OperatorLibrary, ssg: SecurityStateGraph, mission: Mission,
               prompts_used: int, executed_ids: frozenset[str] = frozenset()) -> list[RankedCandidate]:
         alpha, beta = self._schedule(ssg, prompts_used, mission.budget)
         budget_remaining = mission.budget - prompts_used
+        recency_window = max(4, 2 * mission.budget)
+        # Computed ONCE per rank() call, not per-candidate -- both new
+        # terms below read this same snapshot; TargetBeliefState.from_ssg
+        # is a single linear scan over ssg.claims, negligible next to the
+        # BFS calls path_progress/emergent_impact already run per candidate.
+        belief = TargetBeliefState.from_ssg(ssg, library) if self.enable_family_diversification else None
         ranked = []
         for op in eligible_operators(library, ssg, mission, prompts_used, executed_ids):
             if not self.budget_feasible(op, mission, library, budget_remaining):
@@ -822,17 +928,20 @@ class AginitiPlanner:
             bri = self.branch_interest(op, ssg)
             sp = self.severity_priority(op, ssg)
             fep = self.failure_evidence_penalty(op, ssg)
+            fdiv = self.family_diversification(op, belief) if belief is not None else 0.0
+            heb = self.hypothesis_escalation_bonus(op, ssg, recency_window)
             # cv joins ig in alpha's basket, not beta's: it is speculative
             # lookahead value (like ig, resolving what's currently
             # unknown), not yet-confirmed structural progress (what
             # beta's bi/pp/ep/pop terms are reserved for) -- see
-            # chain_value()'s own docstring. sp and fep join gp/hp/bri as
-            # unscaled additive nudges -- see severity_priority()'s and
-            # failure_evidence_penalty()'s own docstrings for why they
-            # must never be alpha/beta-weighted.
-            utility = alpha * (ig + cv) + beta * (bi + pp + ep + pop) + gp + hp + bri + sp + fep
+            # chain_value()'s own docstring. sp, fep, fdiv, and heb join
+            # gp/hp/bri as unscaled additive nudges -- see each one's own
+            # docstring for why they must never be alpha/beta-weighted.
+            utility = (alpha * (ig + cv) + beta * (bi + pp + ep + pop)
+                       + gp + hp + bri + sp + fep + fdiv + heb)
             if utility <= 0:
                 continue  # zero predicted value left -- a rational planner has no reason to run it
-            ranked.append(RankedCandidate(op, utility, ig, bi, pp, ep, pop, cv, gp, hp, bri, sp, fep, alpha, beta))
+            ranked.append(RankedCandidate(op, utility, ig, bi, pp, ep, pop, cv, gp, hp, bri, sp, fep,
+                                           fdiv, heb, alpha, beta))
         ranked.sort(key=lambda c: c.utility, reverse=True)
         return ranked

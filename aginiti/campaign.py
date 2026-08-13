@@ -14,7 +14,9 @@ from dataclasses import dataclass, field
 from aginiti.adapter.observation_adapter import ExecutionResult, ObservationAdapter
 from aginiti.adapters.base import BaseAdapter
 from aginiti.graph.belief_state import apply_reasoning_verdict, should_run_reasoning_pass, update_branch_beliefs
+from aginiti.graph.decision_trace import build_decision_trace
 from aginiti.graph.insights import run_reasoning_pass
+from aginiti.graph.target_belief import TargetBeliefState
 from aginiti.graph.schema import InsightCategory
 from aginiti.graph.ssg import SecurityStateGraph
 from aginiti.mission import Mission
@@ -177,6 +179,33 @@ def run_campaign(mission: Mission, library: OperatorLibrary, agent: BaseAdapter 
 
         chosen = ranked[0]
         step += 1
+
+        # Structured decision reasoning (aginiti/graph/decision_trace.py),
+        # built BEFORE execution from exactly the same values rank() just
+        # used to choose `chosen` -- never a generated explanation, and
+        # never influences what gets executed. Best-effort: only planners
+        # that expose `.planner` (AginitiPolicy's own wrapping, see
+        # aginiti/policies/aginiti_policy.py) carry the extra flags this
+        # reads; Random/Static/Memory-guided/Bayesian conditions simply
+        # don't get a trace attached, same "additive, never required"
+        # discipline as every other opt-in mechanism in this codebase.
+        inner_planner = getattr(policy, "planner", None)
+        if inner_planner is not None and hasattr(inner_planner, "enable_family_diversification"):
+            fdiv_on = inner_planner.enable_family_diversification
+            # Always computed for the trace, regardless of whether
+            # family_diversification is active -- the trace should show
+            # REAL current state either way; only whether that state
+            # actually influenced ranking (fdiv_on) differs.
+            belief = TargetBeliefState.from_ssg(ssg, library)
+            last_fact = execution_log[-1].raw_signal if execution_log else None
+            trace = build_decision_trace(
+                step=step, ssg=ssg, chosen_operator_id=chosen.operator.id, chosen_meta=chosen.meta,
+                last_fact_text=last_fact, belief=belief,
+                family_diversification_active=fdiv_on,
+                hypothesis_escalation_active=inner_planner.enable_hypothesis_escalation_bonus,
+            )
+            chosen.meta["decision_trace"] = trace.render()
+
         claims_before = len(ssg.claims)  # anchor for the belief-state diff below
         result = adapter.execute(chosen.operator, ssg, agent, seed=seed)
         prompts_used += result.cost_prompts

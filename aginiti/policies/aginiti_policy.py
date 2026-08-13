@@ -34,6 +34,8 @@ class AginitiPolicy:
                       "potential_progress": rc.potential_progress, "chain_value": rc.chain_value,
                       "branch_interest": rc.branch_interest, "severity_priority": rc.severity_priority,
                       "failure_evidence_penalty": rc.failure_evidence_penalty,
+                      "family_diversification": rc.family_diversification,
+                      "hypothesis_escalation_bonus": rc.hypothesis_escalation_bonus,
                       "alpha": rc.alpha, "beta": rc.beta},
             )
             for rc in ranked

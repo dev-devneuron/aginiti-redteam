@@ -106,6 +106,16 @@ class GreedyInfoGainPlanner(AginitiPlanner):
         # error, exactly the kind of "looks fine, quietly wrong" bug this pass exists to
         # catch.
 
+    def family_diversification(self, operator, belief) -> float:
+        return 0.0  # unscaled additive term (added 2026-08-14) -- structurally already 0.0
+        # via enable_family_diversification defaulting False, but explicit here for the
+        # SAME "never silently absorb a new base-class term" reason failure_evidence_
+        # penalty's own comment names -- guards against a future default change.
+
+    def hypothesis_escalation_bonus(self, operator, ssg, recency_window) -> float:
+        return 0.0  # unscaled additive term (added 2026-08-14) -- see family_diversification's
+        # own comment immediately above for the reasoning.
+
 
 class GreedyBusinessImpactPlanner(AginitiPlanner):
     """alpha=0, beta=1, fixed -- "exploit-first": ranks purely by predicted
@@ -135,6 +145,12 @@ class GreedyBusinessImpactPlanner(AginitiPlanner):
         return 0.0
 
     def failure_evidence_penalty(self, operator: Operator, ssg: SecurityStateGraph) -> float:
+        return 0.0  # see GreedyInfoGainPlanner's own override for the full reasoning
+
+    def family_diversification(self, operator, belief) -> float:
+        return 0.0  # see GreedyInfoGainPlanner's own override for the full reasoning
+
+    def hypothesis_escalation_bonus(self, operator, ssg, recency_window) -> float:
         return 0.0  # see GreedyInfoGainPlanner's own override for the full reasoning
 
 
@@ -172,6 +188,12 @@ class BFSOnlyPlanner(AginitiPlanner):
         return 0.0
 
     def failure_evidence_penalty(self, operator: Operator, ssg: SecurityStateGraph) -> float:
+        return 0.0  # see GreedyInfoGainPlanner's own override for the full reasoning
+
+    def family_diversification(self, operator, belief) -> float:
+        return 0.0  # see GreedyInfoGainPlanner's own override for the full reasoning
+
+    def hypothesis_escalation_bonus(self, operator, ssg, recency_window) -> float:
         return 0.0  # see GreedyInfoGainPlanner's own override for the full reasoning
 
     def _schedule(self, ssg: SecurityStateGraph, prompts_used: int, budget: int) -> tuple[float, float]:
