@@ -64,6 +64,16 @@ tests/test_prepare_onyx_upload.py
 scripts/results/
 findings.json
 
+# Cloned official paper repos (IKEA, RAG_MIA, SPE-LLM) kept locally for
+# comparing this project's implementation against the papers' own code --
+# reference material, not part of this project, never meant to be
+# distributed. Re-added 2026-08-17: the original 2026-08-16 removal commit
+# stopped tracking the 3 gitlink entries but this line itself silently
+# didn't survive that commit (the .gitignore file got saved with an
+# encoding issue that day -- git logged it as a binary diff). Verified this
+# time with `git check-ignore -v external_repos/IKEA` before trusting it.
+external_repos/
+
 # IKEAAttack anchor-candidate cache (aginiti/attacks/dra/ikea.py
 # _init_anchors) — local, per-machine, regenerated automatically
 .cache/
@@ -102,3 +112,12 @@ aginiti/attacks/mia/ia-methodology.md
 # only. Not a credential/secret leak, just not meant for the public repo --
 # see git log for the removal commit if this ever needs revisiting.
 CLAUDE.md
+
+# Per-attack live-verification incident logs (added 2026-08-16) --
+# "we found bug X during a live run, here's the root cause" narratives,
+# split out of the public aginiti/attacks/*/README.md files so those stay
+# clean user-facing reference docs. The READMEs keep a distilled,
+# actionable takeaway from each of these; this is the full story, for this
+# project's own maintainers only.
+aginiti/attacks/dra/verification-log.md
+aginiti/attacks/mia/verification-log.md

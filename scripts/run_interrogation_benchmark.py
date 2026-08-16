@@ -14,8 +14,8 @@ metrics" section for what each figure means and why it needs document
 COUNT, not just ``n_probe_questions``, to be meaningful.
 
 Usage:
-    python scripts/run_mia_benchmark.py --persona support
-    python scripts/run_mia_benchmark.py --persona legal \
+    python scripts/run_interrogation_benchmark.py --persona support
+    python scripts/run_interrogation_benchmark.py --persona legal \
         --n-members 40 --n-non-members 28 --max-doc-chars 16000
 
 **Document availability is source-skewed — check before choosing a scale.**
@@ -288,30 +288,57 @@ def main() -> None:
             print(f"Error scoring document {doc['id']}: {e}")
             raise
             
-    if checkpoint_file.exists():
-        checkpoint_file.unlink()
-        
+    # NOTE (2026-08-14): the checkpoint is deliberately NEVER auto-deleted
+    # anywhere in this function. This is the exact same class of bug found
+    # and fixed in scripts/run_benchmark.py's IKEA path the same day, after
+    # a real incident cost ~6.3 hours of API spend: the checkpoint used to
+    # be deleted the instant scoring finished, but metrics computation / the
+    # final write below can STILL fail independently, with nothing left to
+    # fall back on even though `scored` is sitting right here, fully intact.
+    # A leftover checkpoint next to a completed run's output is harmless --
+    # the resume check above (`if checkpoint_file.exists()`) would just find
+    # every document already in `already_scored_ids` and do nothing new.
+    # Clean these up manually if the results/ directory gets cluttered.
+
     # Restore final totals so the report logic picks them up
     attack._llm_call_count = total_attacker_calls
     attack._shadow_llm_call_count = total_shadow_calls
-    
+
     finished_at = datetime.now(timezone.utc)
     duration_seconds = (finished_at - started_at).total_seconds()
 
     for r in scored:
         r["is_member"] = label_by_id[r["id"]]
 
-    metrics = compute_mia_benchmark_metrics(scored)
+    # compute_mia_benchmark_metrics() is NOT protected by the scoring loop's
+    # own try/except (it runs after scoring has already finished) -- same
+    # 2026-08-14 fix as above: never let a metrics failure lose findings
+    # that are already safely collected. Fall back to metrics=None plus a
+    # recorded metrics_error instead of losing `scored` entirely.
+    metrics_error = None
+    try:
+        metrics = compute_mia_benchmark_metrics(scored)
+    except Exception as e:
+        metrics_error = f"{type(e).__name__}: {e}"
+        metrics = None
+        print(f"compute_mia_benchmark_metrics failed: {metrics_error} -- "
+              f"writing {len(scored)} scored document(s) WITHOUT metrics rather than losing them.")
 
     print("\n" + "=" * 70)
     print(f"MIA BENCHMARK ({args.persona}, n_probe_questions={args.queries})")
-    print(f"  {metrics['n_members']} members, {metrics['n_non_members']} non-members")
-    print(f"  AUC-ROC             : {metrics['auc_roc']:.4f}")
-    print(f"  TPR@0.5%FPR         : {metrics['tpr_at_fpr_0_5pct']:.4f}")
-    print(f"  TPR@1%FPR           : {metrics['tpr_at_fpr_1pct']:.4f}")
-    print(f"  TPR@5%FPR           : {metrics['tpr_at_fpr_5pct']:.4f}")
-    print(f"  Accuracy@FPR=10%    : {metrics['accuracy_at_fpr10']:.4f}")
-    print(f"  FPR granularity     : {metrics['fpr_granularity'] * 100:.2f}% (1/n_non_members)")
+    if metrics is None:
+        # compute_mia_benchmark_metrics() failed -- don't crash the summary
+        # print over it (2026-08-14, same fix as above).
+        print(f"  {len(scored)} document(s) scored -- metrics computation FAILED, "
+              f"see run.metrics_error in the output file.")
+    else:
+        print(f"  {metrics['n_members']} members, {metrics['n_non_members']} non-members")
+        print(f"  AUC-ROC             : {metrics['auc_roc']:.4f}")
+        print(f"  TPR@0.5%FPR         : {metrics['tpr_at_fpr_0_5pct']:.4f}")
+        print(f"  TPR@1%FPR           : {metrics['tpr_at_fpr_1pct']:.4f}")
+        print(f"  TPR@5%FPR           : {metrics['tpr_at_fpr_5pct']:.4f}")
+        print(f"  Accuracy@FPR=10%    : {metrics['accuracy_at_fpr10']:.4f}")
+        print(f"  FPR granularity     : {metrics['fpr_granularity'] * 100:.2f}% (1/n_non_members)")
     print(f"  duration            : {duration_seconds:.1f}s")
     print(f"  LLM calls -- attacker: {attack._llm_call_count}, shadow: {attack._shadow_llm_call_count}")
     print("=" * 70)
@@ -339,6 +366,7 @@ def main() -> None:
             "n_non_members": len(non_members),
             "attacker_llm_calls": attack._llm_call_count,
             "shadow_llm_calls": attack._shadow_llm_call_count,
+            "metrics_error": metrics_error,
         },
         "metrics": metrics,
         "scored_documents": scored,

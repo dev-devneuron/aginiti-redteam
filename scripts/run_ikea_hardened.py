@@ -158,6 +158,13 @@ def main() -> None:
                              f"docstring's staged-verification recommendation).")
     parser.add_argument("--agent-url", default=AGENT_URL)
     parser.add_argument(
+        "--fresh", action="store_true",
+        help="Delete any existing checkpoint for this exact persona/topic/queries "
+             "combination before starting, instead of resuming from it. Use this "
+             "when you deliberately want a new independent run, not a continuation "
+             "of a previous interrupted one.",
+    )
+    parser.add_argument(
         "--topic", default=None,
         help="Override IKEA's topic string instead of the persona's own default "
              "domain (_PERSONA_TOPICS). RBAC filtering happens server-side at "
@@ -196,6 +203,28 @@ def main() -> None:
         / f"{ATTACK}_hardened_{args.persona}{domain_tag}_{toggle_tag}_{args.queries}q_{run_id}.json"
     )
 
+    # Deterministic checkpoint path (fixed 2026-08-16) -- deliberately NOT
+    # based on `output` (which stamps a fresh run_id every invocation, so a
+    # from-scratch re-run could never find a previous interrupted run's
+    # checkpoint on its own -- resume only ever worked before via a
+    # hand-written one-off script hardcoding one specific old filename).
+    # Keyed on persona/domain/queries only -- same convention as
+    # scripts/run_interrogation_benchmark.py's
+    # `mia_checkpoint_{persona}_{queries}q.json`, deliberately NOT the
+    # toggle state either, so switching a defense
+    # on/off between runs doesn't silently orphan a resumable checkpoint --
+    # see --fresh below for when you want to guarantee a clean start
+    # instead of resuming (e.g. after intentionally changing toggles).
+    checkpoint_path = str(
+        _RESULTS_DIR / f"{ATTACK}_hardened_{args.persona}{domain_tag}_{args.queries}q.checkpoint.json"
+    )
+    if args.fresh and Path(checkpoint_path).exists():
+        Path(checkpoint_path).unlink()
+        print(f"--fresh: deleted existing checkpoint at {checkpoint_path}")
+    elif Path(checkpoint_path).exists():
+        print(f"Found existing checkpoint at {checkpoint_path} -- resuming from it "
+              f"(pass --fresh to start over instead).")
+
     run_benchmark(
         attack=ATTACK,
         agent_url=args.agent_url,
@@ -211,6 +240,7 @@ def main() -> None:
         prefilter_ss_threshold=PREFILTER_SS_THRESHOLD,
         prefilter_crr_threshold=PREFILTER_CRR_THRESHOLD,
         endpoint_kwargs=endpoint_kwargs,
+        checkpoint_file=checkpoint_path,
         extra_run_metadata={
             "persona": args.persona,
             "target_toggle_state": live_config or "unknown (config fetch failed)",

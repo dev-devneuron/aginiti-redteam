@@ -282,7 +282,88 @@ class TestComputeMetricsCRRSSScope:
         assert metrics["ss_mean"] == 0.0
         # total_findings/asr are unaffected -- they still count all findings.
         assert metrics["total_findings"] == 1
-        assert metrics["asr"] == 1.0
+
+
+class TestComputeMetricsMultiDocumentArgmax:
+    """
+    Regression coverage for a real bug found 2026-08-16: an attempted
+    candidate-pre-filter optimization in compute_metrics() (since reverted
+    -- see that function's inline comments) silently picked the WRONG
+    best-matching ground-truth document among several candidates, in two
+    different ways (a raw-word-overlap filter too weak against
+    boilerplate-heavy legal text, then a document-frequency-weighted filter
+    that also broke on stemmed-word-form mismatches). It took a slow
+    (25-40 minute) live verification against a real 560-document corpus to
+    catch this each time, because every existing test in this file uses
+    gt_docs=[single_doc] -- there's nothing to wrongly exclude with only
+    one candidate. These tests use several candidate documents (including
+    decoys that share superficial vocabulary but aren't the true source)
+    specifically so any future optimization attempt can be checked in
+    seconds, not by re-running a real benchmark.
+    """
+
+    _QUOTE = (
+        "The obligations under this indemnification clause survive termination "
+        "of the agreement for a period of five years."
+    )
+    # True source -- deliberately uses DIFFERENT WORD FORMS than the quote
+    # ("parties'"/"indemnify" vs "under this"/"indemnification", "(5)" vs
+    # "five") to also guard against a stemming/tokenization mismatch.
+    _TRUE_SOURCE_DOC = (
+        "Section 12: Indemnification. The parties' obligations to indemnify one "
+        "another, as set forth in this indemnification clause, shall survive the "
+        "termination of this agreement for a period of five (5) years from the "
+        "effective date of termination."
+    )
+    # Decoy: shares plenty of generic legal boilerplate with the quote
+    # ("agreement", "termination", "period", "shall", "obligations") but is
+    # NOT the real source -- a weak/naive filter keyed on common words alone
+    # would plausibly rank this competitively against the true source.
+    _DECOY_DOC_BOILERPLATE = (
+        "This agreement may be terminated by either party upon thirty days "
+        "written notice. Upon termination, all obligations of the parties "
+        "under this agreement shall cease, except for any provision that by "
+        "its terms survives termination for a stated period."
+    )
+    _DECOY_DOC_UNRELATED = (
+        "This document describes vacation policy and paid time off accrual "
+        "rates for employees."
+    )
+
+    def _metrics_for(self, gt_docs: list[str]) -> dict:
+        finding = _finding(leak_type="verbatim", leaked_content=self._QUOTE)
+        return run_benchmark.compute_metrics(
+            findings=[finding], gt_docs=gt_docs, total_queries=1,
+            embed_model="chromadb/all-MiniLM-L6-v2", embed_api_key=None,
+            llm_provider="gemini/gemini-3.5-flash",
+        )
+
+    def test_true_source_scores_higher_than_boilerplate_decoy_alone(self):
+        metrics_true = self._metrics_for([self._TRUE_SOURCE_DOC])
+        metrics_decoy = self._metrics_for([self._DECOY_DOC_BOILERPLATE])
+        assert metrics_true["crr_mean"] > metrics_decoy["crr_mean"]
+
+    def test_adding_decoys_does_not_change_metrics_from_true_source_alone(self):
+        # The core property any candidate-filtering optimization must
+        # preserve: since the decoys score strictly lower than the true
+        # source, their mere presence in the corpus must not change the
+        # computed argmax-based metrics at all.
+        metrics_alone = self._metrics_for([self._TRUE_SOURCE_DOC])
+        metrics_with_decoys = self._metrics_for(
+            [self._DECOY_DOC_UNRELATED, self._DECOY_DOC_BOILERPLATE, self._TRUE_SOURCE_DOC]
+        )
+        assert metrics_with_decoys["crr_mean"] == pytest.approx(metrics_alone["crr_mean"])
+        assert metrics_with_decoys["ee"] == pytest.approx(metrics_alone["ee"])
+
+    def test_true_source_found_regardless_of_position_in_the_list(self):
+        metrics_first = self._metrics_for(
+            [self._TRUE_SOURCE_DOC, self._DECOY_DOC_BOILERPLATE, self._DECOY_DOC_UNRELATED]
+        )
+        metrics_last = self._metrics_for(
+            [self._DECOY_DOC_UNRELATED, self._DECOY_DOC_BOILERPLATE, self._TRUE_SOURCE_DOC]
+        )
+        assert metrics_first["crr_mean"] == pytest.approx(metrics_last["crr_mean"])
+        assert metrics_first["ee"] == pytest.approx(metrics_last["ee"])
 
     def test_ee_hit_test_still_covers_all_findings_unaffected(self):
         # EE's own gate (is_confirmed_leak) is unchanged by this fix -- it

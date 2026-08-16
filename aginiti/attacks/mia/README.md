@@ -133,57 +133,36 @@ stickiness/rotation semantics. `scripts/run_interrogation_hardened.py`
 wires this up automatically from `GROQ_API_KEY_1`, `GROQ_API_KEY_2`, ...
 in the environment when the shadow provider is `groq/*`.
 
-### Live verification (2026-08-08) — a real bug found and fixed, read before trusting a small reference set
+### Verification status and operational notes
 
-First live run (`scripts/run_interrogation.py` against
-`reference_agent_blackbox`) surfaced a real false positive: a fabricated,
-definitely-not-seeded candidate got reported as a confirmed member,
-because with only 2 non-member reference documents (both cleanly denied by
-the target, same as the fabricated candidate), the calibrated threshold
-landed exactly on the score the candidate also got, and the `>=` decision
-boundary counted the tie as a match. **Fixed** — the decision is now
-strict `score > threshold`, and `_calibrate_threshold` logs a `WARNING`
-whenever the non-member reference scores have zero spread or the reference
-set has fewer than 5 documents. Full root-cause writeup:
-`docs/how-it-works.md` §13.
+Live-verified against `reference_agent_blackbox` and at 100-document scale
+against `hardened_agent`. Two practical takeaways worth knowing before you
+run this yourself:
 
-**Practical implication**: a small (1-4 document) reference set is fine
-for a wiring smoke test, but treat its calibrated threshold as
-low-confidence — watch the log for the degenerate-distribution warning.
-Use 5-10+ documents, ideally with some genuine topical variety, for a real
-engagement's calibration.
+- **Reference set size matters for calibration confidence.** A small
+  (1-4 document) non-member reference set is fine for a wiring smoke test,
+  but its calibrated threshold should be treated as low-confidence — watch
+  the log for the degenerate-distribution warning. Use 5-10+ documents,
+  ideally with genuine topical variety, for a real engagement.
+- **Target response phrasing affects parsing.** `_parse_yes_no_unk`
+  requires a direct "yes"/"no"/"I don't know" first, falling back to a
+  reported-speech heuristic ("the consumer asserts that X") only when that
+  fails — see its own docstring for the exact pattern and limitations.
+  `aginiti/reporting/interrogation_reparse.py` exists to re-score results
+  captured before this fallback existed, from already-stored response
+  text, at zero new API cost.
+- **AUC is corpus-dependent, not just parser-dependent.** A 50-member +
+  50-non-member benchmark against a real, templated consumer-complaint
+  corpus (CFPB) produced a much lower AUC than the paper's own 0.927-0.995
+  range — traced to several genuinely non-member documents scoring a
+  perfect match, because their generic facts were truthfully answerable
+  from *other*, similar real documents in the corpus. This is a
+  corpus/construct-validity property of highly templated real-world text,
+  not a bug — see `scripts/run_interrogation_benchmark.py` for the
+  large-scale scoring workflow this was diagnosed through.
 
-### Live verification (2026-08-12/13) — a real parsing gap found and fixed at 100-document scale
-
-A full 50-member + 50-non-member `score_documents` benchmark run against
-`hardened_agent` (support persona, n=30) surfaced a second real bug:
-`_parse_yes_no_unk` requires the literal word "yes"/"no", but
-`hardened_agent` frequently answers in indirect reported-speech style
-("the consumer asserts that X") that never says "yes"/"no" outright —
-misclassified as `unk` even though a human reads it as a clear answer.
-Quantified: **~6.6% of all 3,000 probes affected**, roughly equally across
-members and non-members (not a directional bias). **Fixed** — the
-classifier now has a reported-speech fallback (see its own docstring for
-the exact pattern/limitations) that only activates when the direct
-yes/no/"I don't know" check has already given up; a direct or explicit
-answer always wins first. `aginiti/reporting/mia_reparse.py` exists to
-re-score results captured *before* this fix from already-stored response
-text (zero new API calls) — new runs don't need it.
-
-**Separately confirmed** (re-running the fix against the same captured
-data): fixing this parsing gap did **not** meaningfully move AUC-ROC
-(0.560 → 0.536, i.e. no real change) — it corrects per-document score
-noise, it does not manufacture separation that wasn't there. The dominant
-reason that particular run's AUC was low (0.56, vs. the paper's 0.927-0.995
-range) turned out to be a different, unfixed issue: several genuinely
-non-member CFPB documents scored a perfect 30/30 match because CFPB
-consumer complaints are highly templated (data breaches, unauthorized
-accounts, FCBA disputes recur across many real, distinct complaints) — a
-probe generated from a held-out document's generic facts can be truthfully
-answered "yes" from a *different* real ingested document covering the same
-common scenario. This is a corpus/construct-validity property, not
-something a parser fix addresses — see `scripts/run_mia_benchmark.py` for
-the large-scale scoring workflow this was diagnosed through.
+Full incident history for this project's own maintainers is tracked
+separately, not in this file.
 
 ### Hyperparameters
 
@@ -260,7 +239,7 @@ returning each document's raw score — the caller supplies the true
 member/non-member label. `aginiti.reporting.mia_metrics.compute_mia_benchmark_metrics`
 takes those `{"id", "score", "is_member"}` triples and computes AUC-ROC,
 TPR@{0.5%,1%,5%}FPR, and Accuracy@FPR=10% exactly as described above
-(hand-rolled ROC sweep, no scikit-learn dependency). `scripts/run_mia_benchmark.py`
+(hand-rolled ROC sweep, no scikit-learn dependency). `scripts/run_interrogation_benchmark.py`
 wires both together end-to-end against `hardened_agent`'s CUAD/CFPB
 datasets — see that script's own docstring for usage and its
 document-availability caveat (CUAD/legal runs far longer than CFPB/support,

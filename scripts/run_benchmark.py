@@ -363,9 +363,32 @@ def compute_metrics(
     # same filter markdown_report.py's Risk Summary already applies. EE's
     # hit test still iterates every finding (it has its own, narrower gate:
     # is_confirmed_leak == leak_type in pii/verbatim/sensitive_data).
+    #
+    # A candidate-pre-filter to speed this up was attempted and reverted
+    # (2026-08-14 through 2026-08-16) — full ROUGE-L here is genuinely
+    # O(len(quote) x len(doc)) per comparison, and against real ground-truth
+    # docs up to ~300K+ chars (CUAD contracts) this loop can take hours on a
+    # large run. Two filter designs were tried (raw shared-word count, then
+    # document-frequency-weighted "distinctive word" overlap); both were
+    # verified against the known-good 113-finding 20260812T202527Z run
+    # before being trusted, and BOTH produced wrong CRR (and the second
+    # attempt also broke previously-correct EE) — subtle mismatches between
+    # word-overlap heuristics and what ROUGE-L's own stemmed LCS matching
+    # actually considers "close enough" turned out to be genuinely hard to
+    # get exactly right, and a plausible-looking-but-wrong number is worse
+    # than a slow-but-correct one for a security tool. Reverted to the full,
+    # unfiltered brute-force comparison below — correct, not fast. If this
+    # needs to be fast again, verify any new approach against that same
+    # 113-finding run's exact EE/CRR/SS before trusting it on anything real.
     crr_per_finding: list[float] = []
     hit_doc_indices: set[int] = set()
-    for finding in findings:
+    _scoring_t0 = time.perf_counter()
+    logger.info(
+        "[SCORING] Comparing %d finding(s) against %d ground-truth documents "
+        "via ROUGE-L (this is the slow step -- see the comment above for why)...",
+        len(findings), len(gt_docs),
+    )
+    for _finding_i, finding in enumerate(findings):
         best_fmeasure = 0.0
         best_precision = 0.0
         best_precision_idx = -1
@@ -385,6 +408,21 @@ def compute_metrics(
             and is_confirmed_leak
         ):
             hit_doc_indices.add(best_precision_idx)
+
+        # Progress logging (added 2026-08-16) -- this loop can run for
+        # hours on a large corpus and previously gave zero visibility while
+        # it did, indistinguishable from a hang. Every finding, not just
+        # every N, since even one finding against a large corpus can take
+        # real time on its own.
+        done = _finding_i + 1
+        elapsed = time.perf_counter() - _scoring_t0
+        rate = elapsed / done
+        remaining = rate * (len(findings) - done)
+        logger.info(
+            "[SCORING] %d/%d findings scored (%.1fs elapsed, ~%.1fs/finding, "
+            "~%.0fs remaining)",
+            done, len(findings), elapsed, rate, remaining,
+        )
 
     crr_mean, crr_std = _mean_std(crr_per_finding)
     ee_denominator = _RETRIEVAL_K * queries_sent
@@ -435,14 +473,24 @@ def compute_metrics(
 # Human-readable summary
 # ---------------------------------------------------------------------------
 def _print_summary(
-    metrics: dict,
+    metrics: dict | None,
     total_queries: int,
     dataset_label: str,
     embed_model: str,
+    n_findings: int = 0,
 ) -> None:
     line = "=" * 60
     print("\n" + line)
     print(f"IKEA Benchmark Results — {dataset_label}")
+    if metrics is None:
+        # compute_metrics() failed (added 2026-08-14, same fix as the
+        # checkpoint-ordering one above) -- findings were still written to
+        # disk, just without derived metrics. Don't crash the summary print
+        # over it; say so plainly instead.
+        print(f"{n_findings} finding(s) collected — metrics computation FAILED, "
+              f"see run_metadata.metrics_error in the output file.")
+        print(line)
+        return
     queries_sent = metrics.get("queries_sent", total_queries)
     queries_line = f"Queries:  {queries_sent:<6} "
     if queries_sent != total_queries:
@@ -495,6 +543,7 @@ def run_benchmark(
     configure_logging: bool = True,
     endpoint_kwargs: dict | None = None,
     classifier_llm_provider: str | None = None,
+    checkpoint_file: str | None = None,
 ) -> dict:
     """Run one attack against a live agent, score it, and write the results JSON.
 
@@ -546,6 +595,22 @@ def run_benchmark(
     ``aginiti/reporting/markdown_report.py:_redact``), so a redacted variant
     is always available for sharing outside the immediate team without a
     separate manual step.
+
+    ``checkpoint_file`` (added 2026-08-16): overrides the checkpoint path
+    used for mid-run resume/save. Defaults to ``Path(output).with_suffix(
+    ".checkpoint.json")`` when omitted — the original behavior, unchanged
+    for every existing caller. That default couples the checkpoint's
+    identity to ``output``, which is a real problem for any caller (like
+    ``scripts/run_ikea_hardened.py``, historically) that stamps a fresh
+    timestamp into ``output`` on every invocation: the checkpoint path is
+    then ALSO different every time, so a from-scratch re-run can never find
+    a previous interrupted run's checkpoint — resume only worked there via
+    a hand-written one-off script hardcoding one specific old filename, not
+    a real mechanism. Pass an explicit, DETERMINISTIC ``checkpoint_file``
+    (based on the run's actual parameters — persona/topic/queries, not a
+    timestamp) from a caller that wants automatic resume-by-default, the
+    same way ``scripts/run_interrogation_benchmark.py``'s
+    ``mia_checkpoint_{persona}_{queries}q.json`` naming already does.
 
     Returns the report dict that was written to ``output``.
     """
@@ -616,15 +681,34 @@ def run_benchmark(
     findings: list[LeakFinding] = []
     fatal_error: str | None = None
     
-    # Checkpointing path logic
-    checkpoint_file = Path(output).with_suffix(".checkpoint.json")
-    
+    # Checkpointing path logic -- deterministic path takes precedence over
+    # output-derived one when a caller supplies it (see docstring above).
+    checkpoint_file = Path(checkpoint_file) if checkpoint_file else Path(output).with_suffix(".checkpoint.json")
+    if checkpoint_file.exists():
+        logger.info("Found existing checkpoint at %s -- will resume from it.", checkpoint_file)
+
     try:
         findings = attack_instance.execute(
             topic=topic, max_queries=queries, checkpoint_file=str(checkpoint_file)
         )
-        if checkpoint_file.exists():
-            checkpoint_file.unlink() # Clean up checkpoint on successful completion
+        # NOTE (2026-08-14): the checkpoint is deliberately NEVER auto-deleted
+        # anywhere in this function anymore -- see a few lines below where it
+        # used to be unlinked after a successful write. An earlier version
+        # deleted it right after execute() returned (even a "graceful
+        # partial completion" counts as success here, not an exception);
+        # that lost a real, fully-populated checkpoint when compute_metrics()
+        # itself later stalled for hours on a slow local ROUGE-L/CRR
+        # computation, with nothing left to recover from. A later version
+        # moved cleanup to after the final write succeeded instead, which
+        # closed that gap -- but leaving a real, harmless leftover file
+        # after a successful run is a smaller cost than any residual risk of
+        # losing real findings, so cleanup was removed entirely rather than
+        # just re-ordered. A stale checkpoint next to a completed run's
+        # output is inert: this loop's own resume check
+        # (`if checkpoint_file.exists()`, IKEAAttack.execute_black_box)
+        # would just find every document/query already covered and do
+        # nothing new. Clean these up manually if the results/ directory
+        # gets cluttered.
     except Exception as exc:
         fatal_error = f"{type(exc).__name__}: {exc}"
         logger.error(
@@ -638,15 +722,32 @@ def run_benchmark(
     refused_queries = getattr(attack_instance, "refused_queries", [])
     queries_sent = len(findings) + len(refused_queries)
 
-    metrics = compute_metrics(
-        findings=findings,
-        gt_docs=gt_docs,
-        total_queries=queries,
-        embed_model=embed_model,
-        embed_api_key=embed_key,
-        llm_provider=llm_provider,
-        queries_sent=queries_sent,
-    )
+    # compute_metrics() is NOT protected by the try/except above (it runs
+    # after execute() has already returned) -- added 2026-08-14 after the
+    # same real incident noted above: it can fail or hang independently of
+    # the attack itself (e.g. a slow/failed local CRR computation), and
+    # findings are already safely collected by this point regardless. Never
+    # let a metrics failure lose them -- fall back to writing findings with
+    # metrics=None and a recorded metrics_error instead.
+    metrics_error: str | None = None
+    try:
+        metrics = compute_metrics(
+            findings=findings,
+            gt_docs=gt_docs,
+            total_queries=queries,
+            embed_model=embed_model,
+            embed_api_key=embed_key,
+            llm_provider=llm_provider,
+            queries_sent=queries_sent,
+        )
+    except Exception as exc:
+        metrics_error = f"{type(exc).__name__}: {exc}"
+        metrics = None
+        logger.error(
+            "compute_metrics failed: %s — writing %d finding(s) WITHOUT "
+            "metrics rather than losing them.",
+            metrics_error, len(findings),
+        )
 
     dataset_label = gt_path.stem
     report = {
@@ -674,6 +775,7 @@ def run_benchmark(
             "timestamp": started_at.isoformat(),
             "runtime_seconds": round(runtime_seconds, 1),
             "fatal_error": fatal_error,
+            "metrics_error": metrics_error,
             **(extra_run_metadata or {}),
         },
         "metrics": metrics,
@@ -694,7 +796,7 @@ def run_benchmark(
     generate_markdown_report(report, redacted_md_path, redact=True)
     logger.info("Wrote redacted Markdown report to %s", redacted_md_path)
 
-    _print_summary(metrics, queries, dataset_label, embed_model)
+    _print_summary(metrics, queries, dataset_label, embed_model, n_findings=len(findings))
 
     if fatal_error is not None:
         raise RuntimeError(

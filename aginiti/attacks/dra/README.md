@@ -374,41 +374,32 @@ See `scripts/run_secret.py` (dev fixture, port 8001) or
 target, port 8004) for runnable, deliberately small smoke-test
 configurations (read each script's module docstring's cost warning first).
 
-### Live verification (2026-08-12) — a real bug found and fixed
+### Verification status and operational notes
 
-First live run (`scripts/run_secret.py` against `reference_agent_blackbox`)
-surfaced a real correctness gap: the methodology doc's §5 hyperparameter
-table states `temperature=0.0` ("deterministic decoding throughout") — a
-stated paper fact, not one of the two genuinely-ambiguous values (`alpha`/
-`tau`) — but this had never been wired through to the Optimizer/Evaluator/
-semantic-shift `litellm.completion()` calls. Symptom: the identical seed
-prompt, target, and model scored `1.0` ("Perfect Success") in one run and
-`0.0` ("Complete Failure") across 3 iterations in another, two days apart.
-**Fixed** — `temperature=0.0` is now passed explicitly on every SECRET-owned
-auxiliary LLM call (Optimizer, Evaluator, semantic-shift), deliberately NOT
-on target-facing calls (outside the attacker's control) or the classifier
-(this project's own addition, not part of the paper's pipeline, matching
-IKEA's existing convention). After the fix, a live run against the same
-undefended fixture produced a genuine **critical**-severity finding: a full
-verbatim HR record including SSN, extracted via GE→LE cluster discovery
-exactly as designed.
+Live-verified against `reference_agent_blackbox` (undefended) — a full
+critical-severity finding (verbatim PII extraction) via the complete
+GE→LE cluster-discovery pipeline. Also plumbing-verified against
+`hardened_agent` with all five defenses active (RBAC, rate limiting,
+redaction, memory, guardrail) — authenticates, retrieves within its
+RBAC-scoped persona, and runs the full Phase 1 → Phase 2 pipeline without
+error. A real per-persona effectiveness benchmark against a defended target
+still needs a larger query budget than a plumbing check — see
+`scripts/run_secret_hardened.py`'s module docstring. Zero findings at a
+small smoke-test budget against a guardrailed target is inconclusive at
+that scale, not evidence the defenses specifically blocked anything.
 
-Plumbing separately verified against `hardened_agent` (RBAC + rate limiting
-+ redaction + memory + guardrail, all on) — authentication, RBAC-scoped
-retrieval, and the full Phase 1 → Phase 2 pipeline all ran without error.
-Zero findings at a 5-query smoke-test budget is expected/inconclusive at
-that scale (GE needs more attempts to land a domain-relevant seed against a
-guardrailed target), not evidence the defenses specifically blocked
-anything — a real per-persona benchmark pass needs a larger budget (see
-`scripts/run_secret_hardened.py`'s module docstring).
+`temperature=0.0` (the paper's stated deterministic-decoding setting, §5)
+is enforced on every SECRET-owned auxiliary LLM call — Optimizer,
+Evaluator, semantic-shift — deliberately not on target-facing calls
+(outside the attacker's control) or the classifier (this project's own
+addition, matching IKEA's convention). One thing worth re-checking on a
+future LiteLLM/Gemini upgrade: current versions emit a deprecation warning
+that `temperature`/`top_p`/`top_k` are "planned for removal" for Gemini 3+
+models in favor of system-instruction-based sampling guidance — not an
+error today, but worth re-verifying this still applies if that lands.
 
-One practical caveat surfaced by this run, worth knowing before relying on
-`temperature=0.0` long-term: LiteLLM/Gemini currently emit a deprecation
-warning that `temperature`/`top_p`/`top_k` are "planned for removal in a
-future release" for Gemini 3+ models, in favor of moving sampling guidance
-into system instructions. Not an error today, but flag this for
-re-verification if a future Gemini/LiteLLM update actually drops the
-parameter.
+Full incident history for this project's own maintainers is tracked
+separately, not in this file.
 
 ### Two genuinely unresolved paper values
 

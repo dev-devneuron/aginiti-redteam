@@ -1,9 +1,9 @@
 """
-Offline re-parser for an existing ``scripts/run_mia_benchmark.py`` results
-JSON — recovers responses misclassified as "unk" by the shipped
+Offline re-parser for an existing ``scripts/run_interrogation_benchmark.py``
+results JSON — recovers responses misclassified as "unk" by the shipped
 yes/no/unk parser (``aginiti.attacks.mia.interrogation._parse_yes_no_unk``,
 which requires the literal word "yes"/"no") using
-``aginiti.reporting.mia_reparse``'s reported-speech regex fallback.
+``aginiti.reporting.interrogation_reparse``'s reported-speech regex fallback.
 
 **Zero new API calls** — re-parses the ALREADY-CAPTURED ``target_response``
 text stored in the input file, recomputes each document's score and the
@@ -11,7 +11,7 @@ top-level metrics, and writes a NEW file. The original input file is never
 modified.
 
 Usage:
-    python scripts/reparse_mia_results.py <path-to-results.json>
+    python scripts/reparse_interrogation_results.py <path-to-results.json>
 """
 from __future__ import annotations
 
@@ -19,12 +19,12 @@ import argparse
 import json
 from pathlib import Path
 
-from aginiti.reporting.mia_reparse import reparse_results
+from aginiti.reporting.interrogation_reparse import reparse_results
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("input", help="Path to an existing run_mia_benchmark.py results JSON.")
+    parser.add_argument("input", help="Path to an existing run_interrogation_benchmark.py results JSON.")
     parser.add_argument(
         "--lambda-unk", type=float, default=6.0,
         help="lambda_unk used by the original run (default: 6.0, "

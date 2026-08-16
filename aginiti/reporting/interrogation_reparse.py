@@ -1,7 +1,8 @@
 """
 Offline re-parsing of ALREADY-CAPTURED ``target_response`` text from a saved
-MIA benchmark results JSON (``scripts/run_mia_benchmark.py``'s output),
-using the current ``aginiti.attacks.mia.interrogation._parse_yes_no_unk``.
+Interrogation Attack (MIA) benchmark results JSON
+(``scripts/run_interrogation_benchmark.py``'s output), using the current
+``aginiti.attacks.mia.interrogation._parse_yes_no_unk``.
 
 **Why this exists**: it did NOT always agree with the classifier that ran
 live. Live-verified 2026-08-12/13: real ``hardened_agent`` responses often
@@ -108,8 +109,8 @@ def reparse_results_paper_formula(report: dict) -> dict:
 
 def reparse_results(report: dict, lambda_unk: float = 6.0) -> dict:
     """
-    Takes an already-loaded ``run_mia_benchmark.py`` results dict and
-    returns a NEW dict (deep copy — the input is never mutated) with:
+    Takes an already-loaded ``run_interrogation_benchmark.py`` results dict
+    and returns a NEW dict (deep copy — the input is never mutated) with:
 
     - every ``detail`` entry gaining ``target_answer_v2``/``match_v2``
       (re-parsed from the already-stored ``target_response`` — originals
@@ -121,9 +122,9 @@ def reparse_results(report: dict, lambda_unk: float = 6.0) -> dict:
       flipped, in which direction, and the before/after headline metrics
 
     ``lambda_unk`` defaults to 6.0 (``InterrogationAttack``'s own default)
-    since ``scripts/run_mia_benchmark.py``'s saved run metadata does not
-    currently record it explicitly — pass the actual value used if a run
-    overrode it.
+    since ``scripts/run_interrogation_benchmark.py``'s saved run metadata
+    does not currently record it explicitly — pass the actual value used if
+    a run overrode it.
     """
     out = copy.deepcopy(report)
     flips_unk_to_yes = 0
