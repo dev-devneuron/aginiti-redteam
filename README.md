@@ -143,6 +143,10 @@ The runner evaluates and logs:
 
 Run results are stored as timestamped `.json` and `.md` reports under `benchmarks/scaled_evals/results/`.
 
+### Benchmarking against a defended target
+
+The HealthCareMagic run above measures effectiveness at each attack's *ceiling* — an undefended (or softly-guardrailed) target. `hardened_agent` (port 8004) is a separate benchmark target built specifically to answer the question that matters more for a security tool: **how much do real, layered enterprise defenses (RBAC, output redaction, rate limiting, conversation memory, a system-prompt guardrail — independently toggleable) actually reduce extraction, and what still gets through anyway?** It runs over real CUAD (legal contracts) and CFPB (consumer complaints) corpora across three RBAC-scoped personas, and every implemented attack — IKEA, the Interrogation Attack (MIA), and SECRET — has a dedicated runner script for it. See [`docs/benchmarking.md`](docs/benchmarking.md#8-benchmarking-against-a-defended-target-hardened_agent) for full setup and how to interpret results against it (numbers land meaningfully below the papers' own published figures here, for well-understood, verified reasons — that section explains why, and how to present it).
+
 ---
 
 ## 🧪 Testing
@@ -163,7 +167,7 @@ pytest tests/ -v
   * [x] CISO-facing markdown reporter
   * [x] HealthCareMagic-1k benchmarking suite
 * [x] **Membership Inference Attack (MIA)** — Interrogation Attack ("Riddle Me This," CCS 2025); see [`aginiti/attacks/mia/README.md`](aginiti/attacks/mia/README.md)
-* [x] **SECRET DRA Technique** (jailbreak-optimized extraction, arXiv:2510.02964) — see [`aginiti/attacks/dra/README.md`](aginiti/attacks/dra/README.md); not yet live-verified against a running target
+* [x] **SECRET DRA Technique** (jailbreak-optimized extraction, arXiv:2510.02964) — see [`aginiti/attacks/dra/README.md`](aginiti/attacks/dra/README.md); live-verified (a real critical-severity finding on an undefended target), plumbing-verified against a fully defended target
 * [ ] **Tier 2 OTel Trace Collector Integration** (Langfuse / OpenTelemetry ingress)
 * [ ] **Feature/Attribute Inference Attack (FIA)**
 * [ ] **Command-Line Interface (`aginiti` CLI wrapper)**

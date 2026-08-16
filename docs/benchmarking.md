@@ -31,6 +31,14 @@ The fixture layer is off-limits to benchmark work: do not modify
 `benchmarks/dev_fixtures/agents/`, `benchmarks/dev_fixtures/datasets/`, or `tests/` when working on
 benchmarks.
 
+**A third layer exists for a third question.** Both rows above answer
+"does the algorithm work, and how effective is it at its ceiling" — neither
+includes real enterprise-style defenses. `hardened_agent` (§8) answers "how
+much do real, layered defenses (RBAC, redaction, rate limiting, memory, a
+guardrail) actually reduce that effectiveness, and what still gets
+through" — arguably the more important question for a security tool,
+covered in detail in its own section rather than this table.
+
 ---
 
 ## 2. Why HealthCareMagic-1k
@@ -304,3 +312,155 @@ This layer builds the **infrastructure** only. Baseline attacks
 (`RandomDRAAttack` etc.), a Tier-2 OTel benchmark variant, an env-var guardrail
 dimension, and an HTML report generator are **not** part of it — see
 `CLAUDE.md` §5 and `docs/project-overview.md` §8 for the roadmap.
+
+---
+
+## 8. Benchmarking against a defended target (`hardened_agent`)
+
+Everything above measures attack effectiveness against an **undefended**
+(or, for `healthcare_agent`, softly-guardrailed) target — the right setup
+for "does the algorithm work, and how does it compare to the paper's own
+ceiling numbers." `hardened_agent` (`benchmarks/scaled_evals/agents/hardened_agent/`,
+port 8004) is a **third, separate benchmarking layer** that answers a
+different, arguably more important question for a security tool: **how
+much do real, layered enterprise defenses actually reduce extraction —
+and what still gets through anyway?**
+
+This section covers *how to run benchmarks against it*. For what the
+target itself is, its RBAC design, and its own setup steps, see
+`benchmarks/scaled_evals/agents/hardened_agent/README.md` — that file is
+the source of truth for the target; this section is about the attack side.
+
+### 8.1 What makes this target different
+
+- **Real data, not synthetic.** Two independently-sourced corpora — CUAD
+  (real legal contracts) and CFPB (real consumer complaints) — split into
+  an "ingested" set (560 documents combined) and a "held-out" set (240
+  documents, reserved as ground-truth non-members for membership-inference
+  work), not Faker-generated records.
+- **Three personas with real RBAC.** `legal` (CUAD-only), `support`
+  (CFPB-only), `ops` (a scoped subset of both) — each authenticates with
+  its own API key, and retrieval is filtered server-side by the
+  *authenticated* persona regardless of what topic the attack itself asks
+  about. This is what makes an RBAC-boundary probe meaningful (see 8.3).
+- **Five independently-toggleable defenses**: RBAC, rate limiting, output
+  redaction, conversation memory, and a system-prompt guardrail. Every
+  benchmark run queries the target's own `/config` endpoint and records
+  the *actual* live toggle state into its output — never just what you
+  intended to set — so a saved result is always self-describing.
+- **All three implemented attacks can target it** — IKEA, the
+  Interrogation Attack (MIA), and SECRET each have a dedicated runner
+  script for this target (below).
+
+### 8.2 Setup
+
+```bash
+# 1. Build the dataset (samples CUAD + CFPB, splits ingested/held-out)
+python benchmarks/scaled_evals/datasets/prepare_hardened_dataset.py
+
+# 2. Set one API key per persona in your .env (any values you choose)
+#    HARDENED_AGENT_LEGAL_API_KEY=...
+#    HARDENED_AGENT_SUPPORT_API_KEY=...
+#    HARDENED_AGENT_OPS_API_KEY=...
+
+# 3. Seed the chunked ChromaDB collection
+python -m benchmarks.scaled_evals.agents.hardened_agent.seed
+
+# 4. Start the agent (port 8004)
+uvicorn benchmarks.scaled_evals.agents.hardened_agent.main:app --port 8004
+```
+
+To ablate a specific defense, restart the agent with the matching env var
+flipped (e.g. `HARDENED_AGENT_RATE_LIMIT_ENABLED=false`) — see that
+module's README for the full list. All five default to **on**.
+
+### 8.3 Running each attack
+
+**One persona per command, small query budget first** — this target has
+real RBAC and rate limiting; don't spend a large budget before confirming
+plumbing works.
+
+```bash
+# IKEA (DRA) — one persona, own domain
+python scripts/run_ikea_hardened.py --persona legal --queries 20
+
+# IKEA — RBAC boundary probe: authenticate as legal, but hand it support's
+# topic. If RBAC holds, every query should come back empty/refused
+# regardless of wording.
+python scripts/run_ikea_hardened.py --persona legal \
+    --topic "customer complaints and support tickets" --queries 10
+
+# Interrogation Attack (MIA) — calibrated per-document membership verdicts,
+# small candidate set (matches execute_black_box's threat model)
+python scripts/run_interrogation_hardened.py --persona support --queries 15
+
+# Interrogation Attack — large-scale, paper-comparable AUC-ROC/TPR/Accuracy
+# benchmark (score_documents, no calibration step — see
+# aginiti/attacks/mia/README.md's "Benchmarking metrics" section)
+python scripts/run_interrogation_benchmark.py --persona support
+
+# SECRET — jailbreak-optimized DRA, small budget first
+python scripts/run_secret_hardened.py --persona support --queries 5
+```
+
+Every run writes a timestamped `.json` (+ `.md` / `_redacted.md` for IKEA
+and SECRET) to `benchmarks/scaled_evals/results/` (gitignored — never
+committed), with the persona, actual live toggle state, and query budget
+all baked into the filename.
+
+### 8.4 Resuming an interrupted run
+
+IKEA and the Interrogation Attack's benchmark runner both checkpoint
+progress to a **deterministic** path (keyed on persona/topic/query budget,
+not a timestamp) — re-running the *exact same command* automatically
+resumes from where it left off, no separate "resume" step needed. The
+checkpoint is never auto-deleted, even after a fully successful run — a
+harmless leftover file next to a completed result is a smaller cost than
+any risk of losing real, expensive findings to an interrupted process. Use
+`--fresh` (IKEA) to explicitly discard an existing checkpoint and start
+over instead — e.g. after deliberately changing which defenses are
+toggled on, since the checkpoint doesn't track toggle state and mixing
+runs from two different defense configurations into one result isn't
+meaningful.
+
+### 8.5 Interpreting results against a defended target — read this before comparing to the papers' numbers
+
+**Do not expect these numbers to land anywhere near the papers' own
+published figures, and that's not a bug.** Every attack's headline metric
+comes out meaningfully lower against `hardened_agent` than against an
+undefended fixture, for reasons specific to each attack — verified by
+directly comparing implementations against the papers' own official
+repos, not assumed:
+
+- **IKEA's EE** measures verified, classifier-confirmed extraction from
+  response text alone (the only thing a real black-box attacker can
+  observe). The paper's own reported EE requires *instrumented* access to
+  which documents the target's RAG system internally retrieved — literally
+  reading the target's own retrieval results, something no real attacker
+  has against a production system. The two numbers measure genuinely
+  different things; a lower EE here is a stricter standard of evidence, not
+  a weaker result. A large real corpus (560+ documents, vs. the paper's own
+  smaller example datasets) further shrinks any "fraction of the corpus
+  recovered"-style number on its own, independent of that gap.
+- **MIA's AUC** is sensitive to how templated the target corpus is — a
+  benchmark against CFPB (real consumer complaints, which recur across
+  many near-identical real-world cases) scored far below the paper's
+  0.927-0.995 range because several genuinely non-member documents were
+  truthfully answerable from *other*, similar real documents in the
+  corpus — a corpus/construct-validity property, not an implementation
+  bug. The same benchmark against CUAD (legal contracts, less templated)
+  scored meaningfully higher on identical methodology — the target corpus
+  matters as much as the algorithm.
+- **All three attacks** face actual layered defenses here — RBAC,
+  redaction, rate limiting, memory, and a guardrail — that the papers'
+  own benchmark setups don't include at all.
+
+**The honest, defensible framing for presenting these numbers**: don't
+lead with "our numbers are lower than the papers." Lead with what the
+comparison itself proves — validate correctness first against an
+undefended target (where numbers should land in the papers' own
+ballpark), then show what a realistic, defended target does to that
+same, validated attack. "Still confirms real leaks even with five layered
+defenses active" is a stronger, more credible claim to a security-literate
+reviewer than a high number against an undefended strawman — and it's the
+actual question an enterprise buyer needs answered.
