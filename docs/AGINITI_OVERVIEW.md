@@ -82,23 +82,43 @@ identity that updates in place as evidence arrives). Full mechanics in
 `aginiti/planner/aginiti_planner.py`:
 
 ```
-utility(op) = alpha * (info_gain(op) + chain_value(op))
-            + beta  * (business_impact(op) + path_progress(op)
-                       + emergent_impact(op) + potential_progress(op))
-            + gap_priority(op) + hypothesis_priority(op)
-            + branch_interest(op) + severity_priority(op)
-            + failure_evidence_penalty(op)
+core_utility(op) = alpha * (info_gain(op) + chain_value(op))
+                  + beta  * (business_impact(op) + path_progress(op)
+                             + emergent_impact(op) + potential_progress(op))
+                  + gap_priority(op) + hypothesis_priority(op)
+                  + branch_interest(op) + severity_priority(op)
+                  + failure_evidence_penalty(op)
+
+utility(op) = core_utility(op) + family_diversification(op)
+                                + hypothesis_escalation_bonus(op)
+                                + technique_cluster_diversification(op)
 ```
 
-Nine additive terms — information gain, chain value, business impact, real
-BFS path-progress over the confirmed graph, emergent impact (credit for
-unlocking a valuable but *unnamed* follow-on compromise), potential-based
-shaping, priority from open knowledge gaps and hypotheses, interest in
-unexplored mission branches, a severity nudge, and a penalty for
-candidates that share a diagnosed failure mode with something already
-confirmed blocked. Risk tier and budget remain **hard constraints**, never
-folded into this scalar. Full term-by-term rationale, and the specific bug
-each newer term fixed, in `docs/ARCHITECTURE.md` §6.
+Nine evidence-grounded terms make up `core_utility` — information gain,
+chain value, business impact, real BFS path-progress over the confirmed
+graph, emergent impact (credit for unlocking a valuable but *unnamed*
+follow-on compromise), potential-based shaping, priority from open
+knowledge gaps and hypotheses, interest in unexplored mission branches, a
+severity nudge, and a penalty for candidates that share a diagnosed
+failure mode with something already confirmed blocked. Three opt-in
+EXPLORATION nudges (all default off, so an unparameterized
+`AginitiPlanner()` is byte-identical to every version of this class before
+they existed) are kept structurally OUTSIDE `core_utility` and only ever
+influence ranking ORDER among survivors, never eligibility — the
+feasibility gate reads `core_utility` alone (exp23 postmortem fix, see
+§6): `family_diversification` demotes a family that looks saturated (2+
+same-family confirmations, zero successes) and rewards a genuinely untried
+family, both reactively (once a sibling looks dead) and proactively
+(unconditionally, closing a real exp28 gap — see `docs/EXP29_RESULTS.md`);
+`hypothesis_escalation_bonus` rewards a `ClassPrecondition`-gated follow-up
+whose eligibility just opened up from a recent confirmation;
+`technique_cluster_diversification` penalizes repeated sampling of an
+author-declared cluster of near-duplicate operator WRAPPERS — deliberately
+NOT success-immune, unlike family-level saturation, since a cluster is
+variants of one hypothesis, not several. Risk tier and budget remain
+**hard constraints**, never folded into this scalar. Full term-by-term
+rationale, and the specific bug each newer term fixed, in `docs/
+ARCHITECTURE.md` §6.
 
 ## 4. Multi-step discovery without hardcoded chains
 
@@ -214,6 +234,48 @@ real primitive after the originally-planned 9-operator plant/trigger pack
 was found not to apply to this target's actual, simulated retrieval
 behavior).
 
+### `hardened_agent` / `healthcare_agent` (real RAG targets, live-verified, RBAC-focused)
+
+_Added to this catalog 2026-08-14 — the section had been missing entirely
+despite these being the two targets `exp23`/`exp25` and this session's own
+live smoke tests actually ran against._ Both vendored from this repo's own
+`main` branch (`benchmarks/scaled_evals/agents/`, gitignored) — real RAG
+chatbots over real, independently-sourced document corpora (CUAD legal
+contracts + CFPB consumer complaints; HealthCareMagic-1k consultations),
+not synthetic fixtures. `hardened_agent` additionally has real RBAC
+(legal/support/ops personas), chunked retrieval, output redaction, a rate
+limiter, and per-persona conversation memory — five independently
+toggleable defenses.
+
+| Pack | Ops | What it tests |
+|---|---|---|
+| `hardened_agent_definitions.py` / `healthcare_agent_definitions.py` (own probes) | 3-4 per target | Own-domain + cross-persona verbatim disclosure (`_make_verbatim_probe`), `ops`'s aggregation-risk test, `/config` recon |
+| `_build_authority_claim_probes` (hardened_agent only) | 5 | Confused-deputy authority-claim RBAC probes (Hardy 1988; Greshake et al. 2023) — legal/support only, not ops |
+| `redaction_format_evasion.py` (hardened_agent only, deliberately target-specific — see `docs/RESEARCH_AND_PROVENANCE.md`) | 5 | PII-format gaps in `redact()`'s 4 regexes (SSN, email, card, phone) |
+| `session_isolation_probe.py` (both targets) | 3 | CWE-488 memory/session-isolation — live-confirmed on `healthcare_agent` to surface real corpus content via an indirect pretext, not a literal memory leak (the target has none) |
+| `access_control_layer_probe.py` (both targets) | 4 | Pre-filter vs. post-filter RAG access-control architecture diagnostic (Pinecone) |
+| `output_filter_evasion.py` (both targets) | 8 | Output-side reformatting evasion (generic, not target-specific) |
+| `data_exposure.py` / `encoding_variants.py` / `adaptive_followup_operators.py` (reused, unmodified) | 7 / 12 / varies | Same target-agnostic packs every other real target uses |
+| `aginiti/adaptive/membership_inference.py` (standalone, not in the static library — called directly, see `docs/ATTACK_LIBRARY.md`) | n probes/candidate doc | RAG corpus-membership inference — live-verified across all 3 personas with a fresh-server, MI-first run: average score gap 1.06 (legal 1.31, support 0.75, ops 1.13); see `docs/EXP26_RESULTS.md` for the full arc, including a signal-collapse failure mode found and fixed along the way |
+
+**Real, current per-persona operator counts** (`build_hardened_agent_library`):
+legal 49, support 49, ops 44. `healthcare_agent`: 37.
+
+`aginiti/assessment.py`'s `run_full_assessment()` is the orchestrator that
+actually drives all of this (plus `many_shot`/`crescendo`/encoding/framing
+discovery) against these two targets in one shared `SecurityStateGraph` —
+see `docs/ATTACK_LIBRARY.md`'s Adaptive Discovery section.
+
+**RBAC finding, stated plainly**: across `exp23`, `exp25` (3 personas × 2
+conditions), `exp26` (3 personas × 2 conditions, the full expanded
+pipeline including 17 new RBAC-focused operators), and every live smoke
+test in between, `hardened_agent`'s cross-persona RBAC boundary
+(`L3_privilege_boundary`) has never once been crossed — traced to a real,
+correctly-implemented control (retrieval-time ChromaDB `where`-filtering +
+bearer-key-only persona binding, confirmed by reading `personas.py`/
+`agent.py` directly), not a coverage gap in Aginiti. See `docs/
+EXP26_RESULTS.md` for the full experimental record and analysis.
+
 ### Other real targets
 
 - **DVLA** (`damn-vulnerable-llm-agent`, WithSecureLabs) — 3 operators, the
@@ -229,8 +291,10 @@ behavior).
   evaluation harness.
 
 **Total addressable operator surface**: ~71 hand-authored/generated
-operators across static libraries, plus 1,054 InjecAgent test cases, plus
-the unbounded encoding-discovery/framing-discovery search space.
+operators across the earlier static libraries, plus 44-49 more per
+`hardened_agent` persona / 37 for `healthcare_agent` (§7 above), plus
+1,054 InjecAgent test cases, plus the unbounded encoding-discovery/
+framing-discovery/many-shot/Crescendo/membership-inference search space.
 
 ## 8. What's proven, in the sharpest live result to date
 
@@ -272,18 +336,54 @@ requires completing a multi-step chain to win):
 Full numbers, all 10 metrics, and the garak cross-comparison in `docs/
 EXP20_RESULTS.md`.
 
+**A second real target, a second live win — `docs/EXP29_RESULTS.md`.**
+exp29 ran RQ1's own 4-condition methodology (Random/Static/Aginiti)
+against `hardened_agent`, equal 18-prompt budget, independent per-trial
+state (fresh server restart before every trial, not a shared long-lived
+process), 3 personas as the real independent-trial axis:
+
+- **Aginiti won ground-truth success on all 3 personas tested (3/3).
+  Random won 2/3, Static won 1/3** — and Aginiti was the only policy to
+  reach all 6 of the target's attack families in a single campaign.
+- Getting here required diagnosing and fixing two real planner gaps
+  (proactive cross-family exploration, within-family technique-cluster
+  redundancy) and two real benchmark-harness gaps (memory contamination
+  across trials, fake replication from a deterministic policy's repeated
+  seed) — all four found from a live postmortem, each fix isolated and
+  offline-proven before being confirmed live.
+- A follow-up evidence-only audit (LLM-judge-only claims excluded, kept
+  only the independent verbatim/fuzzy oracle) found 10 distinct real
+  findings across the 9 trials — 2 genuine RBAC/authorization crossings
+  (`ops` receiving content never flagged for its scope) and 8 RAG/
+  generation-guardrail over-disclosures — and confirmed the 5 dedicated
+  authority-claim social-engineering probes never once crossed the
+  boundary they exist to test.
+- **N=3 per condition, honestly disclosed as small** — real, independent
+  evidence, not yet a statistically bulletproof verdict, and not a
+  substitute for the still-unrun frozen DVLA RQ1 protocol.
+
+Full findings-by-finding audit, quoted evidence, and every honest
+limitation in `docs/EXP29_RESULTS.md`.
+
 ## 9. Test suite and what it proves
 
-**837 tests, fully offline** — every LLM call and every network call is
+**1,079 tests, fully offline** — every LLM call and every network call is
 mocked or deterministically stubbed; nothing in the suite costs tokens or
 requires a running server. Coverage spans: the SSG/evidence model in
 isolation, every operator library's structural invariants, the planner's
-utility math term-by-term, the campaign loop's control flow, every
-adapter's deterministic-extractor paths, the taxonomy wiring end-to-end
-through a real `ObservationAdapter.execute()` call, a 10-scenario
-deterministic end-to-end suite (`tests/test_e2e_scenarios.py`) covering
-success/failure/branching/chains/decoys/timeouts/malformed-responses/
-pivots/budget-exhaustion, and the report/export layer.
+utility math term-by-term (including the two new exploration terms from
+`docs/EXP29_RESULTS.md` — `tests/test_novelty.py` and `tests/test_
+technique_cluster_diversification.py`, each with a dedicated, deliberately-
+isolated synthetic scenario proving the fix causally changes the ranked
+sequence, not just that a number changed), the campaign loop's control
+flow, every adapter's deterministic-extractor paths, the taxonomy wiring
+end-to-end through a real `ObservationAdapter.execute()` call, a
+10-scenario deterministic end-to-end suite (`tests/test_e2e_scenarios.py`)
+covering success/failure/branching/chains/decoys/timeouts/malformed-
+responses/pivots/budget-exhaustion, `experiments/_target_lifecycle.py`'s
+process-discovery/start/stop/restart logic (`tests/test_target_
+lifecycle.py`, 9 tests, mocked `psutil`/`subprocess`/`requests` — no real
+process spawned in CI), and the report/export layer.
 
 **What an independent engineering audit found and fixed** (`docs/
 ENGINEERING_HARDENING_PASS.md`): a from-scratch trace of the real
@@ -337,7 +437,10 @@ not just offline mocks.
 
 ## 11. Where the real experimental record lives
 
-`docs/EXP20_RESULTS.md` (the sharpest current live result), `docs/
+`docs/EXP20_RESULTS.md` (the sharpest live result on AnythingLLM), `docs/
+EXP29_RESULTS.md` (the sharpest live result on `hardened_agent`, plus the
+full evidence-only security-findings audit behind it), `docs/EXP26_
+RESULTS.md` (the `run_full_assessment()`/membership-inference arc), `docs/
 COMPETITOR_COMPARISON.md` (garak comparison), `docs/HARDENED_TARGET.md`
 (target-hardening build log), `docs/EVIDENCE_AND_EVALUATION.md` (the full
 evidence ledger, every claim in this document cited), `docs/ROADMAP.md`
@@ -349,3 +452,95 @@ actually runs), `docs/MULTI_STEP_DISCOVERY_AND_SCORING.md` and `docs/
 ENGINEERING_HARDENING_PASS.md` (the two most recent architectural chapters,
 in full depth), `docs/ATTACK_PROPOSAL_ascii_smuggling_exfil.md` (the one
 open, specified-but-unbuilt attack proposal).
+
+
+## 12. Operator inventory — audited, tiered, exact
+
+Verified by actually importing and instantiating all 26 `aginiti/
+operators/*.py` library-builder functions — not grepped or estimated: 142
+`Operator()` instantiations produce 140 distinct `.id` values. The 2-count
+gap is two real, harmless naming collisions across libraries that are
+never combined into one `OperatorLibrary` in practice (`recon_capabilities`
+exists in both `dvla_definitions.py` and the mock target; `recon_probe`
+exists in both synthetic regression targets) — harmless today only because
+`OperatorLibrary.__init__` silently drops on collision with no error, a
+real, if currently inert, risk worth a defensive rename if either pair is
+ever merged.
+
+**The exact total, reported in tiers rather than collapsed to one number**,
+because "how many real attack operators does Aginiti have" admits more
+than one honest answer depending on what counts as a genuine attack
+against a real target:
+
+| Tier | Count | Excludes |
+|---|---|---|
+| All distinct operator IDs in the codebase | 140 | — |
+| minus 4 decoys (`attack_category="decoy"`) | 136 | decoys |
+| minus 21 mock-reference-target ops (`definitions.py`, an explicit CI/dry-run fixture per its own docstring) | **115** | + mock target |
+| minus 18 synthetic-regression-target ops (`multi_family_definitions.py` + `hidden_state_definitions.py` — built to reproduce planner bugs deterministically) | 97 | + regression fixtures |
+| minus 20 framework-demonstration-pack ops (`discovery_chain_definitions.py`, `graduated_difficulty`, `agentic_primitives` — built to validate mechanisms like `ClassPrecondition`, not as target-specific findings) | 77 | + demo packs |
+
+**115 is the recommended number** — it excludes only what's unambiguously
+a test fixture or non-attack, while every one of the 115 is a real,
+independently-executable `Operator` with real security semantics, none of
+them a helper/converter/utility. 77 is the maximally-conservative reading
+for a briefing that wants only operators built specifically against a
+real, named target. The two intermediate tiers aren't wrong readings,
+just different scopes — all four categories excluded along the way (mock
+target, regression fixtures, demo packs) are equally real code, they just
+don't represent a finding against something currently live.
+
+**Breakdown by `attack_category`** (the codebase's own tag, at the
+115-operator tier — decoys and mock target already removed):
+
+| Category | Count | Notable members |
+|---|---|---|
+| `direct_prompt_attack` | 24 | `hardened_authority_claim_probe_*` (5), `hardened_cross_boundary_probe`, `hardened_ops_aggregation_probe_1/2`, `hardened_own_domain_verbatim_probe`, `system_prompt_extraction`, `jailbreak_dan_style`, `secret_pattern_fishing`, `escalate_after_disclosure`, `pivot_after_refusal`, `session_isolation_probe_*` (3), `healthcare_verbatim_disclosure_probe` |
+| `encoding_attack` | 27 | `encoding_evasion_probe_*` (13 pipelines), `output_filter_evasion_*` (8, two `technique_cluster`-tagged groups), `redaction_format_evasion_*` (5) |
+| `tool_manipulation` | 12 | `mcp_no_auth_check`, `mcp_unverified_tool_registration`, `tool_parameter_override_probe`, plus 6 agentic/chain demo-pack variants |
+| `tool_discovery` | 4 | `mcp_tool_discovery`, `tool_inventory_full_disclosure`, plus 2 demo-pack variants |
+| `rag_poisoning` | 4 | the 4 AnythingLLM document-plant operators |
+| `indirect_injection` | 2 | `anythingllm_rag_injection_trigger`, plus 1 demo-pack variant |
+| `markdown_network_exfiltration` | 2 | the 2 AnythingLLM markdown/tool-exfil triggers |
+| `multi_step_chain` | 2 | `anythingllm_multitool_relay_trigger`, `mcp_exfiltrate_via_plugin_fetch` |
+| `low_value_reconnaissance` | 6 | `access_control_layer_probe_*` (4), `hardened_config_recon` |
+| `known_defended` | 1 | `memory_context_leakage_probe` |
+| Untagged (`attack_category=None`) | 22 | predate the taxonomy retrofit or never assigned one — listed with an informal read, not silently guessed into a bucket: A2A/consensus trust-manipulation operators, unlabeled direct/indirect-injection variants, MCP path-traversal operators, memory-injection operators |
+
+**"RBAC" isn't a formal category.** There is no `attack_category="rbac"`
+in the codebase — RBAC/access-boundary-testing operators are currently
+folded into `direct_prompt_attack` (the `hardened_agent` probes) or left
+untagged (the A2A/consensus trust ones). The genuine RBAC/trust-boundary
+cross-cut, independent of formal tagging, is 12 operators: `hardened_
+cross_boundary_probe`, `hardened_ops_aggregation_probe_1/2`, the 5
+`hardened_authority_claim_probe_*` variants, `a2a_forged_delegation_
+request`, `a2a_identity_spoof`, `agentic_trust_via_role_claim`, `agentic_
+trust_via_session_claim`, `consensus_duplicate_vote_stuffing`. See `docs/
+EXP29_RESULTS.md` for the two confirmed RBAC crossings this cross-cut
+actually found live.
+
+**Adaptive/generated variants — not fixed operators, counted separately**:
+
+| Module | Mechanism | Bounded variant count |
+|---|---|---|
+| `many_shot.py` | Shot-count sweep | 4 fixed values (4/8/16/32 shots) per goal |
+| `framing_discovery.py` | Pretext sweep | 5 fixed pretexts per goal, + unbounded PAIR-rewritten follow-ups |
+| `encoding_discovery.py` | Converter search | 10 single converters (`ALL_CONVERTERS`) + 1 role-play primer + unbounded synthesized 2-way stacks from whatever's untried |
+| `crescendo.py` | Multi-turn escalation | up to 5 turns/goal, each turn's prompt LLM-generated live — not a fixed catalog |
+| `membership_inference.py` | Probe generation | 8 probes/candidate document (paper default 30), each LLM-generated live |
+| `refinement.py` (PAIR) | Prompt rewriting | Unbounded — LLM-generated live from the target's own last response |
+| InjecAgent (`injecagent.py`) | Template applied to a real external dataset | 1,054 real, vendored test cases (verified by calling `build_test_cases()` directly), each becoming exactly one `Operator` — neither "fixed" nor "LLM-generated," a third category: one template instantiated against a fixed real dataset |
+
+**Ambiguities flagged, not silently resolved.** Mock target / synthetic
+regression targets / demo packs are all real, independently-executable,
+security-semantic `Operator` objects, but none represents a finding
+against a real, currently-live target — excluding only the mock target
+(115) is the recommended default, with 97 and 77 as progressively more
+conservative alternate readings, not a single silently-picked number. The
+"duplicate variants" question reads as excluding literal accidental
+duplicates (there are none beyond the 2 harmless id collisions above), not
+legitimately distinct parameterized techniques (12 encoding variants, 5
+authority-claim variants, etc.) — each has its own real prompt, its own
+claim effects, and is independently selectable by the planner; collapsed
+by technique family instead, the number would be roughly 45–50 distinct
+techniques rather than 115 distinct operators.

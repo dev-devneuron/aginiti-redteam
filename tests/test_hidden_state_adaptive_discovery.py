@@ -87,7 +87,16 @@ def test_3_ranking_changes_because_of_the_observation():
 
     ranked_before = planner.rank(library, ssg, mission, prompts_used=0, executed_ids=frozenset())
     fdiv_before = next(rc.family_diversification for rc in ranked_before if rc.operator.id == "direct_ask_v2")
-    assert fdiv_before == 0.0  # no evidence yet -- true no-op
+    # 2026-08-14 update (see aginiti/graph/novelty.py's own PROACTIVE_
+    # COVERAGE_BONUS docstring, added in direct response to a live exp28
+    # postmortem): a genuinely untried family -- true here, nothing has
+    # run yet -- now gets a small PROACTIVE bonus even with zero evidence
+    # either way, not a bare 0.0 no-op as before this fix. The bonus is
+    # deliberately smaller than the REACTIVE DIVERSIFICATION_BONUS tested
+    # below (recon_fdiv_after), which fires once something else has
+    # actually demonstrated a dead end -- a stronger signal.
+    from aginiti.graph.novelty import PROACTIVE_COVERAGE_BONUS
+    assert fdiv_before == PROACTIVE_COVERAGE_BONUS
 
     adapter.execute(library.get("direct_ask_v1"), ssg, agent)
     adapter.execute(library.get("direct_ask_v2"), ssg, agent)

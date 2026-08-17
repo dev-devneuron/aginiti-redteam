@@ -38,7 +38,56 @@ below is the detailed record behind each line.*
   (`ClassPrecondition`), not just execution of pre-wired chains → ran an
   independent, from-scratch engineering audit that treated "500+ tests
   pass" as insufficient proof of a sound architecture and found 5 real
-  bugs anyway.
+  bugs anyway → vendored two more real RAG targets (`hardened_agent`/
+  `healthcare_agent`, real RBAC + real document corpora) → built
+  `run_full_assessment()`, the fourth execution path that actually wires
+  the adaptive-discovery engines (encoding/many-shot/framing/Crescendo)
+  into a normal `AginitiPlanner` campaign over one shared graph, closing a
+  standing limitation rather than leaving it as a documented gap forever →
+  a live postmortem of that run found and fixed two real judge/oracle
+  bugs (an LLM-judge false positive, a fuzzy-oracle boilerplate
+  miscalibration) plus a THIRD, more consequential one (`_corroborated()`'s
+  own ground-truth check had a blind spot for exactly the goal every
+  discovery phase actually pursues) → a source-level read of the target's
+  real RBAC implementation explained WHY its boundary had never been
+  crossed (correct, retrieval-time pre-filtering — a real property of the
+  target, not an Aginiti gap) → implemented the Interrogation Attack
+  (membership inference against a RAG corpus) → its first live run showed
+  the mechanism itself works, then its SECOND live run (appended after a
+  long prior session) showed the signal completely collapsing under real
+  conversation-state contamination → root-caused, fixed (fresh-server,
+  MI-first ordering), and re-verified clean and consistent across all 3
+  personas (average score gap 1.06) → closing a capability gap this
+  project's own dataset-prep script had been naming since before the
+  technique existed here. Full arc: `docs/EXP26_RESULTS.md`. → ran exp28,
+  the first live instance of RQ1's own 4-condition methodology (Random/
+  Static/Aginiti) against a real target, and read the user's own postmortem
+  of it seriously rather than defensively: Aginiti's live sequence spent
+  its entire budget on two attack families, a live memory-contamination
+  effect (documented as a known gotcha, not actually mitigated) collapsed
+  10 of 12 trials to zero signal, and the family-diversification mechanism
+  itself was suspected of running backwards → root-caused two SEPARATE,
+  real gaps rather than one — a missing PROACTIVE bonus for genuinely
+  untried families (families were only ever pushed toward reactively,
+  after a sibling already looked dead) and a missing WITHIN-family signal
+  (`technique_cluster_diversification_term`, since several of hardened_
+  agent's own `direct_prompt_attack` operators are near-duplicate wrappers
+  of one hypothesis, not independent techniques) — fixed both, each
+  isolated and offline-proven separately (exp30, exp31) before touching
+  anything live, then built `experiments/_target_lifecycle.py` to close
+  the memory-contamination gap for real (fresh server process, not just a
+  documented warning) → re-ran the corrected comparison (exp29, 9 trials,
+  a genuine 3-persona sweep rather than a repeated seed) and it held live:
+  Aginiti 3/3 ground-truth successes against Random's 2/3 and Static's
+  1/3, the only policy to reach all 6 attack families in one campaign →
+  a follow-up evidence-only audit (excluding every LLM-judge-confirmed
+  claim, keeping only the independent verbatim/fuzzy oracle) found 10
+  distinct real findings across the 9 trials, 2 of them genuine RBAC/
+  authorization crossings (the `ops` persona receiving non-`ops_visible`
+  content via its own aggregation probes), the rest RAG/generation-
+  guardrail over-disclosure — and confirmed the 5 dedicated authority-
+  claim social-engineering probes never once crossed the boundary they
+  were built to test. Full arc: `docs/EXP29_RESULTS.md`.
 
 - **The governing rule (5 principles, in force since Pivot 6):** a new
   capability only gets built if it solves an *observed* limitation, helps
@@ -49,16 +98,24 @@ below is the detailed record behind each line.*
 
 - **Phase status, at a glance:**
   - **Phase 0 (adaptive planning substrate)** — mechanism proven built and
-    tested. The evidence picture is now genuinely mixed rather than
-    uniformly negative: against the mock target with the earlier planner
+    tested. The evidence picture keeps improving with each real run, not
+    just accumulating: against the mock target with the earlier planner
     (2026-08-07), Aginiti tied Static-enumeration on success rate at ~2.8x
     the cost — not a win. Against a real, hardened, production-shaped
-    target with the current planner (exp20, 2026-08-12), Aginiti produced
-    a real, mechanistically-traced planning advantage that four other
-    strategies — including a real Bayesian bandit — never reproduced. The
-    frozen DVLA-target RQ1 protocol itself remains unrun at a meaningful
-    trial count, still the single most consequential open item in this
-    roadmap.
+    target with an earlier planner version (exp20, 2026-08-12), Aginiti
+    produced a real, mechanistically-traced planning advantage that four
+    other strategies — including a real Bayesian bandit — never
+    reproduced. exp29 (2026-08-14) is the first LIVE run of RQ1's own
+    4-condition methodology (Random/Static/Aginiti) against `hardened_
+    agent`, at equal budget, with independent per-trial state (fresh
+    server restart) and genuine replication (a 3-persona sweep, not a
+    repeated seed): Aginiti won ground-truth success on all 3 personas
+    (Random 2/3, Static 1/3) and was the only policy to reach all 6
+    attack families in one campaign — see `docs/EXP29_RESULTS.md` for the
+    full, evidence-only findings audit behind that number. Still honestly
+    underpowered (N=3), and the frozen DVLA-target RQ1 protocol itself
+    remains unrun at a meaningful trial count — that piece of unfinished
+    business is unchanged by exp29.
   - **Phase 1 (behavior understanding)** — complete, proven on all five
     real targets.
   - **Phase 2 (cross-protocol reasoning)** — the taxonomy is proven to
@@ -72,20 +129,42 @@ below is the detailed record behind each line.*
     and value-informed chain credit (`chain_value`) are both found, fixed,
     and evidence-backed; genuine multi-step *discovery* (`ClassPrecondition`)
     — not just executing a chain a human pre-wired — now exists and is
-    proven offline. Success-probability modeling and full attack-graph
-    search (weighing multiple candidate paths, not just shortening a known
-    one) remain Hypothesized.
+    proven offline. Two family/technique-level exploration mechanisms
+    landed this chapter, each isolated and independently offline-proven
+    before being confirmed live in exp29: `family_diversification_term`'s
+    `PROACTIVE_COVERAGE_BONUS` (a genuinely untried attack FAMILY earns a
+    small bonus unconditionally, not only once a sibling family already
+    looks dead) and `technique_cluster_diversification_term` (an author-
+    declared `technique_cluster` of near-duplicate operator WRAPPERS gets
+    an escalating, deliberately NOT success-immune penalty for repeated
+    sampling — the one place this term's shape differs on purpose from
+    family-level saturation). Success-probability modeling and full
+    attack-graph search (weighing multiple candidate paths, not just
+    shortening a known one) remain Hypothesized.
   - **Phases 5–6 (cross-target learning, autonomous security scientist)** —
     Hypothesized, explicitly not started, and — per the roadmap's own
     discipline — not to be started speculatively.
-- **What's next, in order:** run the frozen DVLA RQ1 protocol the moment
-  quota allows; get a larger N specifically on exp20's chain-required
-  mission, since the current pairwise result (p=0.224) is real but
-  underpowered; exercise `ClassPrecondition` against a live target with
-  genuinely undeclared topology, not a demonstration pack; validate the
-  agentic-primitives pack against a real target (DVAA, most likely);
-  unify the three parallel execution paths an independent audit
-  identified before adding more capability on top of them.
+- **What's next, in order:** get exp29's N past 3 per condition — the
+  real, disclosed ceiling right now is that `static`/`aginiti` are fully
+  deterministic given identical starting state, so persona is their only
+  genuine independent-trial axis, and 3 personas is the whole roster this
+  target has; close the WITHIN-family diversity gap `technique_cluster`
+  only partially covers — several packs (all of `encoding_variants.py`'s
+  13 base pipelines, `redaction_format_evasion.py`'s 5 PII-type variants)
+  were deliberately left untagged after inspection showed they're
+  genuinely distinct techniques, not near-duplicate wrappers, but that
+  audit hasn't been run over the FULL library yet; run the frozen DVLA
+  RQ1 protocol the moment quota allows; get a larger N specifically on
+  exp20's chain-required mission, since the current pairwise result
+  (p=0.224) is real but underpowered; exercise `ClassPrecondition` against
+  a live target with genuinely undeclared topology, not a demonstration
+  pack; validate the agentic-primitives pack against a real target (DVAA,
+  most likely); unify the four parallel execution paths an independent
+  audit identified (one closed 2026-08-14 via `run_full_assessment()`,
+  three remain) before adding more capability on top of them; extend
+  `membership_inference.py` toward the paper's own n=30-probe default and
+  real ROC-based threshold calibration now that the mechanism itself is
+  live-verified working.
 - **For every term used above**, see `docs/ARCHITECTURE.md`'s Glossary. For
   the underlying citations, see `docs/EVIDENCE_AND_EVALUATION.md`.
 
@@ -262,22 +341,92 @@ gap everywhere at once. Verified with a 10-scenario deterministic
 end-to-end suite and a live smoke test against the real hardened
 AnythingLLM target.
 
-**Where this leaves us right now:** five real, independently-developed
-targets integrated and live-verified, plus a self-built hardened gateway
+**Two more real targets, a fourth execution path, and three judge/oracle
+bugs found the same way as everything above — by reading the postmortem,
+not defending the prior result.** `hardened_agent`/`healthcare_agent`
+(real RBAC, real redaction, real rate-limiting, real CUAD/CFPB document
+corpora) were vendored to give the project a second production-shaped RAG
+target independent of AnythingLLM. `run_full_assessment()` closed a
+standing limitation rather than leaving it documented forever: the
+adaptive-discovery engines (encoding/many-shot/framing/Crescendo) now run
+as phases of one normal `AginitiPlanner` campaign over one shared graph,
+not a separate, disconnected execution path. The live postmortem of that
+first run found and fixed three real bugs (an LLM-judge false positive on
+a canned "I can't share that" template, a fuzzy-oracle boilerplate
+miscalibration, and a corroboration-gate blind spot that made system-
+prompt leaks structurally unable to ever count as ground-truth-verified).
+The Interrogation Attack (membership inference against a RAG corpus) was
+implemented, worked on its first live run, then completely collapsed on
+its second — root-caused to the exact same class of bug that would recur
+one chapter later: real conversation-state contamination on a shared
+server across trials the harness assumed were independent. Fixed
+(fresh-server, MI-first ordering) and re-verified clean.
+
+**exp28/29/30/31 — the same memory-contamination bug recurred at a larger
+scale, this time in the RQ1 comparison itself, and got fixed for real
+instead of documented as a known gotcha.** exp28 was the first live run
+of RQ1's own 4-condition methodology against `hardened_agent`. Read
+honestly rather than declared a win: Aginiti's live operator sequence
+spent its entire budget on two attack families; 10 of its 12 trials
+collapsed to zero real signal because every trial after the first shared
+one long-lived server process and bearer key, so `hardened_agent`'s own
+conversation-memory caution — a documented gotcha, never actually
+mitigated — silently made trial N a measurement of "what happened after
+50 prior attacks," not "how good is this policy." Two separate, real
+planner gaps were root-caused from this (not one, and not "backwards" as
+first suspected): `family_diversification_term` had no PROACTIVE reward
+for a genuinely untried attack FAMILY, only a REACTIVE one that never
+fires once the first family already has a success in it; and nothing at
+all existed at the finer, WITHIN-family grain, where several of
+`hardened_agent`'s own operators (5 `authority_claim_probe` wrapper
+variants of one question, 3 `session_isolation_probe` variants, 2
+`output_filter_evasion` variant groups) are near-duplicate hypotheses, not
+independent techniques. Both fixed, each isolated and offline-proven
+separately (exp30: 2/2 families touched vs. 1/2 before, every run at a
+tight budget; exp31: both real findings recovered vs. 0/1 before) before
+any live budget was spent confirming either. `experiments/_target_
+lifecycle.py` closed the memory-contamination gap structurally (a real,
+tested restart-before-every-trial mechanism, not a paragraph in a
+quickstart guide), and exp29 re-ran RQ1's methodology correctly: 9 trials,
+a genuine 3-persona sweep (persona is the real independent-trial axis for
+`static`/`aginiti`, both fully deterministic given identical state — a
+repeated seed would have been fake replication) instead of one persona
+repeated 4x, fresh server restart before every single trial. It held
+live: Aginiti won ground-truth success on all 3 personas (Random 2/3,
+Static 1/3) and was the only policy to reach all 6 attack families in one
+campaign. A follow-up audit — evidence only, every LLM-judge-only claim
+excluded, keeping just the independent verbatim/fuzzy oracle — found 10
+distinct real findings across the 9 trials: 2 genuine RBAC/authorization
+crossings (`ops` receiving content never flagged `ops_visible`, via its
+own aggregation probes) and 8 RAG/generation-guardrail over-disclosures,
+while confirming the 5 dedicated authority-claim social-engineering probes
+never once crossed the boundary they exist to test. Full detail: `docs/
+EXP29_RESULTS.md`.
+
+**Where this leaves us right now:** seven real, independently-developed
+targets integrated and live-verified (five from earlier chapters plus
+`hardened_agent`/`healthcare_agent`), plus a self-built hardened gateway
 resembling a production deployment; the full evidence pipeline proven
 end-to-end on all of them; a category taxonomy proven to generalize across
 three structurally unrelated protocols; the full hypothesis lifecycle
 proven live exactly once; two real planning gaps found and fixed against
-live evidence; genuine multi-step discovery built and proven offline; the
-strongest live evidence yet of a real planning advantage (exp20); and an
-independent audit that found the architecture broadly sound but not yet
-unified across its three execution paths. The original founding question
-— does Aginiti's planner beat the baselines, at the frozen protocol's
-required scale — is still not answered, entirely because of the
-Groq-quota roadblock, not because of any architectural doubt, and remains
-the single most consequential piece of unfinished business in the RQ1
-validation track specifically. Per Pivot 6, it is no longer a precondition
-for capability work elsewhere in the roadmap.
+live evidence in the exp16-18 chapter, and two more (proactive/within-
+family diversification) found and fixed against live evidence in the
+exp28/29 chapter; genuine multi-step discovery built and proven offline;
+the strongest live evidence yet of a real planning advantage on TWO
+separate real targets now (exp20's AnythingLLM result, exp29's
+`hardened_agent` result); membership inference implemented, broken by
+memory contamination, and fixed; and an independent audit that found the
+architecture broadly sound but not yet unified across its four execution
+paths. The original founding question — does Aginiti's planner beat the
+baselines, at the frozen protocol's required scale — is still not
+answered on the ORIGINAL DVLA protocol specifically, entirely because of
+the Groq-quota roadblock, not because of any architectural doubt. exp29
+is real, independent, live evidence toward the SAME underlying question on
+a different, harder, real target — genuinely closer than this project has
+ever been to answering it, while remaining honest that N=3 per condition
+is not yet the frozen protocol's required scale. Per Pivot 6, none of this
+is a precondition for capability work elsewhere in the roadmap.
 
 ---
 

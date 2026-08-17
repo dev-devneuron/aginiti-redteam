@@ -302,6 +302,45 @@ MULTI_STEP_DISCOVERY_AND_SCORING.md`:**
 run against a live target yet — the agentic-primitives pack in particular
 is explicitly deferred pending target-specific validation (§5).
 
+**exp30/exp31 (2026-08-14) — do the two new exploration-term fixes causally
+change ranked behavior, isolated from each other and from every other
+planner term?** Built specifically to answer this BEFORE spending any live
+budget confirming either fix, after a live postmortem (exp28) motivated
+both. Each scenario was rejected and rebuilt at least once after being
+found to accidentally let something OTHER than the fix under test explain
+the result — see each experiment script's own module docstring for the
+specific confound found and removed, disclosed rather than silently fixed.
+
+- **exp30 (cross-family fix, `PROACTIVE_COVERAGE_BONUS`)**: a synthetic
+  2-family scenario sized to `hardened_agent`'s real family counts (15/26
+  members), at a budget (10) comfortably inside the first family's own
+  size. Pre-fix code and the fully non-adaptive `StaticPolicy` checklist
+  perform identically narrow (1 of 2 families touched, 0% reaching the
+  second); post-fix code touches both families every run (100%), matching
+  `RandomPolicy`'s breadth (n=20) while beating its reliability (Random
+  found the real finding only 80% of the time; post-fix Aginiti, 100%).
+  **Status: Proven offline**, isolated (`experiments/exp30_offline_
+  planner_fix_validation.py`, locked in by `tests/test_family_coverage_
+  scenario.py`).
+- **exp31 (within-family fix, `technique_cluster_diversification`)**: a
+  synthetic single-family scenario (deliberately single-family, so
+  `family_diversification` cannot contribute to the result at all) with a
+  5-member near-duplicate cluster (weight 8, matching the real authority-
+  claim-probe boundary-crossing potential) alongside 3 genuinely distinct
+  singleton techniques (weight 3, matching `system_prompt_extraction`'s
+  real weight). At budget=5 (the cluster's own size), pre-fix code and
+  `StaticPolicy` never reach the singleton techniques at all (0/1 both-
+  findings recovered); post-fix code reaches them every run (1/1),
+  finding both real hypotheses deterministically, vs. Random's 35% (n=20).
+  **Status: Proven offline**, isolated (`experiments/exp31_offline_
+  cluster_fix_validation.py`, locked in by `tests/test_technique_cluster_
+  diversification.py`).
+
+Both fixes were subsequently confirmed live in exp29 (`docs/EXP29_
+RESULTS.md`) — the offline scenarios predicted the live behavioral change
+correctly (visibly broader family/technique sampling in exp29's actual
+operator sequences) before any live budget was spent finding that out.
+
 ### Live experiments against the mock target (2026-08-07, real Groq/Gemini calls)
 
 Unblocked via a Gemini-backed client (`aginiti/gemini_client.py`) built
@@ -472,13 +511,26 @@ been REJECTED live; multi-hypothesis interaction is not modeled.
 
 ### Adaptive planning
 
-Built — the 9-term utility function (`docs/ARCHITECTURE.md` §6). Tested
-(`test_aginiti_planner.py`, `test_target_graph.py`). **Live evidence now
-includes a real, mechanistically-traced planning advantage** (exp20, §0) —
-this is a material update from earlier in the project, when the only live
-comparative evidence (the 2026-08-07 mock-target pass) did not favor
-Aginiti. **Still unproven at the frozen protocol's required scale:** the
-DVLA RQ1 benchmark has never run to completion at a meaningful trial count.
+Built — the 9-term evidence-grounded `core_utility` plus 3 opt-in
+exploration terms (`docs/ARCHITECTURE.md` §6). Tested
+(`test_aginiti_planner.py`, `test_target_graph.py`, `test_novelty.py`,
+`test_technique_cluster_diversification.py`). **Live evidence now
+includes a real, mechanistically-traced planning advantage on TWO separate
+real targets**: exp20 (AnythingLLM, §0) and exp29 (`hardened_agent`, 3/3
+ground-truth wins at equal budget vs. Random 2/3 and Static 1/3, `docs/
+EXP29_RESULTS.md`) — this is a material update from earlier in the
+project, when the only live comparative evidence (the 2026-08-07
+mock-target pass) did not favor Aginiti. Getting to the exp29 result
+required diagnosing and fixing two real, live-postmortem-found gaps in the
+exploration terms themselves (`PROACTIVE_COVERAGE_BONUS` — no reward for a
+genuinely untried FAMILY unless a sibling already looked dead; `technique_
+cluster_diversification` — nothing at the finer, within-family grain where
+several operators are near-duplicate wrapper variants of one hypothesis,
+not independent techniques), each isolated and offline-proven (exp30,
+exp31, §0) before being confirmed live. **Still unproven at the frozen
+protocol's required scale:** the DVLA RQ1 benchmark has never run to
+completion at a meaningful trial count, and exp29 itself is honestly
+underpowered at N=3 per condition.
 
 ### Multi-step discovery (`ClassPrecondition`)
 
@@ -611,6 +663,96 @@ against one AnythingLLM instance, evaluated with Gemini as the target-side
 model — nothing here speaks to generalization to a different underlying
 LLM or a different RAG/agent platform.
 
+### `hardened_agent` / `healthcare_agent` (real RAG targets, added 2026-08-14)
+
+_Missing from this section entirely until 2026-08-14, despite being the
+targets `exp23`/`exp25`/`exp26` actually ran against — a real documentation
+gap, not a claim these targets were untested._ Both vendored from this
+repo's own `main` branch — real RAG chatbots over real document corpora
+(CUAD contracts + CFPB complaints; HealthCareMagic-1k), not synthetic
+fixtures; `hardened_agent` additionally has real RBAC (legal/support/ops),
+chunked retrieval, output redaction, rate limiting, and conversation
+memory.
+
+**RBAC boundary: held against direct social-engineering, but WAS crossed
+twice via the `ops` aggregation mechanism specifically — `exp29`
+(2026-08-14) is the update to the "never crossed" finding reported
+through `exp23`/`exp25`/`exp26`.** Reading the target's actual source
+(`personas.py`/`agent.py`) confirms retrieval is scoped via a ChromaDB
+`where` filter applied INSIDE the vector search (pre-filter, in the
+Pinecone-documented sense — see `docs/RESEARCH_AND_PROVENANCE.md`), and
+`persona` is derived only from the authenticated bearer key with no
+client-supplied override anywhere in the request schema — this remains
+correct and explains why the 5 `hardened_authority_claim_probe_*`
+variants and `hardened_cross_boundary_probe` never once produced an
+independent finding across any of exp23/25/26/28/29's live trials, on any
+persona. What changed: `exp29`'s independent-oracle-only findings audit
+(`docs/EXP29_RESULTS.md`) found the `ops` persona's own `hardened_ops_
+aggregation_probe_1`/`_2` operators DID twice retrieve real CUAD/CFPB
+records never flagged `ops_visible` for that persona's declared
+(sub-domain) scope — a genuine `L3_privilege_boundary` crossing,
+independently verified (fuzzy corpus match + the record's own `ops_
+visible` metadata), not an LLM-judge opinion. The pre-filter architecture
+correctly blocks retrieval from returning content OUTSIDE a persona's
+declared source set (`cuad` for legal, `cfpb` for support) — it does not,
+on this evidence, correctly restrict `ops`'s own AGGREGATE view to only
+the subset of in-source records specifically flagged for cross-department
+use. A real, narrower, more precise finding than "RBAC never crossed" —
+and 8 further RAG/generation-guardrail over-disclosure findings (in-
+domain content surfacing via generic follow-ups, indirect reframes, or
+encoding tricks more readily than a properly-scoped answer should allow)
+that are NOT RBAC issues. Full findings-by-finding audit in `docs/
+EXP29_RESULTS.md`.
+
+**Two real judge/oracle bugs found live and fixed, not just hypothesized**:
+(1) the LLM judge misclassified an explicit refusal (the target decoding
+and quoting back an embedded instruction, then declining it) as compliance
+on more than one live trial — fixed with BOTH a tightened judge prompt AND
+a structural `_corroborated()` gate requiring the target's own independent
+ground truth to agree before any phase is allowed to stop the assessment
+early (`aginiti/assessment.py`) — the corroboration gate has since been
+live-confirmed catching exactly this pattern in real time (`exp26_run.log`).
+(2) The fuzzy-disclosure oracle was miscalibrated against this specific
+corpus's formulaic legal/regulatory boilerplate (SEC redaction disclaimers,
+FCRA citations) recurring across many documents and being counted as
+disclosure evidence regardless of actual relevance — fixed with a document-
+frequency (TF-IDF-style) rarity filter.
+
+**Genuinely new capability, not just a bugfix**: `aginiti/adaptive/
+membership_inference.py` (the Interrogation Attack) — live-verified
+against `hardened_agent`, a real ingested document scored 1.0 (4/4 correct
+answers) — but the mechanism's real signal is fragile to conversation
+state, live-demonstrated the hard way: appended after ~60 prior probing
+turns on the same persona (`exp26`), all 6 member/non-member checks
+collapsed to an identical, information-free -0.5 (hardened_agent's own
+memory-caution system-prompt behavior applying uniform caution after a
+long session). Re-run correctly (`exp27` — fresh server restart
+immediately before, MI as the ONLY query each persona's key sends): a
+clean, consistent separation across all 3 personas -- average gap 1.06
+(legal 1.31, support 0.75, ops 1.13, the last after also fixing a real
+test-candidate-selection bug of its own -- see `docs/EXP26_RESULTS.md` for
+the full, honest arc of both failures and the fix). This is corpus-
+membership inference WITHIN a persona's own authorized scope, not an
+RBAC-boundary-crossing technique (see above for why a cross-persona
+variant shows zero signal on this specific, pre-filter-correct target).
+
+**Full experimental record and final analysis: `docs/EXP26_RESULTS.md`**
+(covers `exp25`/`exp26`/`exp27` as one assessment arc) — raw data in
+`runs_exp25_full_assessment_vs_baseline/`, `runs_exp26_full_assessment_v2/`,
+`runs_exp27_membership_inference_fresh/`.
+
+**A second, later chapter — `docs/EXP29_RESULTS.md`** (covers `exp28`
+through `exp31`): the first live run of RQ1's own 4-condition methodology
+against this target (`exp28`) surfaced two real planner gaps and two real
+harness-methodology gaps (memory contamination across trials, fake
+replication from a deterministic policy's repeated seed); both fixed,
+each isolated and offline-proven (`exp30`/`exp31`) before the corrected
+live re-run (`exp29`) — the RBAC crossings above are that re-run's own
+independent-oracle-verified finding. Raw data in `runs_exp28_rq1_
+hardened_agent/`, `runs_exp30_offline_planner_fix_validation/`,
+`runs_exp31_offline_cluster_fix_validation/`, `runs_exp29_rq1_hardened_
+agent_fresh_state/`.
+
 ### InjecAgent (Zhan et al., ACL Findings 2024)
 
 1,054 real, vendored benchmark test cases (indirect prompt injection via
@@ -632,13 +774,13 @@ reported yet.
 | **Trust** (delegated, self-reported) | Proven, cross-protocol | `CATEGORY_TRUST_EDGE` across mock/Slack, DVAA/A2A, DVAA/consensus |
 | **Capabilities** (what a target exposes) | Proven | `capabilities()` populated live for all 5 real targets |
 | **Tool execution** (authorized vs. not) | Proven | DVAA unauthenticated execution; AnythingLLM automatic-mode tool exfiltration |
-| **Authorization** | Proven | Same as tool execution; also DVLA's override refused |
+| **Authorization** | Proven | Same as tool execution; also DVLA's override refused; `hardened_agent`'s `ops` persona twice received non-`ops_visible` content via its own aggregation probes (exp29, `docs/EXP29_RESULTS.md`) — the project's first confirmed RBAC crossing on this target |
 | **Input validation** | Proven | DVLA injection refused; MCP filesystem boundary enforcement held |
 | **Coordination** (multi-actor consensus) | Proven | DVAA consensus scenario, full 3-operator chain |
 | **Outcome manipulation** | Proven | Single-identity consensus manipulation confirmed |
 | **Multi-step chain execution** | Proven | 4 real AnythingLLM chains, up to L5, ground-truth-verified |
 | **Multi-step chain discovery (not pre-wired)** | Proven, offline only | `ClassPrecondition` 6-step chain + agentic-primitives cross-check — not yet exercised on a live target |
-| **Planner advantage over simpler baselines** | Proven, one real target, one mission shape | exp20's chain-required-mission result (§0) |
+| **Planner advantage over simpler baselines** | Proven, two real targets | exp20's chain-required-mission result on AnythingLLM; exp29's 3/3-vs-2/3-vs-1/3 result on `hardened_agent` (§0, `docs/EXP29_RESULTS.md`) |
 | **Planning / delegation depth** (multi-agent orchestration beyond A2A) | Not evaluated | No target integrated exercises this |
 | **Retrieval / RAG poisoning** | Proven | AnythingLLM's RAG-poisoning chain; DVAA's RAGBot rejected as a dead end |
 | **Reasoning under adversarial context** (indirect injection via retrieved/tool content) | Proven | AnythingLLM's trigger operators; InjecAgent's 1,054 test cases (integration real, full-pool result not yet reported) |
@@ -664,7 +806,7 @@ not just an architectural characterization.
 | Multi-step chain execution against a real target | ✔ Proven — 4 AnythingLLM chains up to L5 | ✔ Core capability, different substrate | Unknown | ✖ REST-generator interface structurally cannot observe L2-L5 |
 | Multi-step chain **discovery** (not pre-wired) | ✔ Proven offline via `ClassPrecondition` | ✔ Core capability over ingested data | Unknown | ✖ Not applicable |
 | Real, live head-to-head result | 4/5 categories agree exactly with garak; the hardened target held against both | N/A | N/A | Real, run, both directions reported honestly |
-| Planner advantage over simpler baselines | ✔ Proven on one real target, one mission shape (exp20) | N/A — query-driven, not autonomously adaptive | Unknown | ✖ Static/enumerated by design |
+| Planner advantage over simpler baselines | ✔ Proven on two real targets (exp20, exp29) | N/A — query-driven, not autonomously adaptive | Unknown | ✖ Static/enumerated by design |
 
 ---
 

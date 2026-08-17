@@ -141,7 +141,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from aginiti.graph.hypothesis import HypothesisStatus
-from aginiti.graph.novelty import operator_family_diversification
+from aginiti.graph.novelty import operator_family_diversification, operator_technique_cluster_diversification
 from aginiti.graph.schema import IMPORTANCE_WEIGHT, ClaimStatus, InsightCategory
 from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, CATEGORY_TRUST_EDGE, SecurityStateGraph
 from aginiti.graph.target_belief import TargetBeliefState
@@ -222,6 +222,11 @@ class RankedCandidate:
     hypothesis_escalation_bonus: float
     alpha: float
     beta: float
+    # Appended at the end (not interleaved with the original fields above)
+    # deliberately -- this dataclass is constructed POSITIONALLY at its one
+    # call site (rank(), below); adding a field at the end keeps every
+    # existing positional argument's meaning unchanged.
+    technique_cluster_diversification: float = 0.0
 
 
 class AginitiPlanner:
@@ -263,7 +268,8 @@ class AginitiPlanner:
 
     def __init__(self, info_gain_normalization: str = "sum",
                  enable_family_diversification: bool = False,
-                 enable_hypothesis_escalation_bonus: bool = False) -> None:
+                 enable_hypothesis_escalation_bonus: bool = False,
+                 enable_technique_cluster_diversification: bool = False) -> None:
         """`enable_family_diversification`/`enable_hypothesis_escalation_
         bonus` -- added 2026-08-14, both default False so an unparameterized
         `AginitiPlanner()` is BYTE-IDENTICAL in ranking behavior to every
@@ -285,12 +291,27 @@ class AginitiPlanner:
           gated operator whose eligibility just opened up from a RECENTLY
           confirmed claim -- makes genuine, discovered (not hard-coded)
           chain continuation an explicit, visible ranking preference
-          rather than something that merely becomes possible."""
+          rather than something that merely becomes possible.
+        - `enable_technique_cluster_diversification` -- added later the SAME
+          day, in direct response to a real live finding `enable_family_
+          diversification` cannot touch: `attack_category` families can
+          legitimately contain several near-duplicate WRAPPER variants of
+          ONE underlying technique (e.g. hardened_agent_definitions.py's 5
+          `authority_claim_probe_*` templates around the same question) --
+          turns on `technique_cluster_diversification()`
+          (aginiti/graph/novelty.py): an escalating penalty for repeatedly
+          re-sampling the SAME author-declared `Operator.technique_cluster`,
+          regardless of success (unlike family-level saturation, a cluster
+          is NOT success-immune -- see that function's own docstring for
+          why). A true no-op for every operator that doesn't set
+          `technique_cluster` (the default, common case), so this is safe
+          to enable independently of the other two."""
         if info_gain_normalization not in ("sum", "mean"):
             raise ValueError(f'info_gain_normalization must be "sum" or "mean", got {info_gain_normalization!r}')
         self.info_gain_normalization = info_gain_normalization
         self.enable_family_diversification = enable_family_diversification
         self.enable_hypothesis_escalation_bonus = enable_hypothesis_escalation_bonus
+        self.enable_technique_cluster_diversification = enable_technique_cluster_diversification
 
     def _recently_confirmed_in_category(self, ssg: SecurityStateGraph, category: str,
                                          recency_window: int) -> bool:
@@ -853,6 +874,17 @@ class AginitiPlanner:
             return 0.0
         return operator_family_diversification(operator, belief)
 
+    def technique_cluster_diversification(self, operator: Operator, belief: TargetBeliefState) -> float:
+        """Thin wrapper over aginiti/graph/novelty.py's pure function --
+        see that module's own docstring (the "second addition this same
+        day" section) for the full reasoning and why this is deliberately
+        NOT success-immune the way family_diversification is. Returns 0.0
+        unconditionally when `enable_technique_cluster_diversification` is
+        off, matching every other opt-in term's discipline."""
+        if not self.enable_technique_cluster_diversification:
+            return 0.0
+        return operator_technique_cluster_diversification(operator, belief)
+
     def _recently_satisfied_class_precondition(self, cpre, ssg: SecurityStateGraph,
                                                  recency_window: int) -> bool:
         """Same semantic-tag matching `Operator.preconditions_met()` already
@@ -903,45 +935,179 @@ class AginitiPlanner:
                 return _HYPOTHESIS_ESCALATION_WEIGHT
         return 0.0
 
+    def _score(self, op: Operator, mission: Mission, ssg: SecurityStateGraph, library: OperatorLibrary,
+               alpha: float, beta: float, belief: TargetBeliefState | None,
+               recency_window: int) -> tuple[float, float, float, dict]:
+        """The formula, computed exactly ONCE per (operator, rank-call) --
+        shared by `rank()` and `diagnose()` so the two can never silently
+        drift apart (the same "MUST mirror" duplication risk schema.py's
+        own IMPORTANCE_WEIGHT consolidation comment warns against).
+
+        Returns (core_utility, fdiv, heb, tcdiv, terms): `core_utility` is
+        every term GROUNDED IN ACCUMULATED EVIDENCE about this specific
+        candidate -- info gain, structural graph progress, gap/hypothesis
+        pull, severity, and an EXACT failure-diagnosis tag match. `fdiv`
+        (family_diversification), `heb` (hypothesis_escalation_bonus), and
+        `tcdiv` (technique_cluster_diversification) are kept OUT of
+        `core_utility` on purpose: they are exploration/redirection NUDGES
+        over a FAMILY (or cluster) of candidates (novelty.py's own stated
+        contract: "informs, never vetoes"), not evidence about this one
+        candidate's own remaining value. See `rank()`'s own comment for
+        why collapsing them back into one number before pruning is exactly
+        the bug exp23 found live."""
+        ig = self.information_gain(op, ssg)
+        bi = self.business_impact(op, mission, ssg)
+        pp = self.path_progress(op, mission, ssg, library)
+        ep = self.emergent_impact(op, mission, ssg, library)
+        pop = self.potential_progress(op, mission, library)
+        cv = self.chain_value(op, mission, ssg, library)
+        gp = self.gap_priority(op, ssg)
+        hp = self.hypothesis_priority(op, ssg)
+        bri = self.branch_interest(op, ssg)
+        sp = self.severity_priority(op, ssg)
+        fep = self.failure_evidence_penalty(op, ssg)
+        fdiv = self.family_diversification(op, belief) if belief is not None else 0.0
+        heb = self.hypothesis_escalation_bonus(op, ssg, recency_window)
+        tcdiv = self.technique_cluster_diversification(op, belief) if belief is not None else 0.0
+        # cv joins ig in alpha's basket, not beta's: it is speculative
+        # lookahead value (like ig, resolving what's currently unknown),
+        # not yet-confirmed structural progress (what beta's bi/pp/ep/pop
+        # terms are reserved for) -- see chain_value()'s own docstring. sp
+        # and fep join gp/hp/bri as unscaled additive nudges -- see each
+        # one's own docstring for why they must never be alpha/beta-weighted.
+        core_utility = alpha * (ig + cv) + beta * (bi + pp + ep + pop) + gp + hp + bri + sp + fep
+        terms = dict(info_gain=ig, business_impact=bi, path_progress=pp, emergent_impact=ep,
+                     potential_progress=pop, chain_value=cv, gap_priority=gp, hypothesis_priority=hp,
+                     branch_interest=bri, severity_priority=sp, failure_evidence_penalty=fep)
+        return core_utility, fdiv, heb, tcdiv, terms
+
     def rank(self, library: OperatorLibrary, ssg: SecurityStateGraph, mission: Mission,
               prompts_used: int, executed_ids: frozenset[str] = frozenset()) -> list[RankedCandidate]:
         alpha, beta = self._schedule(ssg, prompts_used, mission.budget)
         budget_remaining = mission.budget - prompts_used
         recency_window = max(4, 2 * mission.budget)
-        # Computed ONCE per rank() call, not per-candidate -- both new
-        # terms below read this same snapshot; TargetBeliefState.from_ssg
-        # is a single linear scan over ssg.claims, negligible next to the
-        # BFS calls path_progress/emergent_impact already run per candidate.
-        belief = TargetBeliefState.from_ssg(ssg, library) if self.enable_family_diversification else None
+        # Computed ONCE per rank() call, not per-candidate -- all three
+        # nudge terms below read this same snapshot; TargetBeliefState.
+        # from_ssg is a single linear scan over ssg.claims, negligible next
+        # to the BFS calls path_progress/emergent_impact already run per
+        # candidate. Built whenever EITHER family- or cluster-level
+        # diversification is enabled -- both read the same snapshot.
+        belief = (TargetBeliefState.from_ssg(ssg, library)
+                  if self.enable_family_diversification or self.enable_technique_cluster_diversification
+                  else None)
         ranked = []
         for op in eligible_operators(library, ssg, mission, prompts_used, executed_ids):
             if not self.budget_feasible(op, mission, library, budget_remaining):
                 continue  # provably can't complete this chain within remaining budget -- see budget_feasible()
-            ig = self.information_gain(op, ssg)
-            bi = self.business_impact(op, mission, ssg)
-            pp = self.path_progress(op, mission, ssg, library)
-            ep = self.emergent_impact(op, mission, ssg, library)
-            pop = self.potential_progress(op, mission, library)
-            cv = self.chain_value(op, mission, ssg, library)
-            gp = self.gap_priority(op, ssg)
-            hp = self.hypothesis_priority(op, ssg)
-            bri = self.branch_interest(op, ssg)
-            sp = self.severity_priority(op, ssg)
-            fep = self.failure_evidence_penalty(op, ssg)
-            fdiv = self.family_diversification(op, belief) if belief is not None else 0.0
-            heb = self.hypothesis_escalation_bonus(op, ssg, recency_window)
-            # cv joins ig in alpha's basket, not beta's: it is speculative
-            # lookahead value (like ig, resolving what's currently
-            # unknown), not yet-confirmed structural progress (what
-            # beta's bi/pp/ep/pop terms are reserved for) -- see
-            # chain_value()'s own docstring. sp, fep, fdiv, and heb join
-            # gp/hp/bri as unscaled additive nudges -- see each one's own
-            # docstring for why they must never be alpha/beta-weighted.
-            utility = (alpha * (ig + cv) + beta * (bi + pp + ep + pop)
-                       + gp + hp + bri + sp + fep + fdiv + heb)
-            if utility <= 0:
-                continue  # zero predicted value left -- a rational planner has no reason to run it
-            ranked.append(RankedCandidate(op, utility, ig, bi, pp, ep, pop, cv, gp, hp, bri, sp, fep,
-                                           fdiv, heb, alpha, beta))
+            core_utility, fdiv, heb, tcdiv, terms = self._score(op, mission, ssg, library, alpha, beta,
+                                                                   belief, recency_window)
+            # STRUCTURAL invariant (2026-08-14 fix, exp23 postmortem):
+            # the feasibility gate below reads ONLY core_utility -- the
+            # evidence-grounded terms -- never fdiv/heb. Before this fix,
+            # `utility <= 0: continue` tested the FULL sum including fdiv/
+            # heb, so family_diversification's saturation penalty (bounded
+            # at -3.0) could push an otherwise-viable candidate's total
+            # below zero and SILENTLY REMOVE IT from the ranked list --
+            # exactly what novelty.py's own docstring says this term must
+            # never do ("informs, never vetoes... a candidate with a
+            # genuinely large advantage can still outrank a demoted one").
+            # Live-confirmed cause of exp23's SEARCH_EXHAUSTED-with-budget-
+            # remaining failure (3/3 D_full_adaptive hardened_agent
+            # campaigns, 15-16 of 24 operators still untried each time):
+            # once two families looked saturated, every member of both
+            # dropped below zero here and vanished, not merely demoted.
+            #
+            # Now: diversification/escalation can only ever influence
+            # WHERE a candidate sorts among the survivors (even pushing its
+            # final utility negative), never WHETHER it survives at all --
+            # only genuine evidence-based infeasibility (unmet precondition,
+            # already executed, provable budget/chain infeasibility, or
+            # core_utility itself <= 0) can remove a candidate. This is also
+            # what restores principled exploration (item 6 of that
+            # postmortem) for free, with no new mechanism: once every
+            # currently-favored candidate is executed or genuinely
+            # infeasible, the next-best SURVIVING candidate -- even one from
+            # a "saturated" family -- naturally rises to the top of what's
+            # left, instead of the campaign reporting SEARCH_EXHAUSTED while
+            # real candidates remain.
+            if core_utility <= 0:
+                continue  # no evidence-based value left -- a rational planner has no reason to run it
+            utility = core_utility + fdiv + heb + tcdiv
+            ranked.append(RankedCandidate(op, utility, terms["info_gain"], terms["business_impact"],
+                                           terms["path_progress"], terms["emergent_impact"],
+                                           terms["potential_progress"], terms["chain_value"],
+                                           terms["gap_priority"], terms["hypothesis_priority"],
+                                           terms["branch_interest"], terms["severity_priority"],
+                                           terms["failure_evidence_penalty"], fdiv, heb, alpha, beta,
+                                           technique_cluster_diversification=tcdiv))
         ranked.sort(key=lambda c: c.utility, reverse=True)
         return ranked
+
+    def diagnose(self, library: OperatorLibrary, ssg: SecurityStateGraph, mission: Mission,
+                 prompts_used: int, executed_ids: frozenset[str] = frozenset()) -> list:
+        """Read-only accounting over EVERY operator in `library` (not just
+        what survived into `rank()`'s own output) -- added 2026-08-14 at
+        explicit direction: "If an operator is intentionally excluded,
+        record exactly why." Shares `_score()` with `rank()`, so this can
+        never silently disagree with what actually got ranked -- it only
+        adds the classification/reason `rank()` itself has no reason to
+        carry. See aginiti/graph/candidate_status.py for the full status
+        taxonomy and why each one is a genuinely different situation (an
+        already-tried operator, a structurally-impossible one, and a
+        currently-low-value-but-still-viable one are NOT the same thing,
+        and collapsing them into "not chosen" is exactly what made exp23's
+        premature SEARCH_EXHAUSTED unreadable from the outside)."""
+        from aginiti.graph.candidate_status import CandidateDiagnostic, CandidateStatus
+        from aginiti.policies.base import satisfies_constraints
+
+        alpha, beta = self._schedule(ssg, prompts_used, mission.budget)
+        budget_remaining = mission.budget - prompts_used
+        recency_window = max(4, 2 * mission.budget)
+        belief = (TargetBeliefState.from_ssg(ssg, library)
+                  if self.enable_family_diversification or self.enable_technique_cluster_diversification
+                  else None)
+        out = []
+        for op in library:
+            if op.id in executed_ids:
+                out.append(CandidateDiagnostic(op.id, CandidateStatus.ALREADY_EXECUTED,
+                                                "one-shot rule: deterministic operator against "
+                                                "unchanged state -> no new info"))
+                continue
+            if not op.preconditions_met(ssg):
+                out.append(CandidateDiagnostic(op.id, CandidateStatus.PRECONDITION_NOT_MET,
+                                                "exact-key or class precondition not yet satisfied -- "
+                                                "may become eligible later as evidence accumulates"))
+                continue
+            if op.cost_prompts > budget_remaining:
+                out.append(CandidateDiagnostic(op.id, CandidateStatus.COST_EXCEEDS_BUDGET,
+                                                f"cost_prompts={op.cost_prompts} > budget_remaining={budget_remaining}"))
+                continue
+            if not satisfies_constraints(op, mission, budget_remaining):
+                out.append(CandidateDiagnostic(op.id, CandidateStatus.RISK_EXCEEDS_THRESHOLD,
+                                                f"risk_tier={op.risk_tier.value} exceeds "
+                                                f"mission.risk_threshold={mission.risk_threshold.value}, or "
+                                                "destructive tier with no human-approval loop"))
+                continue
+            if not self.budget_feasible(op, mission, library, budget_remaining):
+                out.append(CandidateDiagnostic(op.id, CandidateStatus.CHAIN_BUDGET_INFEASIBLE,
+                                                "budget_feasible(): the rest of this operator's declared "
+                                                "chain provably cannot complete within remaining budget, "
+                                                "even in the best case"))
+                continue
+            core_utility, fdiv, heb, tcdiv, _terms = self._score(op, mission, ssg, library, alpha, beta,
+                                                                    belief, recency_window)
+            if core_utility <= 0:
+                out.append(CandidateDiagnostic(op.id, CandidateStatus.EVIDENCE_EXHAUSTED,
+                                                f"core_utility={core_utility:.3f} <= 0: every predicted "
+                                                "effect already resolved and/or a confirmed exact "
+                                                "failure-diagnosis match -- genuinely no evidence-based "
+                                                "value left, independent of exploration terms"))
+                continue
+            utility = core_utility + fdiv + heb + tcdiv
+            out.append(CandidateDiagnostic(op.id, CandidateStatus.RANKED,
+                                            f"utility={utility:.3f} (core={core_utility:.3f}, "
+                                            f"family_diversification={fdiv:.3f}, "
+                                            f"hypothesis_escalation_bonus={heb:.3f}, "
+                                            f"technique_cluster_diversification={tcdiv:.3f}) -- ranked, "
+                                            "regardless of how low utility itself is"))
+        return out

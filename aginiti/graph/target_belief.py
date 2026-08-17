@@ -110,6 +110,18 @@ class TargetBeliefState:
     # both surface here before they resolve one way or the other).
     partial_progress: frozenset[str] = field(default_factory=frozenset)
     family_stats: dict[str, FamilyStats] = field(default_factory=dict)
+    # Same shape as family_stats, ONE LEVEL FINER -- keyed by `Operator.
+    # technique_cluster` (see that field's own docstring) rather than
+    # `attack_category`. Added 2026-08-14 alongside `technique_cluster` in
+    # direct response to the same exp28 postmortem: `attack_category` (11
+    # broad categories) cannot tell "5 near-duplicate wrapper templates
+    # around the same underlying question" apart from "a genuinely
+    # different technique that happens to share the same broad category" --
+    # this can, but ONLY for operators an author has explicitly opted into
+    # a shared cluster. Untagged operators (the common case) simply never
+    # appear here, exactly like family_stats already treats an untagged
+    # attack_category as a no-op.
+    cluster_stats: dict[str, FamilyStats] = field(default_factory=dict)
     open_hypotheses: tuple["Hypothesis", ...] = field(default_factory=tuple)
 
     def family(self, attack_category: str | None) -> FamilyStats:
@@ -119,6 +131,14 @@ class TargetBeliefState:
         if attack_category is None:
             return FamilyStats()
         return self.family_stats.get(attack_category, FamilyStats())
+
+    def cluster(self, technique_cluster: str | None) -> FamilyStats:
+        """Same never-raises convention as family() -- an operator with no
+        technique_cluster (the common, default case) always reads as the
+        all-zero default, meaning this mechanism stays a true no-op for it."""
+        if technique_cluster is None:
+            return FamilyStats()
+        return self.cluster_stats.get(technique_cluster, FamilyStats())
 
     def unexplored_families(self, known_families: frozenset[str]) -> frozenset[str]:
         """Which of `known_families` (typically every attack_category the
@@ -147,6 +167,16 @@ class TargetBeliefState:
                     "looks_saturated": stats.looks_saturated,
                 }
                 for name, stats in sorted(self.family_stats.items())
+            },
+            "clusters": {
+                name: {
+                    "attempted": stats.attempted,
+                    "confirmed_success": stats.confirmed_success,
+                    "confirmed_blocked_generalizable": stats.confirmed_blocked_generalizable,
+                    "confirmed_blocked_other": stats.confirmed_blocked_other,
+                    "looks_saturated": stats.looks_saturated,
+                }
+                for name, stats in sorted(self.cluster_stats.items())
             },
             "open_hypotheses": [h.statement for h in self.open_hypotheses],
         }
@@ -185,6 +215,23 @@ class TargetBeliefState:
                 mapping.setdefault(effect.key, family)
         return mapping
 
+    @staticmethod
+    def _operator_cluster_map(library) -> dict[str, str]:
+        """Same construction as `_operator_family_map`, one level finer:
+        maps every claim key an operator declares (success OR failure) to
+        that operator's own `technique_cluster` -- but ONLY for operators
+        that actually set one. An operator with `technique_cluster=None`
+        (the default, common case) contributes nothing here, exactly
+        mirroring how an untagged `attack_category` contributes nothing to
+        `_operator_family_map`."""
+        mapping: dict[str, str] = {}
+        for op in library:
+            if op.technique_cluster is None:
+                continue
+            for effect in (*op.effects_success, *op.effects_failure):
+                mapping.setdefault(effect.key, op.technique_cluster)
+        return mapping
+
     @classmethod
     def from_ssg(cls, ssg: "SecurityStateGraph", library=None) -> "TargetBeliefState":
         """Pure function: rebuilds the whole state from ssg.claims every
@@ -211,10 +258,12 @@ class TargetBeliefState:
         defender_controls: set[str] = set()
         partial_progress: set[str] = set()
         counts: dict[str, dict[str, int]] = {}
+        cluster_counts: dict[str, dict[str, int]] = {}
         operator_family_map = cls._operator_family_map(library) if library is not None else {}
+        operator_cluster_map = cls._operator_cluster_map(library) if library is not None else {}
 
-        def _bump(family: str, field_name: str) -> None:
-            entry = counts.setdefault(family, {"attempted": 0, "confirmed_success": 0,
+        def _bump(counter: dict[str, dict[str, int]], group: str, field_name: str) -> None:
+            entry = counter.setdefault(group, {"attempted": 0, "confirmed_success": 0,
                                                  "confirmed_blocked_generalizable": 0,
                                                  "confirmed_blocked_other": 0})
             entry[field_name] += 1
@@ -245,19 +294,24 @@ class TargetBeliefState:
             elif category == CATEGORY_DEFENDER_CONTROL and claim.status == ClaimStatus.CONFIRMED:
                 defender_controls.add(key)
 
-            if family is None:
-                continue
-            _bump(family, "attempted")
-            if category == CATEGORY_MISSION_OUTCOME and claim.status == ClaimStatus.CONFIRMED:
-                _bump(family, "confirmed_success")
-            elif category == CATEGORY_DEFENDER_CONTROL and claim.status == ClaimStatus.CONFIRMED:
-                diagnosis = ssg.claim_failure_diagnosis.get(key)
-                if is_generalizable(diagnosis):
-                    _bump(family, "confirmed_blocked_generalizable")
-                else:
-                    _bump(family, "confirmed_blocked_other")
+            cluster = operator_cluster_map.get(key)
+            is_success = category == CATEGORY_MISSION_OUTCOME and claim.status == ClaimStatus.CONFIRMED
+            is_blocked = category == CATEGORY_DEFENDER_CONTROL and claim.status == ClaimStatus.CONFIRMED
+            diagnosis = ssg.claim_failure_diagnosis.get(key) if is_blocked else None
+            generalizable_block = is_blocked and is_generalizable(diagnosis)
+
+            for counter, group in ((counts, family), (cluster_counts, cluster)):
+                if group is None:
+                    continue
+                _bump(counter, group, "attempted")
+                if is_success:
+                    _bump(counter, group, "confirmed_success")
+                elif is_blocked:
+                    _bump(counter, group, "confirmed_blocked_generalizable" if generalizable_block
+                          else "confirmed_blocked_other")
 
         family_stats = {name: FamilyStats(**vals) for name, vals in counts.items()}
+        cluster_stats = {name: FamilyStats(**vals) for name, vals in cluster_counts.items()}
 
         open_hyps = tuple(
             h for h in ssg.hypotheses.values()
@@ -271,5 +325,6 @@ class TargetBeliefState:
             defender_controls=frozenset(defender_controls),
             partial_progress=frozenset(partial_progress),
             family_stats=family_stats,
+            cluster_stats=cluster_stats,
             open_hypotheses=open_hyps,
         )

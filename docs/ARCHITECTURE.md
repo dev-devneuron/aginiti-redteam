@@ -214,6 +214,18 @@ each; full mechanics in §5.
   matching a semantic tag (`category`, `attack_category`, or a minimum
   `security_boundary` rank), instead of one exact claim key. The mechanism
   behind genuine multi-step discovery — see §7.
+- **`TargetBeliefState`** (`aginiti/graph/target_belief.py`) — a stateless,
+  campaign-level snapshot rebuilt from the SSG's own claims each time it's
+  needed, tracking per-`attack_category` and per-`technique_cluster`
+  `FamilyStats` (attempted/confirmed-success/confirmed-blocked counts).
+  Feeds `family_diversification` and `technique_cluster_diversification`
+  — see §6.
+- **`technique_cluster`** — an opt-in `Operator` field grouping near-
+  duplicate WRAPPER variants of one hypothesis (e.g. 5 authority-claim
+  framings of the same question); `None` for the common, untagged case.
+  Finer-grained than `attack_category`, which cannot tell "5 wordings of
+  one question" apart from "5 genuinely different techniques" — see §6,
+  §9, and `docs/EXP29_RESULTS.md`.
 - **RiskTier** — `LOW` / `MEDIUM` / `HIGH` / `DESTRUCTIVE`, a hard
   constraint on the candidate set. `DESTRUCTIVE` never auto-runs — there is
   no human-approval loop yet, so the system simply never selects it.
@@ -435,7 +447,7 @@ Aginiti-Extended/
 | `aginiti/adapter/` (singular) | One file: the bridge between an operator execution and the graph, and the single exception-safety choke point every execution passes through. Deliberately named/organized differently from `adapters/` (historical — kept because a mechanical rename wasn't worth the churn). |
 | `aginiti/target/` | Self-built reference targets, kept only as a fast, free, deterministic regression fixture — never scored as evidence for a research question once a real target exists. |
 | `aginiti/target_hardening/` | A self-built gateway that sits in front of AnythingLLM and adds the controls a real enterprise deployment would have, so live experiments test against a realistic, defended target instead of a soft one. |
-| `aginiti/adaptive/` | Search-based discovery for a small number of attack families where a fixed operator list genuinely isn't the right shape — a deliberately separate orchestrator from the main planning loop (see §11). |
+| `aginiti/adaptive/` | Search-based discovery (7 modules — encoding/many-shot/framing discovery, PAIR refinement, Crescendo escalation, membership inference) for attack families where a fixed operator list genuinely isn't the right shape. Its own ranking loop stays separate from the main planner (see §11), but `aginiti/assessment.py`'s `run_full_assessment()` (2026-08-14) now runs it and `AginitiPlanner` SEQUENTIALLY over one shared graph — see §4.4. |
 | `aginiti/planner/` | The reasoning that picks the next operator. `AginitiPlanner` is the main class; `variants.py` and `bayesian_planner.py` hold comparison baselines that share its structure but not its full formula. |
 | `aginiti/policies/` | The abstraction that lets five different "who picks next" strategies drive the identical campaign loop, so a benchmark comparison isolates the policy and nothing else. |
 | `scripts/` | Thin, runnable entry points. No logic lives here that isn't in `aginiti/` — a script wires objects together and prints/writes output. |
@@ -526,7 +538,7 @@ positive utility left, or `max_rounds` is hit. Never stops early on mission
 success — the point is to keep learning past a satisfied mission, not to
 exit the instant the exploit lands.
 
-### 4.4 Three parallel execution paths — a real architectural characteristic, not a defect to hide
+### 4.4 Four parallel execution paths — a real architectural characteristic, not a defect to hide
 
 An independent, from-scratch audit of the codebase (`docs/
 ENGINEERING_HARDENING_PASS.md`) traced every real entry point and found
@@ -536,7 +548,9 @@ ENGINEERING_HARDENING_PASS.md`) traced every real entry point and found
 scripts/run_campaign.py, scripts/run_benchmark.py ──> aginiti/benchmark.py (mock target only)
 20+ experiments/expNN_*.py                        ──> hand-rolled trial loops, call run_campaign() directly
 scripts/run_*_understanding_loop.py               ──> aginiti/understanding_loop.py (a 2nd loop reimplementation)
-experiments/exp20_discovery_arm.py                ──> aginiti/adaptive/*.py (never touches AginitiPlanner)
+experiments/exp20_discovery_arm.py                ──> aginiti/adaptive/*.py directly (never touches AginitiPlanner)
+experiments/exp25/exp26_*_live.py (2026-08-14)    ──> aginiti/assessment.py's run_full_assessment() ──>
+                                                        adaptive/*.py phases THEN AginitiPlanner, same shared SSG
 ```
 
 `aginiti/benchmark.py` is real, tested, and correct — but only
@@ -554,11 +568,26 @@ the one recent fix that genuinely does propagate everywhere, because all
 three paths funnel through `ObservationAdapter` regardless of which loop
 called it.
 
-`aginiti/adaptive/*.py` (encoding/framing discovery, PAIR-style refinement)
-is a fully separate orchestrator: it never produces a `Claim` through the
-normal pipeline in the same run as `AginitiPlanner`, and `AginitiPlanner`
-never ranks an adaptive-discovery candidate alongside a static operator.
-None of this is dead code — all three paths are reachable, tested, and used
+**Updated 2026-08-14 — this was true, and no longer is, for one of the
+three paths.** `aginiti/assessment.py`'s `run_full_assessment()` is a
+FOURTH entry point, added specifically to close this gap: it runs
+`aginiti/adaptive/*.py`'s engines (encoding discovery, many-shot discovery,
+framing discovery + PAIR refinement, Crescendo escalation) IN SEQUENCE
+against one shared `SecurityStateGraph`, then hands that SAME graph to a
+normal `run_campaign()` + `AginitiPlanner` phase as its final step. A claim
+confirmed by any discovery phase IS a real Claim in the graph
+`AginitiPlanner`'s campaign phase reads (`TargetBeliefState.from_ssg()`,
+`family_diversification`, `hypothesis_escalation_bonus` all see it) — it
+is completely indistinguishable to the planner from one confirmed by an
+ordinary operator. This does NOT collapse the three-path characteristic
+below into one unified harness (`aginiti/benchmark.py`/hand-rolled
+`expNN_*.py` scripts/`understanding_loop.py` remain genuinely separate,
+for genuinely separate reasons) — it specifically closes the ONE gap that
+was a real, tracked limitation rather than an intentional design choice.
+Live-verified: `exp25`/`exp26` (`experiments/exp2{5,6}_full_assessment_
+vs_baseline_live.py`) run this exact path against `hardened_agent`.
+
+None of this is dead code — all four paths are reachable, tested, and used
 to produce real, cited results (§12 has the honest list of what each path
 can and can't currently claim).
 
@@ -643,15 +672,20 @@ for every operator whose preconditions currently hold and that hasn't
 already run:
 
 ```
-utility(op) = alpha * (information_gain(op) + chain_value(op))
-            + beta  * (business_impact(op) + path_progress(op)
-                       + emergent_impact(op) + potential_progress(op))
-            + gap_priority(op) + hypothesis_priority(op)
-            + branch_interest(op) + severity_priority(op)
-            + failure_evidence_penalty(op)
+core_utility(op) = alpha * (information_gain(op) + chain_value(op))
+                  + beta  * (business_impact(op) + path_progress(op)
+                             + emergent_impact(op) + potential_progress(op))
+                  + gap_priority(op) + hypothesis_priority(op)
+                  + branch_interest(op) + severity_priority(op)
+                  + failure_evidence_penalty(op)
+
+utility(op) = core_utility(op) + family_diversification(op)
+                                + hypothesis_escalation_bonus(op)
+                                + technique_cluster_diversification(op)
 ```
 
-Nine additive terms, in the order they were added to the codebase:
+Nine evidence-grounded terms make up `core_utility`, in the order they
+were added to the codebase:
 
 - **`information_gain`** — sum of per-effect weights over predicted claim
   keys not yet resolved. A claim already confirmed/refuted has no
@@ -701,21 +735,83 @@ Nine additive terms, in the order they were added to the codebase:
   demoted. Reuses `ClassPrecondition`'s exact tag-matching idea (§7),
   applied to negative instead of positive evidence.
 
+Three further terms are opt-in EXPLORATION nudges (`aginiti/graph/
+novelty.py`), all default `False`/off so an unparameterized
+`AginitiPlanner()` is byte-identical to every version of this class before
+they existed, and all kept structurally OUTSIDE `core_utility` — see the
+"structural invariant" callout below for why that separation is load-
+bearing, not cosmetic:
+
+- **`family_diversification`** — `TargetBeliefState.FamilyStats.looks_
+  saturated` (2+ CONFIRMED same-`attack_category` outcomes, zero
+  successes) demotes a family that looks like a dead end; a family that
+  has ever produced one real success can never look saturated again, by
+  design, so a working technique is never abandoned. A genuinely untried
+  family (`attempted == 0`) earns a bonus two ways: reactively
+  (`DIVERSIFICATION_BONUS = 2.5`, if a SIBLING family already looks
+  saturated) and, since 2026-08-14, proactively (`PROACTIVE_COVERAGE_
+  BONUS = 1.0`, unconditionally) — the proactive half closes a real gap a
+  live postmortem found (`docs/EXP29_RESULTS.md`): once ANY family had one
+  success, nothing previously gave the planner a reason to also sample a
+  completely different family, no matter how many of that first family's
+  own untried variants remained.
+- **`hypothesis_escalation_bonus`** — rewards a `ClassPrecondition`-gated
+  operator whose eligibility just opened up from a claim confirmed
+  RECENTLY (within a `recency_window` of the campaign's own length), not
+  one that has sat eligible for a while — makes genuine, discovered chain
+  continuation an explicit ranking preference, not just something that
+  merely becomes possible.
+- **`technique_cluster_diversification`** (2026-08-14, `docs/EXP29_
+  RESULTS.md`) — a FINER-grained sibling of `family_diversification`,
+  closing a gap that mechanism cannot see by construction: `attack_
+  category` (11 broad categories) cannot tell "5 near-duplicate wrapper
+  templates around one question" (e.g. `hardened_agent_definitions.py`'s
+  `_build_authority_claim_probes`) apart from "a genuinely different
+  technique that happens to share the same broad category." An author
+  opts an operator into a shared `Operator.technique_cluster` string
+  (default `None` — a true no-op for every untagged operator, the common
+  case); repeating a cluster earns an escalating penalty from the FIRST
+  repeat onward, capped at `MAX_CLUSTER_PENALTY = 3.0`. Deliberately **NOT
+  success-immune**, the one place this term's shape differs on purpose
+  from family-level saturation: a cluster is variants of ONE hypothesis,
+  so confirming it once genuinely diminishes the value of asking the same
+  question a 3rd/4th/5th way — unlike a family, which legitimately
+  contains many different ideas a single success must never demote.
+
 `alpha`/`beta` follow a fixed schedule: `alpha` decays and `beta` rises as
 `prompts_used / budget` grows — early in a campaign, learn; late in a
 campaign, close out mission-relevant paths.
 
+**Structural invariant (2026-08-14, exp23 postmortem fix) — the
+feasibility gate reads `core_utility` alone, never the three exploration
+terms.** `rank()` drops a candidate only when `core_utility(op) <= 0` —
+genuinely no evidence-based value left, independent of exploration. The
+three exploration terms can only ever influence WHERE a surviving
+candidate sorts (even pushing its final `utility` negative), never WHETHER
+it survives at all. Before this fix, the gate tested the FULL summed
+`utility`, so `family_diversification`'s bounded saturation penalty (then
+capped at -3.0) could push an otherwise-viable candidate below zero and
+silently remove it from the ranked list entirely — exactly the "informs,
+never vetoes" contract `novelty.py`'s own docstring states, and the
+confirmed live cause of a real `SEARCH_EXHAUSTED`-with-budget-remaining
+failure (3/3 campaigns, 15-16 of 24 operators still untried each time).
+Fixing this also restored principled exploration for free: once every
+currently-favored candidate is executed or genuinely infeasible, the
+next-best SURVIVING candidate — even one from a "saturated" family — rises
+to the top of what's left, instead of the campaign reporting exhaustion
+while real candidates remain.
+
 Risk tier and budget remain **hard constraints** on the candidate set
 (`eligible_operators` in `aginiti/policies/base.py`), never penalty terms
 folded into the same scalar as business impact — a large predicted impact
-must never numerically outweigh a disallowed risk tier. An operator with
-`utility <= 0` is dropped entirely. The baseline policies (Random, Static,
-Memory-guided, Bayesian) share the exact same `eligible_operators()` gate,
-so a benchmark comparison isolates *ranking strategy* and nothing else. The
-three pure-parameterization variants in `aginiti/planner/variants.py`
-(`GreedyInfoGainPlanner`, `GreedyBusinessImpactPlanner`, `BFSOnlyPlanner`)
-reuse the identical formula with specific terms hard-zeroed, for isolating
-which term does the work (RQ1b).
+must never numerically outweigh a disallowed risk tier. The baseline
+policies (Random, Static, Memory-guided, Bayesian) share the exact same
+`eligible_operators()` gate, so a benchmark comparison isolates *ranking
+strategy* and nothing else. The three pure-parameterization variants in
+`aginiti/planner/variants.py` (`GreedyInfoGainPlanner`,
+`GreedyBusinessImpactPlanner`, `BFSOnlyPlanner`) reuse the identical
+formula with specific terms hard-zeroed, for isolating which term does the
+work (RQ1b).
 
 ---
 
@@ -817,6 +913,7 @@ not a code path:
 | `graph_edge` | `(from_node, to_node)` — what confirming this operator's success means structurally, feeding `target_graph.py`'s path reasoning; may originate from a semantic hub instead of a named node |
 | `template_vars` | `{prompt_placeholder: claim_key}` — lets a prompt reference a fact actually learned earlier |
 | `risk_tier`, `cost_prompts` | Hard constraints the planner enforces |
+| `technique_cluster` | (2026-08-14, opt-in, default `None`) A shared string an author declares for a set of near-duplicate operator WRAPPERS around one hypothesis (e.g. 5 authority-claim framings of the same question) — feeds `technique_cluster_diversification` (§6). Never inferred, never guessed onto operators an author hasn't actually verified share a mechanism — see `docs/EXP29_RESULTS.md` for a real example (`redaction_format_evasion.py`) of a candidate cluster deliberately left untagged after inspection showed the members are genuinely distinct techniques. |
 
 An `OperatorLibrary` is a dict-backed collection with `.candidates(ssg)`
 (precondition filtering, both exact-key and class-based) and `.get(id)`.
@@ -969,7 +1066,7 @@ documented asymmetry, not an oversight (§12).
 - **Real Bayesian confidence** — `ConfidenceBand`'s bounded net-observation
   count is a documented v0 simplification, explicitly flagged as
   replaceable later without a schema change.
-- **A unified benchmark harness collapsing the three execution paths
+- **A unified benchmark harness collapsing the four execution paths
   (§4.4) into one** — real, identified, not yet attempted; each live
   experiment's bespoke scope-shaping is a genuine requirement, not
   laziness, so unifying this needs real design work, not a mechanical
@@ -979,10 +1076,12 @@ documented asymmetry, not an oversight (§12).
 
 ## 12. Current limitations
 
-- **No single, unified benchmark harness** (§4.4) — three parallel
-  execution paths exist, each real and tested, but a fix to one loop's
-  behavior does not automatically propagate to the others except where it
-  lives in `ObservationAdapter` itself.
+- **No single, unified benchmark harness** (§4.4) — four parallel
+  execution paths exist (a fourth, `run_full_assessment()`, added
+  2026-08-14 specifically because it was worth building even though it
+  doesn't unify the other three), each real and tested, but a fix to one
+  loop's behavior does not automatically propagate to the others except
+  where it lives in `ObservationAdapter` itself.
 - **Confidence is a v0 simplification.** `ConfidenceBand` is a bounded,
   weighted net-observation count mapped to LOW/MEDIUM/HIGH — not a real
   Bayesian posterior.
@@ -1009,19 +1108,40 @@ documented asymmetry, not an oversight (§12).
   attempt** — `executed_ids` doesn't distinguish "genuinely failed" from
   "never got a fair chance because the target hiccuped." A real design
   tradeoff, not changed without a deliberate decision.
-- **`aginiti/adaptive/*.py` is not wired into `AginitiPlanner`.**
-  Encoding/framing discovery and PAIR-style refinement are real,
-  independently useful, and have produced real live results (`docs/
-  EXP20_RESULTS.md`'s discovery-arm test), but the main planner never ranks
-  an adaptive-discovery candidate alongside a static operator in the same
-  decision.
+- **Resolved 2026-08-14, partially**: `aginiti/adaptive/*.py` (now 7
+  modules — encoding/many-shot/framing discovery, PAIR refinement,
+  Crescendo escalation) is wired into `AginitiPlanner` via
+  `aginiti/assessment.py`'s `run_full_assessment()`, but only SEQUENTIALLY
+  (discovery phases run to completion, THEN the planner's campaign phase
+  runs over the same graph) — the planner still never ranks a live
+  adaptive-discovery candidate alongside a static operator WITHIN one
+  decision the way it does for two static operators. A real, smaller
+  remaining gap, not the original all-or-nothing one.
 - **Parallel execution is intentionally absent.** Every campaign and
   understanding loop runs strictly sequentially.
 - **The frozen RQ1 benchmark has not been run at the trial counts needed
   for a statistically meaningful result.** See `docs/
   EVIDENCE_AND_EVALUATION.md`'s missing-evidence section — this remains
-  true even though exp20 produced real, mechanistically-traced evidence of
-  a planning advantage on a different (AnythingLLM) target.
+  true even though exp20 (AnythingLLM) and now exp29 (`hardened_agent`,
+  `docs/EXP29_RESULTS.md`) have both produced real, mechanistically-traced
+  live evidence of a planning advantage.
+- **Resolved 2026-08-14, for `hardened_agent` only**: hand-rolled
+  `expNN_*.py` live-experiment scripts previously shared one long-lived
+  server process (and therefore conversation memory) across every trial —
+  a real, live-confirmed contamination effect that collapsed most of
+  exp28's trials to zero real signal. `experiments/_target_lifecycle.py`
+  (tested, `psutil`-based stop/start/restart/health-check) closes this for
+  `hardened_agent`, wired into exp29. `healthcare_agent` and every prior
+  `expNN_*.py` script predating this fix are NOT retrofitted — a real,
+  disclosed gap, not silently assumed solved everywhere.
+- **`technique_cluster` tagging is not complete across the library.**
+  Only 4 clusters across 2 packs (`hardened_authority_claim_probe_
+  variants`, `session_isolation_probe_variants`, and `output_filter_
+  evasion`'s 2 groups) have been individually verified as genuine near-
+  duplicate wrappers and tagged. The remainder of the 115-operator library
+  (§ Operator inventory, `docs/AGINITI_OVERVIEW.md` §12) has not been
+  audited for the same pattern — real untagged clusters may exist
+  elsewhere, understating `technique_cluster_diversification`'s reach.
 
 ---
 

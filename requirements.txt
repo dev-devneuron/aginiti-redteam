@@ -32,3 +32,10 @@ flask==3.1.3
 # now instead of relying on the resolver's transitive choice staying compatible;
 # found during the 2026-08-12 architecture review, not a new dependency being added.
 httpx==0.28.1
+# Used by experiments/_target_lifecycle.py (fresh-restart-between-trials
+# infrastructure) for reliable, cross-platform discovery/termination of the
+# target uvicorn server processes -- was already installed transitively but
+# undeclared here, the exact "declared nowhere, installed by accident"
+# pattern flagged at the top of this file. Added 2026-08-14 during the
+# exp28 memory-contamination postmortem fix.
+psutil==7.2.2

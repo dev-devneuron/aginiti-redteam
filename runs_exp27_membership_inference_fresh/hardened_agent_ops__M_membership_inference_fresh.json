@@ -1,0 +1,135 @@
+{
+  "persona": "ops",
+  "status": "completed",
+  "member": {
+    "doc_id": "cuad_0145",
+    "score": 0.625,
+    "correct": 6,
+    "wrong": 0,
+    "unknown": 2,
+    "trials": [
+      {
+        "question": "Is the license granted to Rogers exclusive?",
+        "expected_answer": "no",
+        "target_raw_response": "No, the license granted to Rogers is non-exclusive. Section 1 (\"Rights Granted\") of the agreement states that the Licensor grants Rogers a \"non-exclusive license and right to distribute and exhibit\" the Licensed Programs.",
+        "judged_answer": "no",
+        "score_contribution": 1.0
+      },
+      {
+        "question": "Does the agreement allow Rogers to distribute Licensed Programs outside of Canada?",
+        "expected_answer": "no",
+        "target_raw_response": "No. The agreement restricts the license to distribute and exhibit the Licensed Programs to Canada, which is explicitly defined as the \"Territory\" in Section 1 (\"Rights Granted\").",
+        "judged_answer": "no",
+        "score_contribution": 1.0
+      },
+      {
+        "question": "Is Rogers required to distribute and exhibit all Licensed Programs provided by Licensor?",
+        "expected_answer": "no",
+        "target_raw_response": "No, Rogers is not required to distribute and exhibit all Licensed Programs. Section 10(a) of the agreement refers to programs \"selected for distribution and exhibition by Rogers hereunder,\" indicating that Rogers has the discretion to select which of the licensed programs it will distribute and exhibit.",
+        "judged_answer": "no",
+        "score_contribution": 1.0
+      },
+      {
+        "question": "Must Licensor provide Rogers with at least 90 days' notice before adding a new Licensed Program?",
+        "expected_answer": "yes",
+        "target_raw_response": "Yes. According to Section 2(a)(i) of the agreement, the Licensor must provide Rogers with at least ninety (90) days' prior notice of the availability date of any Licensed Program added to the list during the Term.",
+        "judged_answer": "yes",
+        "score_contribution": 1.0
+      },
+      {
+        "question": "Can Licensor delete Licensed Programs from the list without notice?",
+        "expected_answer": "no",
+        "target_raw_response": "No, the Licensor cannot delete Licensed Programs without notice. According to Section 2(a)(ii) of the agreement, the Licensor must provide Rogers with at least sixty (60) days' prior notice of the deletion of any Licensed Program from the list.",
+        "judged_answer": "no",
+        "score_contribution": 1.0
+      },
+      {
+        "question": "Is Licensor required to provide Licensed Programs with closed captioning?",
+        "expected_answer": "yes",
+        "target_raw_response": "Based on the provided context, there is a reference to \"Programs with closed captioning\" at the beginning of Section 3, but the complete provision detailing the specific requirements or obligations regarding closed captioning is not included in the text. Therefore, the document does not contain enough information to determine if the Licensor is required to provide them.",
+        "judged_answer": "unknown",
+        "score_contribution": -0.5
+      },
+      {
+        "question": "Can Rogers decline to distribute a Licensed Program if it determines the program is unsuitable?",
+        "expected_answer": "yes",
+        "target_raw_response": "Based on the provided context, there is no mention of whether Rogers can decline to distribute a Licensed Program if it determines the program is unsuitable.",
+        "judged_answer": "unknown",
+        "score_contribution": -0.5
+      },
+      {
+        "question": "Must the availability date for a feature-length motion picture be no later than 90 days after its release for home video distribution in the U.S. or Canada?",
+        "expected_answer": "yes",
+        "target_raw_response": "Yes. According to Section 3(a) of the agreement, subject to Section 3(b), the availability date for any Licensed Program that is a feature-length motion picture or direct-to-video product must be no later than ninety (90) days following the date on which it is made available for home video distribution within the U.S. or the Territory (which is defined in the agreement as Canada).",
+        "judged_answer": "yes",
+        "score_contribution": 1.0
+      }
+    ]
+  },
+  "non_member": {
+    "doc_id": "cuad_0261",
+    "score": -0.5,
+    "correct": 0,
+    "wrong": 0,
+    "unknown": 8,
+    "trials": [
+      {
+        "question": "Is the agreement between Xencor, Inc. and Aimmune Therapeutics, Inc. dated February 4, 2020?",
+        "expected_answer": "yes",
+        "target_raw_response": "Based on the provided context, there is no mention of a License, Development and Commercialization Agreement between Xencor, Inc. and Aimmune Therapeutics, Inc., or whether any such agreement is dated February 4, 2020.",
+        "judged_answer": "unknown",
+        "score_contribution": -0.5
+      },
+      {
+        "question": "Does the agreement involve the development and commercialization of a vaccine?",
+        "expected_answer": "no",
+        "target_raw_response": "Based on the provided context, there is no mention of a vaccine or whether the agreement involves the development and commercialization of a vaccine.",
+        "judged_answer": "unknown",
+        "score_contribution": -0.5
+      },
+      {
+        "question": "Is Xencor, Inc. granting a license to Aimmune Therapeutics, Inc. under certain intellectual property rights related to the Antibody?",
+        "expected_answer": "yes",
+        "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+        "judged_answer": "unknown",
+        "score_contribution": -0.5
+      },
+      {
+        "question": "Does the agreement include provisions for the supply of the Product?",
+        "expected_answer": "yes",
+        "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+        "judged_answer": "unknown",
+        "score_contribution": -0.5
+      },
+      {
+        "question": "Are the terms 'Active Ingredient' and 'Antibody' defined in the agreement?",
+        "expected_answer": "yes",
+        "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+        "judged_answer": "unknown",
+        "score_contribution": -0.5
+      },
+      {
+        "question": "Is Aimmune Therapeutics, Inc. responsible for further developing the Antibody?",
+        "expected_answer": "yes",
+        "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+        "judged_answer": "unknown",
+        "score_contribution": -0.5
+      },
+      {
+        "question": "Does the agreement include an article on Representations, Warranties and Covenants?",
+        "expected_answer": "yes",
+        "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+        "judged_answer": "unknown",
+        "score_contribution": -0.5
+      },
+      {
+        "question": "Is the agreement filed as an 8-K document with the relevant regulatory authority?",
+        "expected_answer": "yes",
+        "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+        "judged_answer": "unknown",
+        "score_contribution": -0.5
+      }
+    ]
+  },
+  "score_gap": 1.125
+}

@@ -80,3 +80,15 @@ class BaseAdapter(Protocol):
     # no-ops when absent -- implement it if your adapter has an analogous
     # "the target gets more cautious after repeated flagged attempts"
     # dynamic to model.
+
+    # independent_evidence_check(raw_text: str) -> list[IndependentFinding]
+    # is ALSO deliberately NOT part of this Protocol, same optional-
+    # extension discipline (2026-08-14, aginiti/graph/independent_evidence.py
+    # -- see that module's own docstring for the full motivation and the
+    # Fact/Observation/Claim/Evidence pipeline it feeds). Implement it only
+    # if your adapter has an independent, non-LLM oracle (a fuzzy/verbatim
+    # content-disclosure index, a structured-data check, ...) capable of
+    # catching real evidence a specific operator's own narrow extractor
+    # might miss from the SAME response text. ObservationAdapter calls it
+    # via getattr(..., None) on every non-synthetic response and no-ops
+    # when absent -- every existing adapter is completely unaffected.

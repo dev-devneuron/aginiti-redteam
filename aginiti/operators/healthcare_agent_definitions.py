@@ -43,7 +43,10 @@ from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGR
 from aginiti.operators.adaptive_followups import adaptive_followup_operators
 from aginiti.operators.data_exposure import data_exposure_operators
 from aginiti.operators.encoding_variants import build_encoding_evasion_operators
+from aginiti.operators.access_control_layer_probe import access_control_layer_probe_operators
 from aginiti.operators.library import ClaimEffect, Operator
+from aginiti.operators.output_filter_evasion import output_filter_evasion_operators
+from aginiti.operators.session_isolation_probe import session_isolation_probe_operators
 
 CONFIRMED = ClaimStatus.CONFIRMED
 
@@ -118,6 +121,15 @@ def build_healthcare_agent_library(index: VerbatimDisclosureIndex) -> list[Opera
     return [
         *data_exposure_operators(),
         *build_encoding_evasion_operators(),
+        *output_filter_evasion_operators(),
         *adaptive_followup_operators(),
+        # 2026-08-14: session-isolation probes (aginiti/operators/
+        # session_isolation_probe.py) -- healthcare_agent itself is
+        # currently stateless (no conversation memory), so this is expected
+        # to always report "no leak" here; included for the same reuse
+        # discipline as every other pack in this file, and so this test
+        # keeps working unchanged if healthcare_agent ever adds memory.
+        *session_isolation_probe_operators(),
+        *access_control_layer_probe_operators(),
         _build_verbatim_disclosure_operator(index),
     ]

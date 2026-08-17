@@ -76,10 +76,43 @@ since the obligations differ.
 | **MetaCipher** — "A Time-Persistent and Universal Multi-Agent Framework for Cipher-Based Jailbreak Attacks for LLMs" (2025, arXiv:2506.22557, AAAI) | The finding that ADAPTIVE cipher selection (not a bigger fixed list) reaches state-of-the-art attack success within ~10 queries — the direct research grounding for building a search instead of a static enumeration | `aginiti/adaptive/encoding_discovery.py`'s whole design rationale (own, much simpler, fully-deterministic selector — not a reimplementation of MetaCipher's RL-trained one) |
 | **PAIR** — Chao, Robey, Dobriban, Hassani, Pappas, Wong, "Jailbreaking Black Box Large Language Models in Twenty Queries" (2023, arXiv:2310.08419) | The mechanism: one attacker-LLM conversation that reads the target's LAST response and rewrites the next attempt conditioned on it | `aginiti/adaptive/refinement.py` — implemented as described, own prompt wording |
 | **TAP** — Mehrotra et al., "Tree of Attacks: Jailbreaking Black-Box LLMs Automatically" (2023, arXiv:2312.02119) | Named as the natural generalization of PAIR (branching tree search vs. a linear chain) — explicitly NOT implemented, documented as future scope | `aginiti/adaptive/refinement.py`'s own docstring, scoping what it is and isn't |
-| **Crescendo** — Russinovich, Salem, Eldan (Microsoft), "Great, Now Write an Article About That: The Crescendo Multi-Turn LLM Jailbreak Attack" (2024, arXiv:2404.01833) | Named as a structurally distinct mechanism (escalation within one ongoing conversation) — explicitly NOT implemented, distinguished from Aginiti's own existing precondition-chain multi-step operators | `aginiti/adaptive/refinement.py`'s own docstring |
+| **Crescendo** — Russinovich, Salem, Eldan (Microsoft), "Great, Now Write an Article About That: The Crescendo Multi-Turn LLM Jailbreak Attack" (2024, arXiv:2404.01833) | The mechanism: gradual escalation across REAL turns, each drafted live from the target's own actual prior response, distinct from `refinement.py`'s single-operator rewrite loop | **Implemented 2026-08-14**: `aginiti/adaptive/crescendo.py` |
+| **Many-shot jailbreaking** — Anil et al. (Anthropic, 2024, "Many-shot Jailbreaking," anthropic.com/research/many-shot-jailbreaking) | The mechanism: embedding many (4/8/16/32 here) fabricated in-context Q&A exchanges into ONE message to exploit long-context in-context learning, rather than a single-turn pretext | **Implemented 2026-08-14**: `aginiti/adaptive/many_shot.py` (deliberately bland/generic shot content — never real harmful examples) |
 | **Greshake, Abdelnabi, Mishra, Endres, Holz, Fritz**, "Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection" (AISec '23) | The academic grounding for indirect prompt injection as a real threat class — instructions arriving via retrieved/delegated content rather than a direct request | The mock library's Slack/GitHub-issue-sourced injection probes; DVAA's memory-planting operators; conceptually, every "trigger" half of a plant→trigger chain |
 | **Sarraute, Buffet, Hoffmann**, "Penetration Testing == POMDP Solving?" (2011) | Treating adversarial planning as decision-making under partial observability, not deterministic scripting | Why Claims carry a confidence band instead of a boolean; why `AginitiPlanner` computes a utility, not a fixed script |
 | **W3C PROV-O** provenance ontology | The entity/activity/derivation model | The Fact → Observation → Claim chain's own structure |
+
+### From RAG access-control / membership-inference research (2026-08-14)
+
+Added in direct response to a principal-engineer re-audit finding that
+`hardened_agent`'s RBAC boundary was never once crossed across an entire
+live experiment (`exp25`) — traced, by reading the target's actual source
+(not guessed), to a real, correctly-implemented control (retrieval-time
+metadata filtering + bearer-key-only persona binding), which no
+prompt-level attack can defeat. This research pass asked what a
+GENERALIZABLE answer to "how do you find out if an agent's RBAC is
+actually weak" looks like, grounded in what's currently published, not
+assumption.
+
+| Source | What's reused | Where |
+|---|---|---|
+| **Pinecone**, "RAG with Access Control" (pinecone.io/learn/rag-access-control) | The pre-filter (permission check inside the vector search) vs. post-filter (retrieve-then-filter) distinction — pre-filter is what `hardened_agent` actually does and is WHY its boundary held; post-filter is the common, weaker real-world pattern | **Implemented**: `aginiti/operators/access_control_layer_probe.py` — a diagnostic distinguishing the two architectures via natural completeness/awareness questions, not content extraction |
+| **Naseh, Amit, Goldsteen et al.**, "Riddle Me This! Stealthy Membership Inference for Retrieval-Augmented Generation" (2025, arXiv:2502.00306) | The Interrogation Attack's exact mechanism (fetched and read in full, not assumed from the abstract): natural-sounding retrieval-summary + probe-question generation, response-vs-ground-truth scoring `(1/n)Σ[correct − λ·unknown]`, threshold calibration against known non-members | **Implemented 2026-08-14**: `aginiti/adaptive/membership_inference.py`, one disclosed scope reduction (n=8 probes/doc default vs. the paper's n=30, for live-LLM-cost reasons). Live-verified against `hardened_agent`: member doc scored 1.0, three independent held-out non-members scored -0.125/-0.5/-0.5 |
+| **Anderson, Amit, Goldsteen**, "Is My Data in Your Retrieval Database? Membership Inference Attacks Against Retrieval Augmented Generation" (2024, arXiv:2405.20446) | Background establishing RAG membership inference as a real, distinct research area | Cited context only — the specific technique implemented is Riddle Me This's, not this paper's own method |
+| Hardy, "The Confused Deputy" (ACM SIGOPS Operating Systems Review, 1988) — the classical security concept; Greshake et al., "Not what you've signed up for..." (2023, arXiv:2302.12173) — applied to LLM authority-claim injection | Unverified authority/access claims in a prompt being treated as if they were a credential | **Implemented**: `aginiti/operators/hardened_agent_definitions.py`'s `_build_authority_claim_probes` |
+| **"Taming Various Privilege Escalation in LLM-Based Agent Systems: A Mandatory Access Control Framework"** (arXiv:2601.11893) | Read in full 2026-08-14 (previously cited from a title/snippet only — corrected here). Proposes SEAgent, a DEFENSIVE attribute-based mandatory-access-control framework for multi-agent systems (information-flow graph, policy enforcement on entity attributes) — names "a variant of the confused deputy problem in multi-agent systems" as a real privilege-escalation pattern, independently corroborating the authority-claim probes above | **Not implemented, and not attack-relevant to implement** — it's the defender's side of this exact problem, the mirror image of what Aginiti tests |
+| CWE-488, "Exposure of Data Element to Wrong Session" (MITRE); the March 2023 ChatGPT Redis-client incident (openai.com/index/march-20-chatgpt-outage) — a real, publicly-documented instance of cross-user conversation-history leakage | The general session/memory-isolation vulnerability class | **Implemented**: `aginiti/operators/session_isolation_probe.py`. Live-verified 2026-08-14 against `healthcare_agent`: the "concurrent_other_user" pretext surfaced real, verbatim patient-consultation corpus text (confirmed against the raw dataset) framed as "the other conversation" — NOT a literal memory leak (`healthcare_agent` is stateless, confirmed by source), but a genuine, real disclosure via an indirect-elicitation pretext the direct-question operators didn't produce |
+
+**One disclosed exception to this project's "never reverse-engineer from a
+target's exact vulnerable source line" rule**: `aginiti/operators/
+redaction_format_evasion.py` (2026-08-14) is deliberately target-specific,
+built around the exact 4 regex gaps in `hardened_agent`'s own `redact()`
+function (seen incidentally while investigating RBAC, not sought out) —
+the user explicitly chose this over a purely generic alternative,
+understanding it makes the resulting operators a finding about THIS
+implementation, not a generalizable technique. Stated in that module's own
+docstring, not hidden; do not point it at another target and report a
+"redaction bypass" as if it generalizes.
 
 ### From real-world vulnerability research and CVEs
 

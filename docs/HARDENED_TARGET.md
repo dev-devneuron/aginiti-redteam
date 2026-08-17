@@ -1,5 +1,18 @@
 # Aginiti — The Hardened Target
 
+> **Naming disambiguation, added 2026-08-14**: "the hardened target"
+> described in this document is the self-built AnythingLLM hardening
+> gateway (`aginiti/target_hardening/`) below — a DIFFERENT thing from
+> `hardened_agent` (`benchmarks/scaled_evals/agents/hardened_agent/`), the
+> real vendored RAG target with RBAC/redaction/rate-limiting/memory
+> `exp23`/`exp25`/`exp26` and this session's own work target. The two share
+> a name by coincidence, not by relation. For `hardened_agent`'s own
+> architecture (RBAC implementation, why its boundary has never been
+> crossed), see `docs/AGINITI_OVERVIEW.md` §7's `hardened_agent`/
+> `healthcare_agent` subsection and `docs/RESEARCH_AND_PROVENANCE.md`'s
+> RAG access-control research section — this document is not the place for
+> it.
+
 _Last rewritten 2026-08-13. Built at explicit user request, in response to:
 "add all hardening dimensions a real enterprise agent could have that'll
 be the target for next exp." Every control described below is real,
