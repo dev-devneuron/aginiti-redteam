@@ -10,10 +10,21 @@ already holds every real finding, there is no need to re-run the attack (or
 even wait inside the same stuck process) to get the final report -- this
 script just does the post-attack half of run_benchmark()'s work, standalone.
 
-Usage:
+Usage (bash):
     python scripts/generate_report_from_checkpoint.py <checkpoint.json> <output.json> \
         --ground-truth <gt.json> --topic "..." --total-queries N --queries-sent N \
-        [--persona legal] [--extra-metadata-json '{"key": "value"}']
+        --extra-metadata-json '{"key": "value"}'
+
+Usage (PowerShell) -- use --extra-metadata-json-file instead, not
+--extra-metadata-json: PowerShell strips embedded double-quotes when
+handing a command-line argument to a native executable like python.exe, so
+a JSON string passed inline breaks unpredictably regardless of quoting
+style tried (verified live 2026-08-17 -- neither `\"`-escaping nor the
+`--%` stop-parsing token survive it). Write the metadata to a small JSON
+file first, then point at it -- this never touches shell quoting at all:
+    python scripts/generate_report_from_checkpoint.py <checkpoint.json> <output.json> `
+        --ground-truth <gt.json> --topic "..." --total-queries N --queries-sent N `
+        --extra-metadata-json-file <metadata.json>
 """
 from __future__ import annotations
 
@@ -22,6 +33,8 @@ import dataclasses
 import json
 import logging
 import sys
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Must happen before importing run_benchmark's logger-using functions --
@@ -48,9 +61,28 @@ def main() -> None:
     parser.add_argument("--queries-sent", type=int, required=True)
     parser.add_argument("--llm-provider", default="gemini/gemini-3.5-flash")
     parser.add_argument("--embed-model", default="chromadb/all-MiniLM-L6-v2")
-    parser.add_argument("--extra-metadata-json", default="{}",
-                        help="JSON dict merged into run_metadata (e.g. persona/toggle state).")
+    parser.add_argument(
+        "--agent-url", default="offline-recovery (no live target queried)",
+        help="Recorded verbatim in run_metadata.agent_url -- required by "
+             "generate_markdown_report()'s _normalize(), which reads it "
+             "unconditionally. Pass the ORIGINAL run's real target URL if "
+             "you know it (e.g. http://localhost:8007) for an accurate "
+             "record; the default just documents that this run made no "
+             "live target calls of its own.",
+    )
+    parser.add_argument("--extra-metadata-json", default=None,
+                        help="JSON dict (as a string) merged into run_metadata (e.g. persona/toggle "
+                             "state). Fragile to pass on the command line, especially in PowerShell, "
+                             "which strips embedded double-quotes when handing arguments to a native "
+                             "executable -- prefer --extra-metadata-json-file instead.")
+    parser.add_argument("--extra-metadata-json-file", default=None,
+                        help="Path to a JSON file merged into run_metadata -- the robust alternative "
+                             "to --extra-metadata-json, since it never touches shell quoting at all. "
+                             "Takes precedence if both are given.")
     args = parser.parse_args()
+
+    started_at = datetime.now(timezone.utc)
+    t0 = time.perf_counter()
 
     print(f"Loading checkpoint from {args.checkpoint} ...")
     old_findings = json.loads(Path(args.checkpoint).read_text(encoding="utf-8"))
@@ -76,7 +108,21 @@ def main() -> None:
         metrics = None
         print(f"compute_metrics failed: {metrics_error} -- writing findings WITHOUT metrics.")
 
-    extra_metadata = json.loads(args.extra_metadata_json)
+    # runtime_seconds/timestamp: required (bare, non-.get()) by
+    # generate_markdown_report()'s _normalize(), same as agent_url above.
+    # These describe THIS recovery script's own offline scoring pass, NOT
+    # the original attack's execution time/start -- that data belongs to
+    # the original run and isn't reconstructable from the checkpoint alone.
+    # Labeled clearly rather than faked as if it were the original run's
+    # own timing.
+    runtime_seconds = time.perf_counter() - t0
+
+    if args.extra_metadata_json_file:
+        extra_metadata = json.loads(Path(args.extra_metadata_json_file).read_text(encoding="utf-8"))
+    elif args.extra_metadata_json:
+        extra_metadata = json.loads(args.extra_metadata_json)
+    else:
+        extra_metadata = {}
     dataset_label = gt_path.stem
     report = {
         "run_metadata": {
@@ -88,9 +134,16 @@ def main() -> None:
             "queries_sent": args.queries_sent,
             "llm_provider": args.llm_provider,
             "embed_model": args.embed_model,
+            "agent_url": args.agent_url,
+            "runtime_seconds": round(runtime_seconds, 1),
+            "timestamp": started_at.isoformat(),
             "fatal_error": None,
             "metrics_error": metrics_error,
             "recovered_from_checkpoint": True,
+            "recovery_note": "runtime_seconds/timestamp describe THIS offline "
+                              "recovery script's own scoring pass, not the "
+                              "original attack's execution -- that timing "
+                              "isn't reconstructable from the checkpoint alone.",
             **extra_metadata,
         },
         "metrics": metrics,
