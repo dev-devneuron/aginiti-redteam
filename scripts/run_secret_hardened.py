@@ -68,6 +68,18 @@ from aginiti.attacks.dra import SECRETAttack
 AGENT_URL = os.getenv("HARDENED_AGENT_URL", "http://localhost:8004")
 LLM_PROVIDER = "gemini/gemini-3.5-flash"
 FALLBACK_LLM_PROVIDER = "groq/llama-3.3-70b-versatile"
+# Semantic-shift (Phase 2 LE trigger generation) routed to Groq (added
+# 2026-08-19) -- the paper's own design runs this step on a small/local
+# model (Qwen2.5-1.5B-Instruct, secret-methodology.md line 292), not a
+# full API-tier LLM, so this is closer to paper-faithful, not a corner cut.
+# It's also the single largest per-query LLM-call source in Phase 2 (fires
+# on every LE step), so moving it off Gemini onto Groq's free multi-key
+# pool (see _semantic_shift_api_keys below) meaningfully cuts real
+# Gemini-side call volume at full 3xTMQ query budgets. Classifier and
+# Phase 1 Optimizer/Evaluator deliberately stay on Gemini -- those
+# determine finding-label accuracy and jailbreak-artifact quality
+# respectively, not a place to trade quality for free-tier cost.
+SEMANTIC_SHIFT_LLM_PROVIDER = "groq/llama-3.3-70b-versatile"
 DEFAULT_PHASE1_N_ITER = 5
 DEFAULT_PHASE1_N_CAND = 2
 DEFAULT_QUERIES = 15  # smaller than run_ikea_hardened.py's 20 -- see module docstring
@@ -135,6 +147,30 @@ def _key_for_llm(model: str) -> str:
     return key
 
 
+def _semantic_shift_api_keys(model: str) -> list[str] | None:
+    """
+    Multi-key rotation for the semantic-shift LLM (added 2026-08-19) --
+    same convention as run_interrogation_hardened.py's _shadow_api_keys
+    (see BaseAttack._init_llm's api_keys docstring for the rotation
+    mechanics). Reads GROQ_API_KEY_1..GROQ_API_KEY_N (stops at the first
+    gap) for a groq/* model. Falls back to None (single-key path via
+    _key_for_llm) if no numbered keys are set, or if the model isn't
+    groq/*.
+    """
+    provider = model.split("/", 1)[0].lower()
+    if provider != "groq":
+        return None
+    keys = []
+    i = 1
+    while True:
+        key = os.environ.get(f"GROQ_API_KEY_{i}")
+        if not key:
+            break
+        keys.append(key)
+        i += 1
+    return keys or None
+
+
 def _live_toggle_state(agent_url: str) -> dict:
     try:
         resp = requests.get(f"{agent_url}/config", timeout=5)
@@ -186,6 +222,7 @@ def main() -> None:
     )
     parser.add_argument("--force-refresh-phase1", action="store_true")
     parser.add_argument("--agent-url", default=AGENT_URL)
+    parser.add_argument("--fresh", action="store_true", help="Delete existing checkpoint and start fresh.")
     args = parser.parse_args()
 
     api_key = _api_key_for(args.persona)
@@ -203,6 +240,22 @@ def main() -> None:
               f"whether RBAC blocks cross-domain retrieval under real adversarial "
               f"querying.")
 
+    domain_tag = "_crossdomain" if cross_domain_probe else ""
+    checkpoint_path = str(
+        _RESULTS_DIR / f"secret_hardened_{args.persona}{domain_tag}_{args.queries}q.checkpoint.json"
+    )
+    if args.fresh and Path(checkpoint_path).exists():
+        Path(checkpoint_path).unlink()
+        print(f"--fresh: deleted existing checkpoint at {checkpoint_path}")
+    elif Path(checkpoint_path).exists():
+        print(f"Found existing checkpoint at {checkpoint_path} -- resuming from it "
+              f"(pass --fresh to start over instead).")
+
+    semantic_shift_keys = _semantic_shift_api_keys(SEMANTIC_SHIFT_LLM_PROVIDER)
+    if semantic_shift_keys:
+        print(f"Semantic-shift LLM: rotating across {len(semantic_shift_keys)} "
+              f"GROQ_API_KEY_N keys ({SEMANTIC_SHIFT_LLM_PROVIDER}).")
+
     attack = SECRETAttack(
         target_url=args.agent_url,
         llm_provider=LLM_PROVIDER,
@@ -214,11 +267,20 @@ def main() -> None:
         epsilon_local=args.epsilon_local,
         le_stagnation_empty_steps=args.le_stagnation_empty_steps,
         fallback_llm_provider=FALLBACK_LLM_PROVIDER,
+        semantic_shift_llm_provider=SEMANTIC_SHIFT_LLM_PROVIDER,
+        semantic_shift_api_key=(
+            None if semantic_shift_keys else _key_for_llm(SEMANTIC_SHIFT_LLM_PROVIDER)
+        ),
+        semantic_shift_api_keys=semantic_shift_keys,
         endpoint_kwargs=endpoint_kwargs,
     )
 
     started_at = datetime.now(timezone.utc)
-    findings = attack.execute(domain=domain, force_refresh_phase1=args.force_refresh_phase1)
+    findings = attack.execute(
+        domain=domain,
+        force_refresh_phase1=args.force_refresh_phase1,
+        checkpoint_file=checkpoint_path
+    )
     finished_at = datetime.now(timezone.utc)
     duration_seconds = (finished_at - started_at).total_seconds()
 
@@ -259,6 +321,14 @@ def main() -> None:
             "le_steps": attack.le_steps,
             "finding_count": len(findings),
             "refused_query_count": len(attack.refused_queries),
+            # Real document-level count for MER/ER-TMQ scoring (unique
+            # deduplicated segments, tracked internally by the attack loop
+            # but not previously surfaced here) -- distinct from
+            # finding_count, since one query's response can contain more
+            # than one new segment. MER = unique_segments_extracted / |D|
+            # for the persona's corpus, computed post-hoc, not by this
+            # script (|D| is a benchmarking-time constant, not attack state).
+            "unique_segments_extracted": len(attack._extracted_segments),
             "jailbreak_artifact": asdict(attack.jailbreak_artifact) if attack.jailbreak_artifact else None,
         },
         "findings": [asdict(f) for f in findings],

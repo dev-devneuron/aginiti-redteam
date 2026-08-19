@@ -73,6 +73,7 @@ findings.json
 # encoding issue that day -- git logged it as a binary diff). Verified this
 # time with `git check-ignore -v external_repos/IKEA` before trusting it.
 external_repos/
+omer-extended/
 
 # IKEAAttack anchor-candidate cache (aginiti/attacks/dra/ikea.py
 # _init_anchors) — local, per-machine, regenerated automatically
@@ -97,6 +98,7 @@ docs/issues.md
 docs/how-it-works.md
 docs/feature-implementation.md
 docs/executive-presentation.md
+docs/secret_spe_benchmarks.md
 
 # Paper methodology-extraction notes -- internal implementation scratch
 # material (verbatim paper prompts, ambiguity-resolution notes, mapping-to-
@@ -106,6 +108,8 @@ docs/executive-presentation.md
 aginiti/attacks/dra/ikea-methodology.md
 aginiti/attacks/dra/secret-methodology.md
 aginiti/attacks/mia/ia-methodology.md
+
+aginiti/attacks/spe/spe-methodology.md
 
 # CLAUDE.md -- internal AI-coding-agent instructions and project decision
 # log (team names, sign-off history). Untracked 2026-08-16, kept locally
@@ -121,3 +125,4 @@ CLAUDE.md
 # project's own maintainers only.
 aginiti/attacks/dra/verification-log.md
 aginiti/attacks/mia/verification-log.md
+aginiti/attacks/spe/verification-log.md

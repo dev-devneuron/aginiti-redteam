@@ -60,7 +60,10 @@ def _make_attack(**overrides) -> IKEAAttack:
     )
     defaults.update(overrides)
     with patch("litellm.completion", return_value=MagicMock()):
-        return IKEAAttack(**defaults)
+        attack = IKEAAttack(**defaults)
+        # Route classifier LLM through the main llm attribute so that test mocks on self.attack.llm are honored
+        attack._classifier_llm = lambda msgs, **kw: attack.llm(msgs, **kw)
+        return attack
 
 
 # ---------------------------------------------------------------------------
@@ -966,9 +969,9 @@ class TestCallCombinedClassifier:
 
     def test_increments_llm_call_count(self):
         self.attack.llm = lambda msgs, **kw: self._classification()
-        before = self.attack._llm_call_count
+        before = self.attack._classifier_llm_call_count
         self.attack._call_combined_classifier("q", "y", "HR records")
-        assert self.attack._llm_call_count == before + 1
+        assert self.attack._classifier_llm_call_count == before + 1
 
     def test_domain_query_and_response_interpolated_into_prompt(self):
         captured = {}

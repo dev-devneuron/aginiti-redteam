@@ -149,7 +149,7 @@ def _normalize(report: dict) -> dict:
             "timestamp": meta["started_at"],
             "embed_model": meta.get("embed_model", ""),
             "llm_provider": meta.get("llm_provider", ""),
-            "attack": "ikea",
+            "attack": meta.get("attack", "ikea"),
             "findings": report["findings"],
             "refused_queries": refused_queries,
             "metrics": None,
@@ -425,15 +425,21 @@ def generate_markdown_report(
     lines.append("| Metric | Value | Paper Baseline |")
     lines.append("|--------|-------|----------------|")
     if metrics is not None:
-        lines.append(
-            f"| ASR | {metrics['asr'] * 100:.0f}% | "
-            f"{_PAPER_BASELINE['asr'] * 100:.0f}% |"
-        )
-        lines.append(f"| EE | {metrics['ee']:.2f} | {_PAPER_BASELINE['ee']:.2f}* |")
-        lines.append(
-            f"| CRR | {metrics['crr_mean']:.2f} | {_PAPER_BASELINE['crr']:.2f} |"
-        )
-        lines.append(f"| SS | {metrics['ss_mean']:.2f} | {_PAPER_BASELINE['ss']:.2f} |")
+        if 'asr' in metrics:
+            lines.append(
+                f"| ASR | {metrics['asr'] * 100:.0f}% | "
+                f"{_PAPER_BASELINE['asr'] * 100:.0f}% |"
+            )
+        if 'ee' in metrics:
+            lines.append(f"| EE | {metrics['ee']:.2f} | {_PAPER_BASELINE['ee']:.2f}* |")
+        if 'crr_mean' in metrics:
+            lines.append(
+                f"| CRR | {metrics['crr_mean']:.2f} | {_PAPER_BASELINE['crr']:.2f} |"
+            )
+        if 'ss_mean' in metrics:
+            lines.append(f"| SS | {metrics['ss_mean']:.2f} | {_PAPER_BASELINE['ss']:.2f} |")
+        if 'avg_cosine' in metrics:
+            lines.append(f"| Avg Cosine | {metrics['avg_cosine']:.2f} | — |")
     else:
         # queries_sent, not the budget ("queries") — an ASR computed against
         # the budget would be artificially low for a run that stopped early

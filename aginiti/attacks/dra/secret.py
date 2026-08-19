@@ -456,6 +456,15 @@ class SECRETAttack(BaseAttack):
         dependency" rule).
     semantic_shift_api_key : str or None
         API key for ``semantic_shift_llm_provider``. Defaults to ``api_key``.
+    semantic_shift_api_keys : list[str] or None
+        Optional list of MULTIPLE keys for ``semantic_shift_llm_provider``
+        (added 2026-08-19, same rotation mechanic as MIA's
+        ``shadow_llm_api_keys`` -- see ``BaseAttack._init_llm``'s
+        ``api_keys`` docstring). Takes precedence over
+        ``semantic_shift_api_key`` when given. Motivated by the same
+        call-volume pressure: semantic-shift fires on every LE step, so a
+        full Phase-2 run at 3xTMQ query budgets is the first thing to hit a
+        free-tier rate limit on a single key.
     embed_model, embed_api_key : str, str or None
         Surrogate embedder — ONLY used if ``use_priority_queue=True``, for
         LE's centroid-distance prioritization. Default
@@ -560,6 +569,7 @@ class SECRETAttack(BaseAttack):
         phase1_force_refresh: bool = False,
         semantic_shift_llm_provider: str = "gemini/gemini-3.5-flash",
         semantic_shift_api_key: Optional[str] = None,
+        semantic_shift_api_keys: Optional[list[str]] = None,
         embed_model: str = "chromadb/all-MiniLM-L6-v2",
         embed_api_key: Optional[str] = None,
         external_corpus: Optional[list[str]] = None,
@@ -615,6 +625,7 @@ class SECRETAttack(BaseAttack):
             semantic_shift_llm_provider,
             semantic_shift_api_key if semantic_shift_api_key is not None else api_key,
             fallback_llm_provider, fallback_api_key,
+            api_keys=semantic_shift_api_keys,
         )
         self._embed_model = embed_model
         self._embed_key = embed_api_key if embed_api_key is not None else api_key
@@ -980,6 +991,7 @@ class SECRETAttack(BaseAttack):
         force_refresh_phase1: bool = bool(
             kwargs.get("force_refresh_phase1", self.phase1_force_refresh)
         )
+        checkpoint_file: Optional[str] = kwargs.get("checkpoint_file")
 
         max_llm_calls: int = self.max_llm_calls if self.max_llm_calls is not None else max_q * 4
 
@@ -997,6 +1009,23 @@ class SECRETAttack(BaseAttack):
         self._refusal_exemplar_embeddings = None
 
         findings: list[LeakFinding] = []
+        from pathlib import Path
+        if checkpoint_file and Path(checkpoint_file).exists():
+            try:
+                with open(checkpoint_file, "r", encoding="utf-8") as f:
+                    old_findings = json.load(f)
+                for find_dict in old_findings:
+                    find_obj = LeakFinding(**find_dict)
+                    findings.append(find_obj)
+                    self.queries_sent += 1
+                    if find_obj.full_response:
+                        for segment in _phi_parse(find_obj.full_response):
+                            if len(segment) >= _SECRET_MIN_SEGMENT_LENGTH and segment not in self._extracted_segments:
+                                self._extracted_segments.append(segment)
+                logger.info("Resumed from checkpoint: loaded %d previous findings.", len(findings))
+            except Exception as e:
+                logger.warning("Failed to load checkpoint file (starting fresh): %s", e)
+
         endpoint = AgentEndpoint(base_url=self.target_url, **self._endpoint_kwargs)
 
         logger.info("=== SECRET attack starting ===")
@@ -1080,6 +1109,13 @@ class SECRETAttack(BaseAttack):
                 was_refused = len(self.refused_queries) > refused_before
                 if finding is not None:
                     findings.append(finding)
+
+                if checkpoint_file:
+                    try:
+                        with open(checkpoint_file, "w", encoding="utf-8") as f:
+                            json.dump([dataclasses.asdict(find) for find in findings], f, indent=2)
+                    except Exception as e:
+                        logger.warning("Failed to save checkpoint: %s", e)
 
                 if use_ge:
                     self.ge_events += 1
