@@ -1,0 +1,6 @@
+{
+  "n_trials": 1,
+  "budget": 6,
+  "note": "isolated MUST show 0% success by construction (step 2 unreachable) -- this experiment is measuring whether composed/full actually succeed against a REAL target, not re-proving the mechanism (already proven offline in tests/test_composition_chain.py)",
+  "generated_at": "2026-08-07T18:30:05.563783+00:00"
+}

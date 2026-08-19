@@ -1,0 +1,15 @@
+{
+  "condition": "branching_chat_rag__bfs_only",
+  "trial": 4,
+  "seed": 6004,
+  "outcome": "SEARCH_EXHAUSTED",
+  "steps_executed": 0,
+  "prompts_used": 0,
+  "operators_executed": [],
+  "operators_considered_total": 0,
+  "decision_log": [],
+  "execution_log": [],
+  "final_claims": [],
+  "graph_size": 0,
+  "ground_truth_mission_achieved": false
+}

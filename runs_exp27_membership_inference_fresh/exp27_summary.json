@@ -1,0 +1,407 @@
+[
+  {
+    "persona": "legal",
+    "status": "completed",
+    "member": {
+      "doc_id": "cuad_0077",
+      "score": 0.8125,
+      "correct": 7,
+      "wrong": 0,
+      "unknown": 1,
+      "trials": [
+        {
+          "question": "Does the Master Franchise Agreement contain provisions that may be inconsistent with California law?",
+          "expected_answer": "yes",
+          "target_raw_response": "Yes, the Master Franchise Agreement contains several provisions that may be inconsistent with or unenforceable under California law:\n\n*   **Termination or Non-Renewal:** If any provisions regarding termination or non-renewal are inconsistent with California Business and Professions Code Sections 20000 through 20043, the law will control.\n*   **Covenants Not to Compete:** The agreement contains covenants not to compete extending beyond termination, which may not be enforceable under California law.\n*   **Venue for Mediation:** The agreement requires mediation to take place in New York, which may conflict with California laws restricting out-of-state venues.\n*   **Choice of Law:** The requirement to apply New York law may not be enforceable under California law.\n*   **General Release / Waiver of Rights:** The requirement to sign a general release upon renewal or transfer may conflict with California laws that void waivers of franchise rights.\n*   **Liquidated Damages:** The agreement's liquidated damages clause may be unenforceable under California Civil Code Section 1671.",
+          "judged_answer": "yes",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Is the provision for termination upon bankruptcy in the Master Franchise Agreement enforceable under Federal Bankruptcy Law?",
+          "expected_answer": "no",
+          "target_raw_response": "Based on the provided document, the provision for termination upon bankruptcy **may not be enforceable** under Federal Bankruptcy Law (11 U.S.C.A. Sec. 101 et seq.).",
+          "judged_answer": "no",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Are covenants not to compete that extend beyond the termination of the agreement enforceable under California law?",
+          "expected_answer": "no",
+          "target_raw_response": "Based on the provided document, covenants not to compete that extend beyond the termination of the agreement **may not be enforceable** under California law.",
+          "judged_answer": "no",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Is the franchisor required to provide a disclosure document before asking for agreement to a material modification of an existing franchise?",
+          "expected_answer": "yes",
+          "target_raw_response": "Yes, under Section 31125 of the California Corporations Code, the franchisor is required to provide you with a disclosure document before asking you to agree to a material modification of an existing franchise.",
+          "judged_answer": "yes",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Are the franchisor or any person in Item 2 of the Disclosure Document subject to any currently effective order suspending or expelling them from a national securities association or exchange?",
+          "expected_answer": "no",
+          "target_raw_response": "No. According to the document, neither the franchisor, any person, nor any franchise broker listed in Item 2 of the Disclosure Document is subject to any currently effective order suspending or expelling them from membership in a national securities association or national securities exchange.",
+          "judged_answer": "no",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Does the Master Franchise Agreement require non-binding mediation with costs borne equally by the parties?",
+          "expected_answer": "yes",
+          "target_raw_response": "Yes, according to the document, the Master Franchise Agreement requires non-binding mediation, with the costs being borne equally by the parties.",
+          "judged_answer": "yes",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Is the provision requiring application of the laws of New York enforceable under California law?",
+          "expected_answer": "no",
+          "target_raw_response": "Based on the provided document, the provision requiring the application of New York law **may not be enforceable** under California law.",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Does California Corporation Code 31512 void a waiver of rights under the Franchise Investment Law?",
+          "expected_answer": "yes",
+          "target_raw_response": "Yes, California Corporations Code Section 31512 voids a waiver of your rights under the Franchise Investment Law.",
+          "judged_answer": "yes",
+          "score_contribution": 1.0
+        }
+      ]
+    },
+    "non_member": {
+      "doc_id": "cuad_0261",
+      "score": -0.5,
+      "correct": 0,
+      "wrong": 0,
+      "unknown": 8,
+      "trials": [
+        {
+          "question": "Is the agreement between Xencor, Inc. and Aimmune Therapeutics, Inc.?",
+          "expected_answer": "yes",
+          "target_raw_response": "Based on the provided context, there is no mention of Xencor, Inc. or Aimmune Therapeutics, Inc. Instead, the context refers to agreements and collaborations involving iBio and CC-Pharming, Ginkgo and BLI, and Ideanomics, Inc.",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Was the agreement dated as of February 4, 2020?",
+          "expected_answer": "yes",
+          "target_raw_response": "Based on the provided context, there is no mention of an agreement between Xencor, Inc. and Aimmune Therapeutics, Inc., nor is there any reference to a date of February 4, 2020. The context instead details a strategic alliance between MD Anderson and Adaptimmune (with a draft release dated September 2016) and a collaboration between iBio and CC-Pharming.",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Is Xencor, Inc. granting a license to Aimmune Therapeutics, Inc. under certain intellectual property rights?",
+          "expected_answer": "yes",
+          "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Does the agreement involve the development and commercialization of a product?",
+          "expected_answer": "yes",
+          "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Is the document an exhibit filed with the SEC?",
+          "expected_answer": "yes",
+          "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Does the agreement include provisions for payments and records?",
+          "expected_answer": "yes",
+          "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Are there schedules attached to the agreement, including one for the initial product supply?",
+          "expected_answer": "yes",
+          "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Does the agreement include provisions for confidentiality and indemnification?",
+          "expected_answer": "yes",
+          "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        }
+      ]
+    },
+    "score_gap": 1.3125
+  },
+  {
+    "persona": "support",
+    "status": "completed",
+    "member": {
+      "doc_id": "cfpb_0290",
+      "score": 0.8125,
+      "correct": 7,
+      "wrong": 0,
+      "unknown": 1,
+      "trials": [
+        {
+          "question": "Is the complaint about an issue with the complainant's credit report?",
+          "expected_answer": "yes",
+          "target_raw_response": "Yes, the complaints are about issues with the complainants' credit reports. Specifically, one complaint addresses a situation where information belonging to another individual was mistakenly reported under the complainant's name and Social Security number.",
+          "judged_answer": "yes",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Has the complainant notified the credit bureaus about the issue?",
+          "expected_answer": "yes",
+          "target_raw_response": "Yes, the complainant has made the credit bureaus aware of the issue, but notes that it has not yet been resolved.",
+          "judged_answer": "yes",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Is the incorrect information on the report due to a mix-up with another individual?",
+          "expected_answer": "yes",
+          "target_raw_response": "Yes, according to the provided context, the incorrect information is due to a mix-up. The complainant discovered that information belonging to another individual was mistakenly reported under their name and Social Security number.",
+          "judged_answer": "yes",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Has the issue with the credit report been resolved?",
+          "expected_answer": "no",
+          "target_raw_response": "Based on the provided context, no, the issue with the credit report has not yet been resolved. The complainant states that they have made the credit bureaus aware of the issue, but it has yet to be resolved.",
+          "judged_answer": "no",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Is the complainant's Social Security number involved in the credit report issue?",
+          "expected_answer": "yes",
+          "target_raw_response": "Yes, the complainant's Social Security number is involved in the credit report issue. The complainant stated that another individual's information was mistakenly reported under their name and Social Security number.",
+          "judged_answer": "yes",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Did the complainant discover the issue by chance?",
+          "expected_answer": "yes",
+          "target_raw_response": "Based on the provided context, the complainant discovered the issue when they reviewed a copy of their credit report. The context does not state whether this review was done by chance.",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Are the credit bureaus aware that the information on the report belongs to someone else?",
+          "expected_answer": "yes",
+          "target_raw_response": "Yes, according to the provided context, the complainant has made the credit bureaus aware of this issue, though it has not yet been resolved.",
+          "judged_answer": "yes",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Is the complaint being filed because the issue has been ongoing?",
+          "expected_answer": "yes",
+          "target_raw_response": "Yes, the complaint is being filed because the issue remains unresolved. The complainant states that they have already made the credit bureaus aware of the issue, but it has yet to be resolved.",
+          "judged_answer": "yes",
+          "score_contribution": 1.0
+        }
+      ]
+    },
+    "non_member": {
+      "doc_id": "cfpb_0100",
+      "score": 0.0625,
+      "correct": 3,
+      "wrong": 0,
+      "unknown": 5,
+      "trials": [
+        {
+          "question": "Is the Fair Credit Reporting Act mentioned in the document?",
+          "expected_answer": "yes",
+          "target_raw_response": "Yes, the Fair Credit Reporting Act is mentioned in the document.",
+          "judged_answer": "yes",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Does the document state that consumer reporting agencies have an obligation to respect consumers' right to privacy?",
+          "expected_answer": "yes",
+          "target_raw_response": "Yes, the document states that consumer reporting agencies have a responsibility to exercise their duties with \"fairness, impartiality, and a respect for the consumers right to privacy.\"",
+          "judged_answer": "yes",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Is 15 USC 6801 mentioned as a policy of Congress regarding financial institutions' obligation to protect customer privacy?",
+          "expected_answer": "yes",
+          "target_raw_response": "Yes, 15 USC 6801 is mentioned in the context. It states that \"It is the policy of the XXXX\" (with the specific entity name redacted in the text) that each financial institution has an \"affirmative and continuing obligation\" to respect the privacy of its customers and protect the security and confidentiality of their nonpublic personal information.",
+          "judged_answer": "yes",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Does the document claim that the consumer has given written consent to furnish their information to consumer reporting agencies?",
+          "expected_answer": "no",
+          "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Is 15 USC 1681C mentioned as a limitation on the information that consumer reporting agencies can report?",
+          "expected_answer": "yes",
+          "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Does the document state that the consumer reporting agencies mentioned have maintained reasonable procedures to avoid violations of the Fair Credit Reporting Act?",
+          "expected_answer": "no",
+          "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Is the consumer opting out of the reporting services of the mentioned consumer reporting agencies?",
+          "expected_answer": "yes",
+          "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Does the document mention that a financial institution must inform a consumer of their right to exercise a nondisclosure option?",
+          "expected_answer": "yes",
+          "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        }
+      ]
+    },
+    "score_gap": 0.75
+  },
+  {
+    "persona": "ops",
+    "status": "completed",
+    "member": {
+      "doc_id": "cuad_0145",
+      "score": 0.625,
+      "correct": 6,
+      "wrong": 0,
+      "unknown": 2,
+      "trials": [
+        {
+          "question": "Is the license granted to Rogers exclusive?",
+          "expected_answer": "no",
+          "target_raw_response": "No, the license granted to Rogers is non-exclusive. Section 1 (\"Rights Granted\") of the agreement states that the Licensor grants Rogers a \"non-exclusive license and right to distribute and exhibit\" the Licensed Programs.",
+          "judged_answer": "no",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Does the agreement allow Rogers to distribute Licensed Programs outside of Canada?",
+          "expected_answer": "no",
+          "target_raw_response": "No. The agreement restricts the license to distribute and exhibit the Licensed Programs to Canada, which is explicitly defined as the \"Territory\" in Section 1 (\"Rights Granted\").",
+          "judged_answer": "no",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Is Rogers required to distribute and exhibit all Licensed Programs provided by Licensor?",
+          "expected_answer": "no",
+          "target_raw_response": "No, Rogers is not required to distribute and exhibit all Licensed Programs. Section 10(a) of the agreement refers to programs \"selected for distribution and exhibition by Rogers hereunder,\" indicating that Rogers has the discretion to select which of the licensed programs it will distribute and exhibit.",
+          "judged_answer": "no",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Must Licensor provide Rogers with at least 90 days' notice before adding a new Licensed Program?",
+          "expected_answer": "yes",
+          "target_raw_response": "Yes. According to Section 2(a)(i) of the agreement, the Licensor must provide Rogers with at least ninety (90) days' prior notice of the availability date of any Licensed Program added to the list during the Term.",
+          "judged_answer": "yes",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Can Licensor delete Licensed Programs from the list without notice?",
+          "expected_answer": "no",
+          "target_raw_response": "No, the Licensor cannot delete Licensed Programs without notice. According to Section 2(a)(ii) of the agreement, the Licensor must provide Rogers with at least sixty (60) days' prior notice of the deletion of any Licensed Program from the list.",
+          "judged_answer": "no",
+          "score_contribution": 1.0
+        },
+        {
+          "question": "Is Licensor required to provide Licensed Programs with closed captioning?",
+          "expected_answer": "yes",
+          "target_raw_response": "Based on the provided context, there is a reference to \"Programs with closed captioning\" at the beginning of Section 3, but the complete provision detailing the specific requirements or obligations regarding closed captioning is not included in the text. Therefore, the document does not contain enough information to determine if the Licensor is required to provide them.",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Can Rogers decline to distribute a Licensed Program if it determines the program is unsuitable?",
+          "expected_answer": "yes",
+          "target_raw_response": "Based on the provided context, there is no mention of whether Rogers can decline to distribute a Licensed Program if it determines the program is unsuitable.",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Must the availability date for a feature-length motion picture be no later than 90 days after its release for home video distribution in the U.S. or Canada?",
+          "expected_answer": "yes",
+          "target_raw_response": "Yes. According to Section 3(a) of the agreement, subject to Section 3(b), the availability date for any Licensed Program that is a feature-length motion picture or direct-to-video product must be no later than ninety (90) days following the date on which it is made available for home video distribution within the U.S. or the Territory (which is defined in the agreement as Canada).",
+          "judged_answer": "yes",
+          "score_contribution": 1.0
+        }
+      ]
+    },
+    "non_member": {
+      "doc_id": "cuad_0261",
+      "score": -0.5,
+      "correct": 0,
+      "wrong": 0,
+      "unknown": 8,
+      "trials": [
+        {
+          "question": "Is the agreement between Xencor, Inc. and Aimmune Therapeutics, Inc. dated February 4, 2020?",
+          "expected_answer": "yes",
+          "target_raw_response": "Based on the provided context, there is no mention of a License, Development and Commercialization Agreement between Xencor, Inc. and Aimmune Therapeutics, Inc., or whether any such agreement is dated February 4, 2020.",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Does the agreement involve the development and commercialization of a vaccine?",
+          "expected_answer": "no",
+          "target_raw_response": "Based on the provided context, there is no mention of a vaccine or whether the agreement involves the development and commercialization of a vaccine.",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Is Xencor, Inc. granting a license to Aimmune Therapeutics, Inc. under certain intellectual property rights related to the Antibody?",
+          "expected_answer": "yes",
+          "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Does the agreement include provisions for the supply of the Product?",
+          "expected_answer": "yes",
+          "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Are the terms 'Active Ingredient' and 'Antibody' defined in the agreement?",
+          "expected_answer": "yes",
+          "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Is Aimmune Therapeutics, Inc. responsible for further developing the Antibody?",
+          "expected_answer": "yes",
+          "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Does the agreement include an article on Representations, Warranties and Covenants?",
+          "expected_answer": "yes",
+          "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        },
+        {
+          "question": "Is the agreement filed as an 8-K document with the relevant regulatory authority?",
+          "expected_answer": "yes",
+          "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+          "judged_answer": "unknown",
+          "score_contribution": -0.5
+        }
+      ]
+    },
+    "score_gap": 1.125
+  }
+]

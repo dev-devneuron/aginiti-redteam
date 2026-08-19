@@ -1,0 +1,19 @@
+{
+  "rest": {
+    "RestGenerator": {
+      "name": "aginiti-hardened-anythingllm-via-gateway",
+      "uri": "http://localhost:3002/api/v1/workspace/e19-garak-cat4b_markdown_exfil-1786475391/chat",
+      "method": "post",
+      "headers": {
+        "Authorization": "Bearer gw-full-admin-key",
+        "Content-Type": "application/json"
+      },
+      "req_template_json_object": {
+        "message": "$INPUT",
+        "mode": "chat"
+      },
+      "response_json": true,
+      "response_json_field": "textResponse"
+    }
+  }
+}

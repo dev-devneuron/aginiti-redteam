@@ -1,0 +1,51 @@
+{
+  "n_trials": 5,
+  "budget": 15,
+  "conditions": [
+    "random",
+    "static",
+    "aginiti"
+  ],
+  "scope_note": "MOCK TARGET PILOT, not RQ1 evidence -- see script docstring",
+  "summary": {
+    "random": {
+      "n_trials": 5,
+      "n_successes": 2,
+      "success_rate": 0.4,
+      "mean_prompts_to_success": 12.5,
+      "prompts_to_success_ci": "12.500 [95% CI: 10.000, 15.000], 5000 resamples",
+      "mean_operators_considered": 76.0
+    },
+    "static": {
+      "n_trials": 5,
+      "n_successes": 5,
+      "success_rate": 1.0,
+      "mean_prompts_to_success": 5.0,
+      "prompts_to_success_ci": "5.000 [95% CI: 5.000, 5.000], 5000 resamples",
+      "mean_operators_considered": 30.0
+    },
+    "aginiti": {
+      "n_trials": 5,
+      "n_successes": 5,
+      "success_rate": 1.0,
+      "mean_prompts_to_success": 14.0,
+      "prompts_to_success_ci": "14.000 [95% CI: 14.000, 14.000], 5000 resamples",
+      "mean_operators_considered": 78.0
+    }
+  },
+  "comparisons": {
+    "aginiti_vs_random": {
+      "aginiti_success_rate": 1.0,
+      "other_success_rate": 0.4,
+      "fisher_p_value": 0.16666666666666666,
+      "underpowered": true
+    },
+    "aginiti_vs_static": {
+      "aginiti_success_rate": 1.0,
+      "other_success_rate": 1.0,
+      "fisher_p_value": 1.0,
+      "underpowered": true
+    }
+  },
+  "generated_at": "2026-08-07T13:04:46.616660+00:00"
+}

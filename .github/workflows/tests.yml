@@ -1,0 +1,42 @@
+name: tests
+
+# Added 2026-08-09 to close a real production-readiness gap: this repo had
+# 655+ tests and nothing enforcing they pass before a change merges. This
+# workflow only starts running once this repo has a GitHub remote and this
+# file is pushed to it -- GitHub Actions needs GitHub hosting to trigger at
+# all, which this local-only repo doesn't have yet as of the date above.
+# It's written to be correct and ready for that moment, not to run today.
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # Pinned to 3.13 -- the exact version this project's requirements.txt
+    # was pinned against on 2026-08-09 (see that file's own header comment).
+    # Re-verify and bump both together if the Python version is ever
+    # deliberately upgraded.
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run test suite
+        run: pytest tests/ -q

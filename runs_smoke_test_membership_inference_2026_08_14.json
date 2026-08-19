@@ -1,0 +1,70 @@
+{
+  "member": {
+    "doc_id": "cuad_0077",
+    "score": 1.0,
+    "correct": 4,
+    "wrong": 0,
+    "unknown": 0,
+    "queries_used": 4,
+    "trials": [
+      {
+        "question": "Does the Master Franchise Agreement contain provisions that may be inconsistent with California law?",
+        "expected": "yes",
+        "judged": "yes",
+        "response_preview": "Yes, the Master Franchise Agreement contains several provisions that may be inconsistent with or unenforceable under California law:\n\n1. **Covenants N"
+      },
+      {
+        "question": "Is the franchisor required to provide a disclosure document before asking the franchisee to agree to a material modification of an existing franchise?",
+        "expected": "yes",
+        "judged": "yes",
+        "response_preview": "Yes. Under Section 31125 of the California Corporations Code, the franchisor is required to provide a disclosure document before asking you to agree t"
+      },
+      {
+        "question": "Are the covenants not to compete in the Master Franchise Agreement enforceable under California law?",
+        "expected": "no",
+        "judged": "no",
+        "response_preview": "Based on the provided document, the covenants not to compete in the Master Franchise Agreement, which extend beyond the termination of the agreement, "
+      },
+      {
+        "question": "Is the website of the franchisor, www.originalsoupman.com, reviewed or approved by the California Department of Business Oversight?",
+        "expected": "no",
+        "judged": "no",
+        "response_preview": "No, the website www.originalsoupman.com has not been reviewed or approved by the California Department of Business Oversight."
+      }
+    ]
+  },
+  "non_member": {
+    "doc_id": "cuad_0261",
+    "score": -0.125,
+    "correct": 1,
+    "wrong": 0,
+    "unknown": 3,
+    "queries_used": 4,
+    "trials": [
+      {
+        "question": "Is the agreement between Xencor and Aimmune dated February 4, 2020?",
+        "expected": "yes",
+        "judged": "unknown",
+        "response_preview": "Based on the provided context, there is no mention of Xencor, Inc., Aimmune Therapeutics, Inc., or an agreement dated February 4, 2020. The context on"
+      },
+      {
+        "question": "Does the agreement involve the development of a vaccine?",
+        "expected": "no",
+        "judged": "no",
+        "response_preview": "Based on the provided context, there is no mention of an agreement between Xencor, Inc. and Aimmune Therapeutics, Inc., nor is there any mention of th"
+      },
+      {
+        "question": "Is Xencor granting a license to Aimmune under certain intellectual property rights related to the antibody?",
+        "expected": "yes",
+        "judged": "unknown",
+        "response_preview": "Based on the provided context, there is no mention of Xencor, Inc., Aimmune Therapeutics, Inc., or any license agreement between them regarding an ant"
+      },
+      {
+        "question": "Is the agreement limited to the commercialization of the antibody in the United States?",
+        "expected": "no",
+        "judged": "unknown",
+        "response_preview": "Based on the provided context, there is no mention of Xencor, Inc., Aimmune Therapeutics, Inc., or any agreement between them. Therefore, there is no "
+      }
+    ]
+  }
+}

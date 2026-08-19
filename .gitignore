@@ -126,3 +126,14 @@ CLAUDE.md
 aginiti/attacks/dra/verification-log.md
 aginiti/attacks/mia/verification-log.md
 aginiti/attacks/spe/verification-log.md
+# --- Merged from Aginiti-Extended-by-Omer (feature/unified-redteam merge, 2026-08-19) ---
+# NOTE: his gitignore also had a blanket `benchmarks/` entry -- deliberately
+# NOT carried over. On his branch that ignored a vendored READ-ONLY copy of
+# this repo's own benchmarks/ tree; in the unified repo benchmarks/ is real,
+# tracked source (see the granular benchmarks/* rules above), and a blanket
+# ignore here would silently untrack it.
+*.log
+runs/
+targets/       # vendored third-party target apps (AnythingLLM, DVAA, DVLA, MCP fs server) -- test AGAINST, not part of this repo's own source
+infra/         # operational scripts/logs/scratch, not version-controlled
+archive/
