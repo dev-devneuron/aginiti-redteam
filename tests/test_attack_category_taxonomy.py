@@ -1,4 +1,4 @@
-from aginiti.graph.attack_category import (
+from aginiti.core.graph.attack_category import (
     ALL_CATEGORIES,
     CATEGORY_TITLES,
     DECOY,
@@ -15,15 +15,15 @@ from aginiti.graph.attack_category import (
     is_offensive,
     validate,
 )
-from aginiti.graph.mitre_atlas_refs import (
+from aginiti.core.graph.mitre_atlas_refs import (
     DIRECT_PROMPT_INJECTION,
     EXFILTRATION_VIA_TOOL_INVOCATION,
     LLM_JAILBREAK,
     RAG_POISONING as ATLAS_RAG_POISONING,
 )
-from aginiti.graph.mitre_atlas_refs import validate as validate_atlas
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.mitre_atlas_refs import validate as validate_atlas
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
 from aginiti.operators.anythingllm_automatic_definitions import build_anythingllm_automatic_library
 from aginiti.operators.anythingllm_definitions import build_anythingllm_library
 from aginiti.operators.data_exposure import data_exposure_operators
@@ -190,7 +190,7 @@ def test_encoding_variants_are_tagged_encoding_attack_with_direct_injection_tech
 # --- end-to-end through the real adapter path ---------------------------------
 
 def test_observation_adapter_propagates_attack_category_and_atlas_technique():
-    from aginiti.adapter.observation_adapter import ObservationAdapter, _effect_id
+    from aginiti.core.observation_adapter import ObservationAdapter, _effect_id
     from aginiti.adapters.base import SendResult
     from aginiti.operators.library import ClaimEffect, Operator
 

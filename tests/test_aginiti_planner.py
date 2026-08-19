@@ -1,9 +1,9 @@
-from aginiti.graph.belief_state import BranchBelief
-from aginiti.graph.schema import ClaimStatus, InsightCategory, RiskTier
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, CATEGORY_TRUST_EDGE, SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.graph.belief_state import BranchBelief
+from aginiti.core.graph.schema import ClaimStatus, InsightCategory, RiskTier
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, CATEGORY_TRUST_EDGE, SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary
-from aginiti.planner.aginiti_planner import AginitiPlanner
+from aginiti.core.planner.aginiti_planner import AginitiPlanner
 
 
 def _op(op_id, edge, success_key, category=None, branch=None):
@@ -722,7 +722,7 @@ def test_severity_priority_zero_for_an_untagged_operator():
 
 
 def test_severity_priority_zero_for_l0_the_least_severe_class():
-    from aginiti.graph.security_boundary import BOUNDARY_L0
+    from aginiti.core.graph.security_boundary import BOUNDARY_L0
     op = _op_with_boundary("l0_op", "k", security_boundary=BOUNDARY_L0)
     ssg = SecurityStateGraph()
     planner = AginitiPlanner()
@@ -730,7 +730,7 @@ def test_severity_priority_zero_for_l0_the_least_severe_class():
 
 
 def test_severity_priority_scales_with_boundary_rank():
-    from aginiti.graph.security_boundary import BOUNDARY_L1, BOUNDARY_L3, BOUNDARY_L5
+    from aginiti.core.graph.security_boundary import BOUNDARY_L1, BOUNDARY_L3, BOUNDARY_L5
     ssg = SecurityStateGraph()
     planner = AginitiPlanner()
     l1 = planner.severity_priority(_op_with_boundary("l1", "k1", BOUNDARY_L1), ssg)
@@ -743,7 +743,7 @@ def test_severity_priority_scales_with_boundary_rank():
 def test_severity_priority_ignores_an_already_confirmed_effect():
     # Mirrors information_gain's own rule: a resolved claim has nothing
     # left to prove, so it shouldn't keep earning a severity bonus either.
-    from aginiti.graph.security_boundary import BOUNDARY_L5
+    from aginiti.core.graph.security_boundary import BOUNDARY_L5
     op = _op_with_boundary("resolved", "already_confirmed_key", BOUNDARY_L5)
     ssg = SecurityStateGraph()
     ssg.assert_claim("already_confirmed_key", "true", ClaimStatus.CONFIRMED)
@@ -752,7 +752,7 @@ def test_severity_priority_ignores_an_already_confirmed_effect():
 
 
 def test_severity_priority_takes_the_max_not_the_sum_across_effects():
-    from aginiti.graph.security_boundary import BOUNDARY_L1, BOUNDARY_L5
+    from aginiti.core.graph.security_boundary import BOUNDARY_L1, BOUNDARY_L5
     op = Operator(
         id="two_effects", description="x", prompt="x", channel="direct", preconditions=(),
         effects_success=(
@@ -767,7 +767,7 @@ def test_severity_priority_takes_the_max_not_the_sum_across_effects():
 
 
 def test_rank_prefers_the_higher_severity_option_when_everything_else_ties():
-    from aginiti.graph.security_boundary import BOUNDARY_L1, BOUNDARY_L5
+    from aginiti.core.graph.security_boundary import BOUNDARY_L1, BOUNDARY_L5
     low_severity = _op_with_boundary("low_severity", "low_key", BOUNDARY_L1, weight=2)
     high_severity = _op_with_boundary("high_severity", "high_key", BOUNDARY_L5, weight=2)
     library = OperatorLibrary([low_severity, high_severity])

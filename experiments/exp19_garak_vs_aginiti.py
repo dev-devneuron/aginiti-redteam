@@ -39,10 +39,10 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from aginiti.adapter.observation_adapter import ObservationAdapter
+from aginiti.core.observation_adapter import ObservationAdapter
 from aginiti.adapters.anythingllm_adapter import AnythingLLMAdapter
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.logging_utils import save_json
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.logging_utils import save_json
 from aginiti.operators.anythingllm_definitions import build_anythingllm_library
 from aginiti.operators.anythingllm_markdown_exfil_definitions import build_anythingllm_markdown_exfil_library
 from aginiti.operators.data_exposure import data_exposure_operators

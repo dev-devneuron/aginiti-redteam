@@ -46,14 +46,14 @@ import time
 
 sys.path.insert(0, ".")
 
-from aginiti.campaign import run_campaign
-from aginiti.logging_utils import campaign_result_to_dict, load_json, save_json
+from aginiti.core.campaign import run_campaign
+from aginiti.core.logging_utils import campaign_result_to_dict, load_json, save_json
 from aginiti.operators.definitions import build_library
-from aginiti.policies.aginiti_policy import AginitiPolicy
-from aginiti.policies.random_policy import RandomPolicy
-from aginiti.policies.static_policy import StaticPolicy
-from aginiti.scenarios import multi_path_mission
-from aginiti.stats import bootstrap_mean_ci, fisher_exact_two_sided
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.random_policy import RandomPolicy
+from aginiti.core.policies.static_policy import StaticPolicy
+from aginiti.core.scenarios import multi_path_mission
+from aginiti.core.stats import bootstrap_mean_ci, fisher_exact_two_sided
 from aginiti.target.demo_agent import DemoAgent
 from experiments.groq_quota import is_rate_limit_error, preflight_check
 from experiments.results_io import save_result, RESULTS_DIR

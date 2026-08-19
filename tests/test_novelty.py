@@ -3,14 +3,14 @@ including the 2026-08-14 PROACTIVE_COVERAGE_BONUS addition. This module
 had ZERO dedicated tests before this file, despite being live-consequential
 (a real exp28 postmortem finding motivated the fix here) -- several other
 test files exercise it only incidentally, as part of larger scenarios."""
-from aginiti.graph.novelty import (
+from aginiti.core.graph.novelty import (
     DIVERSIFICATION_BONUS,
     MAX_SATURATION_PENALTY,
     PROACTIVE_COVERAGE_BONUS,
     SATURATION_PENALTY_PER_EXTRA_ATTEMPT,
     family_diversification_term,
 )
-from aginiti.graph.target_belief import FamilyStats, TargetBeliefState
+from aginiti.core.graph.target_belief import FamilyStats, TargetBeliefState
 
 
 def _belief(**family_stats: FamilyStats) -> TargetBeliefState:

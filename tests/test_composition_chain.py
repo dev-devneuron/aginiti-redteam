@@ -18,14 +18,14 @@ implementation was built to answer:
 """
 import json
 
-from aginiti.adapter.observation_adapter import ExecutionResult
-from aginiti.campaign import run_campaign
-from aginiti.graph.schema import ClaimStatus
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.observation_adapter import ExecutionResult
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.schema import ClaimStatus
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.dvaa_definitions import _extract_fetch_success, build_dvaa_library
 from aginiti.operators.library import OperatorLibrary
-from aginiti.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
 
 
 def _composition_mission(budget=10):
@@ -33,7 +33,7 @@ def _composition_mission(budget=10):
     # dvaa_mission()'s original 3 criteria, so a campaign doesn't stop
     # early on an unrelated compromise before ever reaching this chain.
     return Mission(goal="composition test", success_criteria=("mcp_secret_exfiltrated_via_plugin_chain",),
-                    budget=budget, risk_threshold=__import__("aginiti.graph.schema", fromlist=["RiskTier"]).RiskTier.LOW)
+                    budget=budget, risk_threshold=__import__("aginiti.core.graph.schema", fromlist=["RiskTier"]).RiskTier.LOW)
 
 
 class _FakeDvaaAdapter:

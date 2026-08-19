@@ -3,8 +3,8 @@ workflow/mission_outcome/defender_control) -- what makes "which trust
 assumptions did the agent reveal" answerable as a direct query instead of
 eyeballing claim keys. No live API calls.
 """
-from aginiti.graph.schema import ClaimStatus
-from aginiti.graph.ssg import (
+from aginiti.core.graph.schema import ClaimStatus
+from aginiti.core.graph.ssg import (
     CATEGORY_CAPABILITY,
     CATEGORY_DEFENDER_CONTROL,
     CATEGORY_TRUST_EDGE,

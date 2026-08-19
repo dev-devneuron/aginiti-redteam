@@ -1,8 +1,8 @@
 """Run one Aginiti campaign against the reference demo target and print a
 narrative report + decision trace (design doc Section 25)."""
-from aginiti.campaign import run_campaign
+from aginiti.core.campaign import run_campaign
 from aginiti.operators.definitions import build_library
-from aginiti.scenarios import multi_path_mission
+from aginiti.core.scenarios import multi_path_mission
 
 mission = multi_path_mission()
 

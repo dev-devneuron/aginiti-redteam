@@ -28,10 +28,10 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from aginiti.adapter.observation_adapter import ExecutionResult, ObservationAdapter
+from aginiti.core.observation_adapter import ExecutionResult, ObservationAdapter
 from aginiti.adapters.base import BaseAdapter
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.observability import get_logger
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.observability import get_logger
 from aginiti.operators.library import Operator
 
 _logger = get_logger("variant_discovery")

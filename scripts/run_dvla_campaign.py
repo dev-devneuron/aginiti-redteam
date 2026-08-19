@@ -2,9 +2,9 @@
 target (via DVLAAdapter) and print the full trace -- the first live run
 against a genuinely external, independently-developed target."""
 from aginiti.adapters.dvla_adapter import DVLAAdapter
-from aginiti.campaign import run_campaign
+from aginiti.core.campaign import run_campaign
 from aginiti.operators.dvla_definitions import build_dvla_library
-from aginiti.scenarios import dvla_mission
+from aginiti.core.scenarios import dvla_mission
 
 mission = dvla_mission()
 agent = DVLAAdapter()

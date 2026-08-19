@@ -1,4 +1,4 @@
-from aginiti.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION
+from aginiti.core.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION
 from aginiti.operators.data_exposure import data_exposure_operators
 from aginiti.operators.encoding_variants import DEFAULT_PIPELINES, build_encoding_evasion_operators
 from aginiti.operators.library import OperatorLibrary

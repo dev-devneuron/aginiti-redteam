@@ -27,12 +27,12 @@ logger = logging.getLogger("smoke_sweep")
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from aginiti.adapter.observation_adapter import ObservationAdapter  # noqa: E402
+from aginiti.core.observation_adapter import ObservationAdapter  # noqa: E402
 from aginiti.adapters.hardened_agent_adapter import HardenedAgentAdapter  # noqa: E402
 from aginiti.adapters.healthcare_agent_adapter import HealthcareAgentAdapter  # noqa: E402
 from aginiti.adapters.scaled_evals_ground_truth import FuzzyDisclosureIndex, VerbatimDisclosureIndex  # noqa: E402
 from aginiti.adaptive.membership_inference import calibrate_threshold_from_held_out  # noqa: E402
-from aginiti.graph.ssg import SecurityStateGraph  # noqa: E402
+from aginiti.core.graph.ssg import SecurityStateGraph  # noqa: E402
 from aginiti.operators.hardened_agent_definitions import build_hardened_agent_library  # noqa: E402
 from aginiti.operators.healthcare_agent_definitions import build_healthcare_agent_library  # noqa: E402
 from aginiti.operators.library import OperatorLibrary  # noqa: E402

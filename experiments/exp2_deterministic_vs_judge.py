@@ -44,10 +44,10 @@ import time
 
 sys.path.insert(0, ".")
 
-from aginiti.adapter.observation_adapter import _effect_id, _judge
+from aginiti.core.observation_adapter import _effect_id, _judge
 from aginiti.adapters.dvaa_adapter import DVAAAdapter
 from aginiti.adapters.mcp_stdio_adapter import McpStdioAdapter
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.ssg import SecurityStateGraph
 from aginiti.operators.dvaa_consensus_definitions import build_dvaa_consensus_library
 from aginiti.operators.mcp_filesystem_definitions import build_filesystem_mcp_library
 from experiments.results_io import save_result

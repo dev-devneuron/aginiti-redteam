@@ -46,24 +46,24 @@ from __future__ import annotations
 
 import base64
 
-from aginiti.graph.attack_category import (
+from aginiti.core.graph.attack_category import (
     DIRECT_PROMPT_ATTACK,
     ENCODING_ATTACK,
     KNOWN_DEFENDED,
     TOOL_DISCOVERY,
     TOOL_MANIPULATION,
 )
-from aginiti.graph.failure_diagnosis import ACTIVELY_REFUSED
-from aginiti.graph.mitre_atlas_refs import DIRECT_PROMPT_INJECTION, LLM_JAILBREAK
-from aginiti.graph.owasp_llm_taxonomy import (
+from aginiti.core.graph.failure_diagnosis import ACTIVELY_REFUSED
+from aginiti.core.graph.mitre_atlas_refs import DIRECT_PROMPT_INJECTION, LLM_JAILBREAK
+from aginiti.core.graph.owasp_llm_taxonomy import (
     LLM01_PROMPT_INJECTION,
     LLM02_SENSITIVE_INFORMATION_DISCLOSURE,
     LLM06_EXCESSIVE_AGENCY,
     LLM07_SYSTEM_PROMPT_LEAKAGE,
 )
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L0
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L0
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
 from aginiti.operators.library import ClaimEffect, Operator
 
 CONFIRMED = ClaimStatus.CONFIRMED

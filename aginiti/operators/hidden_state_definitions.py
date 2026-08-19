@@ -23,18 +23,18 @@ can reason about them distinctly:
 """
 from __future__ import annotations
 
-from aginiti.graph.attack_category import DIRECT_PROMPT_ATTACK, INDIRECT_INJECTION, LOW_VALUE_RECONNAISSANCE, MULTI_STEP_CHAIN
-from aginiti.graph.failure_diagnosis import ACTIVELY_REFUSED
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L0, BOUNDARY_L5
-from aginiti.graph.ssg import (
+from aginiti.core.graph.attack_category import DIRECT_PROMPT_ATTACK, INDIRECT_INJECTION, LOW_VALUE_RECONNAISSANCE, MULTI_STEP_CHAIN
+from aginiti.core.graph.failure_diagnosis import ACTIVELY_REFUSED
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L0, BOUNDARY_L5
+from aginiti.core.graph.ssg import (
     CATEGORY_CAPABILITY,
     CATEGORY_MISSION_OUTCOME,
     CATEGORY_TRUST_EDGE,
     SUBGRAPH_DEFENDER,
     SUBGRAPH_TARGET,
 )
-from aginiti.graph.target_graph import START, category_hub
+from aginiti.core.graph.target_graph import START, category_hub
 from aginiti.operators.library import ClaimEffect, ClassPrecondition, Operator
 from aginiti.target.hidden_state_agent import DIRECT_MARKER, INDIRECT_MARKER, RECON_MARKER, TRUST_MARKER
 

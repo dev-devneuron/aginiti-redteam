@@ -6,12 +6,12 @@ test_insights.py.
 """
 from unittest.mock import patch
 
-from aginiti.adapter.observation_adapter import ExecutionResult
-from aginiti.graph.schema import ClaimStatus, InsightCategory, RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.observation_adapter import ExecutionResult
+from aginiti.core.graph.schema import ClaimStatus, InsightCategory, RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary
-from aginiti.understanding_loop import run_understanding_loop
+from aginiti.core.understanding_loop import run_understanding_loop
 
 
 def _op(op_id, effects_success=(), cost=1):
@@ -49,7 +49,7 @@ def test_loop_stops_when_no_eligible_operator_remains():
     op = _op("probe", effects_success=(ClaimEffect("k", ClaimStatus.CONFIRMED),))
     library = OperatorLibrary([op])
 
-    with patch("aginiti.understanding_loop.synthesize_insights", return_value=[]):
+    with patch("aginiti.core.understanding_loop.synthesize_insights", return_value=[]):
         result = run_understanding_loop(_mission(), library, agent=object(), target_name="test-target",
                                          adapter=_FakeAdapter())
 
@@ -64,7 +64,7 @@ def test_loop_respects_max_rounds():
     ops = [_op(f"probe_{i}", effects_success=(ClaimEffect(f"k{i}", ClaimStatus.CONFIRMED),)) for i in range(5)]
     library = OperatorLibrary(ops)
 
-    with patch("aginiti.understanding_loop.synthesize_insights", return_value=[]):
+    with patch("aginiti.core.understanding_loop.synthesize_insights", return_value=[]):
         result = run_understanding_loop(_mission(), library, agent=object(), target_name="test-target",
                                          adapter=_FakeAdapter(), max_rounds=3)
 
@@ -76,7 +76,7 @@ def test_loop_calls_synthesize_insights_after_every_round_not_just_once():
     op_b = _op("probe_b", effects_success=(ClaimEffect("kb", ClaimStatus.CONFIRMED),))
     library = OperatorLibrary([op_a, op_b])
 
-    with patch("aginiti.understanding_loop.synthesize_insights", return_value=[]) as mock_synth:
+    with patch("aginiti.core.understanding_loop.synthesize_insights", return_value=[]) as mock_synth:
         run_understanding_loop(_mission(), library, agent=object(), target_name="test-target",
                                 adapter=_FakeAdapter())
 
@@ -89,7 +89,7 @@ def test_loop_records_new_insights_per_round():
     ssg = SecurityStateGraph()
     fake_insight = ssg.record_insight(InsightCategory.BEHAVIORAL, "placeholder", derived_from=("k",))
 
-    with patch("aginiti.understanding_loop.synthesize_insights", return_value=[fake_insight]):
+    with patch("aginiti.core.understanding_loop.synthesize_insights", return_value=[fake_insight]):
         result = run_understanding_loop(_mission(), library, agent=object(), target_name="test-target",
                                          ssg=SecurityStateGraph(), adapter=_FakeAdapter())
 
@@ -118,7 +118,7 @@ def test_a_knowledge_gap_from_round_one_changes_round_two_selection():
                                         importance="high", related_probe_id="probe_b")]
         return []
 
-    with patch("aginiti.understanding_loop.synthesize_insights", side_effect=fake_synthesize):
+    with patch("aginiti.core.understanding_loop.synthesize_insights", side_effect=fake_synthesize):
         result = run_understanding_loop(_mission(), library, agent=object(), target_name="test-target",
                                          adapter=_FakeAdapter(), max_rounds=2)
 

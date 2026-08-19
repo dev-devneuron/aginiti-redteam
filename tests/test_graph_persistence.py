@@ -5,8 +5,8 @@ equivalent object, and checks nothing was lost or silently corrupted.
 """
 import json
 
-from aginiti.graph.persistence import load_ssg, save_ssg
-from aginiti.graph.schema import (
+from aginiti.core.graph.persistence import load_ssg, save_ssg
+from aginiti.core.graph.schema import (
     Asset,
     ClaimStatus,
     ConfidenceBand,
@@ -15,7 +15,7 @@ from aginiti.graph.schema import (
     bump_id_counter,
     next_id,
 )
-from aginiti.graph.ssg import CATEGORY_TRUST_EDGE, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
+from aginiti.core.graph.ssg import CATEGORY_TRUST_EDGE, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
 
 
 def _built_graph() -> SecurityStateGraph:
@@ -166,11 +166,11 @@ def test_round_trip_preserves_all_five_taxonomy_dimensions(tmp_path):
     functional planner signal, not just report cosmetics: ClassPrecondition
     (aginiti/operators/library.py) reads claim_attack_category/
     claim_boundary directly to decide operator eligibility."""
-    from aginiti.graph.attack_category import RAG_POISONING
-    from aginiti.graph.failure_diagnosis import BLOCKED_BY_PRIVILEGE
-    from aginiti.graph.mitre_atlas_refs import INDIRECT_PROMPT_INJECTION
-    from aginiti.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION
-    from aginiti.graph.security_boundary import BOUNDARY_L3
+    from aginiti.core.graph.attack_category import RAG_POISONING
+    from aginiti.core.graph.failure_diagnosis import BLOCKED_BY_PRIVILEGE
+    from aginiti.core.graph.mitre_atlas_refs import INDIRECT_PROMPT_INJECTION
+    from aginiti.core.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION
+    from aginiti.core.graph.security_boundary import BOUNDARY_L3
 
     ssg = SecurityStateGraph()
     ssg.assert_claim("k1", "true", ClaimStatus.CONFIRMED, security_boundary=BOUNDARY_L3,
@@ -191,7 +191,7 @@ def test_round_trip_preserves_all_five_taxonomy_dimensions(tmp_path):
     # And the functional consequence: a ClassPrecondition gated on these
     # tags must still be satisfiable against the RELOADED graph, not just
     # the original one.
-    from aginiti.graph.schema import RiskTier
+    from aginiti.core.graph.schema import RiskTier
     from aginiti.operators.library import ClassPrecondition, Operator
 
     cpre_attack = ClassPrecondition(attack_category=RAG_POISONING)

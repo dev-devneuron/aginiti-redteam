@@ -7,9 +7,9 @@ test_observation_adapter.py.
 from types import SimpleNamespace
 
 import aginiti.target.injecagent_adapter as injecagent_adapter_module
-from aginiti.adapter.observation_adapter import KEY_DESCRIPTIONS, ObservationAdapter
-from aginiti.graph.schema import ClaimStatus
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SecurityStateGraph
+from aginiti.core.observation_adapter import KEY_DESCRIPTIONS, ObservationAdapter
+from aginiti.core.graph.schema import ClaimStatus
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SecurityStateGraph
 from aginiti.operators.injecagent import injecagent_operator
 from aginiti.target.injecagent_adapter import (
     InjecAgentAdapter,
@@ -169,7 +169,7 @@ def test_full_pipeline_records_a_confirmed_mission_outcome_on_compliance(monkeyp
         "confirmed_effect_ids": [f"{op.effects_success[0].key}::confirmed"],
         "details": {}, "reasoning": "complied with the embedded instruction",
     }
-    monkeypatch.setattr("aginiti.adapter.observation_adapter.chat_json", lambda *a, **kw: fake_verdict)
+    monkeypatch.setattr("aginiti.core.observation_adapter.chat_json", lambda *a, **kw: fake_verdict)
 
     ssg = SecurityStateGraph()
     result = ObservationAdapter().execute(op, ssg, adapter)

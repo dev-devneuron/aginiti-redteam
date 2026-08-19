@@ -1,12 +1,12 @@
-from aginiti.adapter.observation_adapter import ExecutionResult
-from aginiti.graph.attack_category import ENCODING_ATTACK
-from aginiti.graph.export import START, export_ssg_for_visualization
-from aginiti.graph.mitre_atlas_refs import DIRECT_PROMPT_INJECTION
-from aginiti.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L0
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.observation_adapter import ExecutionResult
+from aginiti.core.graph.attack_category import ENCODING_ATTACK
+from aginiti.core.graph.export import START, export_ssg_for_visualization
+from aginiti.core.graph.mitre_atlas_refs import DIRECT_PROMPT_INJECTION
+from aginiti.core.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L0
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary, Precondition
 
 

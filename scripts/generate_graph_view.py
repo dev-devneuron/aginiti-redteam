@@ -29,11 +29,11 @@ import os
 import sys
 from datetime import datetime, timezone
 
-from aginiti.graph.export import export_ssg_for_visualization
-from aginiti.graph.schema import Claim, ClaimStatus, ConfidenceBand, Observation
-from aginiti.graph.ssg import SUBGRAPH_TARGET, SecurityStateGraph
+from aginiti.core.graph.export import export_ssg_for_visualization
+from aginiti.core.graph.schema import Claim, ClaimStatus, ConfidenceBand, Observation
+from aginiti.core.graph.ssg import SUBGRAPH_TARGET, SecurityStateGraph
 from aginiti.operators.definitions import build_library
-from aginiti.scenarios import dvla_mission, multi_path_mission
+from aginiti.core.scenarios import dvla_mission, multi_path_mission
 
 
 def _subgraph_lookup(library) -> dict[str, str]:
@@ -77,7 +77,7 @@ def reconstruct_ssg_from_trial(trial: dict, library) -> tuple[SecurityStateGraph
 def main():
     if len(sys.argv) >= 2 and sys.argv[1] == "--dvla":
         from aginiti.adapters.dvla_adapter import DVLAAdapter
-        from aginiti.campaign import run_campaign
+        from aginiti.core.campaign import run_campaign
         from aginiti.operators.dvla_definitions import build_dvla_library
         library = build_dvla_library()
         mission = dvla_mission()
@@ -101,7 +101,7 @@ def main():
     else:
         library = build_library()
         mission = multi_path_mission()
-        from aginiti.campaign import run_campaign
+        from aginiti.core.campaign import run_campaign
         result = run_campaign(mission, library)
         ssg = result.ssg
         execution_log = result.execution_log

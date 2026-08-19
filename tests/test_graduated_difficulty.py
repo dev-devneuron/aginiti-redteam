@@ -12,8 +12,8 @@ import random
 from dataclasses import dataclass, field
 
 from aginiti.adapters.base import SendResult
-from aginiti.campaign import run_campaign
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.ssg import SecurityStateGraph
 from aginiti.operators.graduated_difficulty_definitions import (
     ALL_SUCCESS_KEYS,
     GRADUATED_TABLE,
@@ -23,8 +23,8 @@ from aginiti.operators.graduated_difficulty_definitions import (
     build_graduated_difficulty_library,
     success_marker,
 )
-from aginiti.policies.aginiti_policy import AginitiPolicy
-from aginiti.policies.static_policy import StaticPolicy
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.static_policy import StaticPolicy
 
 
 @dataclass
@@ -49,7 +49,7 @@ def test_no_candidate_dominates_on_every_axis():
     (negative) cost and by severity rank -- no single candidate is #1 on
     all three, which is what makes this a genuine tradeoff instead of an
     obvious-winner benchmark (exp16's own named failure mode)."""
-    from aginiti.graph.security_boundary import rank as boundary_rank
+    from aginiti.core.graph.security_boundary import rank as boundary_rank
 
     by_success = sorted(GRADUATED_TABLE, key=lambda row: -row[5])
     by_cost = sorted(GRADUATED_TABLE, key=lambda row: row[2])

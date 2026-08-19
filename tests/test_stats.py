@@ -1,4 +1,4 @@
-from aginiti.stats import bootstrap_mean_ci, compare_to_aginiti, fisher_exact_two_sided, sign_test
+from aginiti.core.stats import bootstrap_mean_ci, compare_to_aginiti, fisher_exact_two_sided, sign_test
 
 
 def test_fisher_matches_known_tea_tasting_value():

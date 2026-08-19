@@ -17,8 +17,8 @@ from collections import defaultdict
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from aginiti.graph.attack_category import OFFENSIVE_CATEGORIES
-from aginiti.graph.security_boundary import BOUNDARY_UNSPECIFIED, highest_level, rank
+from aginiti.core.graph.attack_category import OFFENSIVE_CATEGORIES
+from aginiti.core.graph.security_boundary import BOUNDARY_UNSPECIFIED, highest_level, rank
 from aginiti.operators.anythingllm_automatic_definitions import build_anythingllm_automatic_library
 from aginiti.operators.anythingllm_definitions import build_anythingllm_library
 from aginiti.operators.anythingllm_markdown_exfil_definitions import build_anythingllm_markdown_exfil_library

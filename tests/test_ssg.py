@@ -1,6 +1,6 @@
-from aginiti.graph.hypothesis import HypothesisStatus
-from aginiti.graph.schema import ClaimStatus, ConfidenceBand
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.hypothesis import HypothesisStatus
+from aginiti.core.graph.schema import ClaimStatus, ConfidenceBand
+from aginiti.core.graph.ssg import SecurityStateGraph
 
 
 def test_first_observation_hypothesizes_claim():

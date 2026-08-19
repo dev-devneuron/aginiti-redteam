@@ -14,10 +14,10 @@ extractor) with a scripted fake agent.
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from aginiti.adapter.observation_adapter import ObservationAdapter
+from aginiti.core.observation_adapter import ObservationAdapter
 from aginiti.adapters.base import SendResult
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SecurityStateGraph, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SecurityStateGraph, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
 from aginiti.operators.library import ClaimEffect, Operator
 
 
@@ -74,7 +74,7 @@ def test_synthetic_recovery_text_never_reaches_the_judge():
     )
     agent = _FakeAgent(SendResult(final_text=recovery_text, tool_trace=[], is_synthetic=True))
 
-    with patch("aginiti.adapter.observation_adapter.chat_json") as mock_chat:
+    with patch("aginiti.core.observation_adapter.chat_json") as mock_chat:
         result = ObservationAdapter().execute(op, ssg, agent)
 
     mock_chat.assert_not_called()  # the actual bug: this WAS called live, on this exact shape of text
@@ -104,7 +104,7 @@ def test_synthetic_response_is_still_recorded_as_a_fact():
     ssg = SecurityStateGraph()
     agent = _FakeAgent(SendResult(final_text="the recovery text", tool_trace=[], is_synthetic=True))
 
-    with patch("aginiti.adapter.observation_adapter.chat_json"):
+    with patch("aginiti.core.observation_adapter.chat_json"):
         ObservationAdapter().execute(op, ssg, agent)
 
     fact_texts = [f.data.get("text") for f in ssg.facts if f.kind == "response_text"]
@@ -116,7 +116,7 @@ def test_synthetic_response_creates_no_supporting_or_contradicting_observation()
     ssg = SecurityStateGraph()
     agent = _FakeAgent(SendResult(final_text="x", tool_trace=[], is_synthetic=True))
 
-    with patch("aginiti.adapter.observation_adapter.chat_json"):
+    with patch("aginiti.core.observation_adapter.chat_json"):
         ObservationAdapter().execute(op, ssg, agent)
 
     assert ssg.observations == [] or all(
@@ -133,7 +133,7 @@ def test_genuine_non_synthetic_response_still_reaches_the_judge_normally():
                      "details": {}, "reasoning": "the response contains the real system prompt"}
     agent = _FakeAgent(SendResult(final_text="Assistant helps the current user...", tool_trace=[]))
 
-    with patch("aginiti.adapter.observation_adapter.chat_json", return_value=fake_verdict) as mock_chat:
+    with patch("aginiti.core.observation_adapter.chat_json", return_value=fake_verdict) as mock_chat:
         result = ObservationAdapter().execute(op, ssg, agent)
 
     mock_chat.assert_called_once()

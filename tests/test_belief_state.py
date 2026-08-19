@@ -14,9 +14,9 @@ edges, with zero LLM calls.
 """
 import pytest
 
-from aginiti.adapter.observation_adapter import ExecutionResult
-from aginiti.campaign import run_campaign
-from aginiti.graph.belief_state import (
+from aginiti.core.observation_adapter import ExecutionResult
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.belief_state import (
     BranchBelief,
     BranchSignal,
     CampaignBeliefState,
@@ -24,14 +24,14 @@ from aginiti.graph.belief_state import (
     apply_reasoning_verdict,
     update_branch_beliefs,
 )
-from aginiti.graph.insights import ReasoningPassResult
-from aginiti.graph.persistence import load_ssg, save_ssg
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import CATEGORY_DEFENDER_CONTROL, CATEGORY_TRUST_EDGE, SUBGRAPH_DEFENDER, SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.graph.insights import ReasoningPassResult
+from aginiti.core.graph.persistence import load_ssg, save_ssg
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import CATEGORY_DEFENDER_CONTROL, CATEGORY_TRUST_EDGE, SUBGRAPH_DEFENDER, SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.definitions import build_library
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary
-from aginiti.policies.base import Candidate
+from aginiti.core.policies.base import Candidate
 
 
 def _operator(op_id, effects_success=()):
@@ -166,7 +166,7 @@ def _tagged_operator(op_id, branch, effects_success=(), effects_failure=()):
 
 
 def test_branch_of_finds_the_declaring_operators_branch():
-    from aginiti.graph.belief_state import _branch_of
+    from aginiti.core.graph.belief_state import _branch_of
     op = _tagged_operator("probe", "payroll",
                            effects_success=(ClaimEffect("trusts_slack", ClaimStatus.CONFIRMED, category=CATEGORY_TRUST_EDGE),))
     library = OperatorLibrary([op])
@@ -211,7 +211,7 @@ def test_branch_interest_never_exceeds_the_cap_under_repeated_same_branch_confir
     # (many same-branch mission_outcome confirmations in a row) and
     # asserts interest now stays capped at IMPORTANCE_WEIGHT["high"], the
     # same ceiling gap_priority/hypothesis_priority already use.
-    from aginiti.graph.schema import IMPORTANCE_WEIGHT
+    from aginiti.core.graph.schema import IMPORTANCE_WEIGHT
 
     ssg = SecurityStateGraph()
     ops = [
@@ -435,7 +435,7 @@ def test_apply_reasoning_verdict_branch_scopes_open_questions_via_related_probe_
                  effects_success=(), effects_failure=(), cost_prompts=1, risk_tier=RiskTier.LOW, branch="payroll"),
     ])
     ssg = SecurityStateGraph()
-    from aginiti.graph.schema import InsightCategory
+    from aginiti.core.graph.schema import InsightCategory
     ssg.record_insight(InsightCategory.KNOWLEDGE_GAP, "some gap", importance="high", related_probe_id="probe_x")
 
     apply_reasoning_verdict(ssg, library, ReasoningPassResult())
@@ -447,7 +447,7 @@ def test_apply_reasoning_verdict_branch_scopes_open_questions_via_related_probe_
 def test_apply_reasoning_verdict_leaves_branch_none_when_no_probe_matched():
     library = OperatorLibrary([])
     ssg = SecurityStateGraph()
-    from aginiti.graph.schema import InsightCategory
+    from aginiti.core.graph.schema import InsightCategory
     ssg.record_insight(InsightCategory.KNOWLEDGE_GAP, "some gap", importance="high", related_probe_id=None)
 
     apply_reasoning_verdict(ssg, library, ReasoningPassResult())

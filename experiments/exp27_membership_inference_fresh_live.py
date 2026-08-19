@@ -46,7 +46,7 @@ import requests
 
 from aginiti.adapters.hardened_agent_adapter import HardenedAgentAdapter
 from aginiti.adaptive.membership_inference import DEFAULT_NUM_PROBES, run_membership_inference
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.ssg import SecurityStateGraph
 
 _ROOT = Path(__file__).parent.parent
 _DATASETS = _ROOT / "benchmarks" / "scaled_evals" / "datasets"

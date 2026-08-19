@@ -38,12 +38,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from aginiti.adapter.observation_adapter import ExecutionResult, ObservationAdapter
+from aginiti.core.observation_adapter import ExecutionResult, ObservationAdapter
 from aginiti.adapters.base import BaseAdapter
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
 from aginiti.llm_client import chat
-from aginiti.observability import get_logger
+from aginiti.core.observability import get_logger
 from aginiti.operators.library import ClaimEffect, Operator
 
 _logger = get_logger("crescendo")

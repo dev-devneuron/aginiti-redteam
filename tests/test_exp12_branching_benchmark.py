@@ -58,9 +58,9 @@ def test_mission2_has_genuine_branching_at_step_one():
     # operator (no precondition) and all 3 distractors (no precondition)
     # must ALL be eligible together -- only the trigger (precondition-
     # gated on the plant) should be excluded until the plant confirms.
-    from aginiti.graph.ssg import SecurityStateGraph
-    from aginiti.policies.base import eligible_operators
-    from aginiti.mission import Mission
+    from aginiti.core.graph.ssg import SecurityStateGraph
+    from aginiti.core.policies.base import eligible_operators
+    from aginiti.core.mission import Mission
 
     mission, library = _mission_branching_chat_rag(seed=1, canary="X")
     ssg = SecurityStateGraph()
@@ -74,8 +74,8 @@ def test_mission2_has_genuine_branching_at_step_one():
 
 
 def test_mission3_has_genuine_branching_at_step_one():
-    from aginiti.graph.ssg import SecurityStateGraph
-    from aginiti.policies.base import eligible_operators
+    from aginiti.core.graph.ssg import SecurityStateGraph
+    from aginiti.core.policies.base import eligible_operators
 
     mission, library = _mission_branching_automatic_rag(seed=1, canary="Y")
     ssg = SecurityStateGraph()

@@ -6,15 +6,15 @@ test_observation_adapter.py handles the judge call.
 """
 from unittest.mock import patch
 
-from aginiti.graph.hypothesis import HypothesisStatus
-from aginiti.graph.insights import synthesize_insights
-from aginiti.graph.schema import ClaimStatus, InsightCategory
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.hypothesis import HypothesisStatus
+from aginiti.core.graph.insights import synthesize_insights
+from aginiti.core.graph.schema import ClaimStatus, InsightCategory
+from aginiti.core.graph.ssg import SecurityStateGraph
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary, Precondition
 
 
 def _op(op_id, description="", understanding_question="", effects_success=(), preconditions=()):
-    from aginiti.graph.schema import RiskTier
+    from aginiti.core.graph.schema import RiskTier
     return Operator(
         id=op_id, description=description, understanding_question=understanding_question,
         prompt="x", channel="direct", preconditions=preconditions, effects_success=effects_success,
@@ -47,7 +47,7 @@ def test_synthesize_insights_skips_the_llm_call_when_nothing_is_resolved():
     ssg = SecurityStateGraph()
     ssg.assert_claim("maybe", "true", ClaimStatus.HYPOTHESIZED)
 
-    with patch("aginiti.graph.insights.chat_json") as mock_chat:
+    with patch("aginiti.core.graph.insights.chat_json") as mock_chat:
         result = synthesize_insights(ssg, target_name="test-target")
 
     mock_chat.assert_not_called()
@@ -70,7 +70,7 @@ def test_synthesize_insights_records_grounded_behavioral_and_security_only():
         ],
         "knowledge_gaps": [],
     }
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict):
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict):
         result = synthesize_insights(ssg, target_name="test-target")
 
     behavioral = [r for r in result if r.category == InsightCategory.BEHAVIORAL]
@@ -97,7 +97,7 @@ def test_synthesize_insights_captures_confidence_alternatives_and_missing_eviden
         }],
         "security_insights": [], "knowledge_gaps": [],
     }
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict):
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict):
         result = synthesize_insights(ssg, target_name="test-target")
 
     ins = result[0]
@@ -114,7 +114,7 @@ def test_synthesize_insights_evidence_still_missing_ignores_non_list_value():
         "behavioral_insights": [{"statement": "x", "claim_keys": ["k1"], "evidence_still_missing": "not a list"}],
         "security_insights": [], "knowledge_gaps": [],
     }
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict):
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict):
         result = synthesize_insights(ssg, target_name="test-target")
 
     assert result[0].evidence_still_missing == ()
@@ -128,7 +128,7 @@ def test_synthesize_insights_drops_invalid_confidence_level():
         "behavioral_insights": [{"statement": "x", "claim_keys": ["k1"], "confidence": "extremely sure"}],
         "security_insights": [], "knowledge_gaps": [],
     }
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict):
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict):
         result = synthesize_insights(ssg, target_name="test-target")
 
     assert result[0].confidence is None  # not a recognized low/medium/high level
@@ -142,7 +142,7 @@ def test_synthesize_insights_captures_gap_importance():
         "behavioral_insights": [], "security_insights": [],
         "knowledge_gaps": [{"topic": "memory", "why_it_matters": "unknown", "importance": "high"}],
     }
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict):
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict):
         result = synthesize_insights(ssg, target_name="test-target")
 
     assert result[0].importance == "high"
@@ -160,7 +160,7 @@ def test_synthesize_insights_captures_gap_prior_belief_and_confidence():
             "prior_confidence": "low",
         }],
     }
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict):
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict):
         result = synthesize_insights(ssg, target_name="test-target")
 
     gap = result[0]
@@ -176,7 +176,7 @@ def test_synthesize_insights_gap_without_prior_belief_leaves_it_none():
         "behavioral_insights": [], "security_insights": [],
         "knowledge_gaps": [{"topic": "memory persistence", "why_it_matters": "unknown", "importance": "high"}],
     }
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict):
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict):
         result = synthesize_insights(ssg, target_name="test-target")
 
     assert result[0].prior_belief is None
@@ -196,7 +196,7 @@ def test_synthesize_insights_links_knowledge_gap_to_a_matching_unexplored_probe(
         "knowledge_gaps": [{"topic": "memory persistence", "why_it_matters": "unknown if turns persist"}],
     }
 
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict):
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict):
         result = synthesize_insights(ssg, target_name="test-target", library=library)
 
     assert len(result) == 1
@@ -217,7 +217,7 @@ def test_synthesize_insights_leaves_related_probe_none_when_nothing_matches():
         "knowledge_gaps": [{"topic": "quantum cryptography", "why_it_matters": "totally unrelated topic"}],
     }
 
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict):
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict):
         result = synthesize_insights(ssg, target_name="test-target", library=library)
 
     assert result[0].related_probe_id is None
@@ -234,7 +234,7 @@ def test_synthesize_insights_excludes_hypothesized_claims_from_the_prompt_input(
         captured["user_message"] = messages[1]["content"]
         return {"behavioral_insights": [], "security_insights": [], "knowledge_gaps": []}
 
-    with patch("aginiti.graph.insights.chat_json", side_effect=fake_chat_json):
+    with patch("aginiti.core.graph.insights.chat_json", side_effect=fake_chat_json):
         synthesize_insights(ssg, target_name="test-target")
 
     assert "resolved" in captured["user_message"]
@@ -257,7 +257,7 @@ def test_synthesize_insights_warns_instead_of_silently_swallowing_a_parse_error(
     def fake_chat_json(messages, max_tokens=None, seed=None):
         return {"_parse_error": True, "_raw": '{"behavioral_insights": [{"statement": "cut off mid'}
 
-    with patch("aginiti.graph.insights.chat_json", side_effect=fake_chat_json):
+    with patch("aginiti.core.graph.insights.chat_json", side_effect=fake_chat_json):
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             result = synthesize_insights(ssg, target_name="test-target")
@@ -277,7 +277,7 @@ def test_synthesize_insights_does_not_warn_on_a_genuinely_empty_but_valid_verdic
     def fake_chat_json(messages, max_tokens=None, seed=None):
         return {"behavioral_insights": [], "security_insights": [], "knowledge_gaps": []}
 
-    with patch("aginiti.graph.insights.chat_json", side_effect=fake_chat_json):
+    with patch("aginiti.core.graph.insights.chat_json", side_effect=fake_chat_json):
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             synthesize_insights(ssg, target_name="test-target")
@@ -289,7 +289,7 @@ def test_synthesize_insights_handles_malformed_verdict_shape_gracefully():
     ssg = SecurityStateGraph()
     ssg.assert_claim("k1", "true", ClaimStatus.CONFIRMED)
 
-    with patch("aginiti.graph.insights.chat_json", return_value={"behavioral_insights": "not a list"}):
+    with patch("aginiti.core.graph.insights.chat_json", return_value={"behavioral_insights": "not a list"}):
         result = synthesize_insights(ssg, target_name="test-target")
 
     assert result == []
@@ -308,7 +308,7 @@ def test_repeated_synthesis_does_not_duplicate_a_behavioral_insight_with_the_sam
         "security_insights": [], "knowledge_gaps": [],
     }
 
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict):
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict):
         first = synthesize_insights(ssg, target_name="test-target")
         second = synthesize_insights(ssg, target_name="test-target")  # same claims, same "finding" again
 
@@ -326,7 +326,7 @@ def test_a_different_grounding_set_is_not_treated_as_a_duplicate():
     verdict_b = {"behavioral_insights": [{"statement": "finding b", "claim_keys": ["k1", "k2"]}],
                  "security_insights": [], "knowledge_gaps": []}
 
-    with patch("aginiti.graph.insights.chat_json", side_effect=[verdict_a, verdict_b]):
+    with patch("aginiti.core.graph.insights.chat_json", side_effect=[verdict_a, verdict_b]):
         first = synthesize_insights(ssg, target_name="test-target")
         second = synthesize_insights(ssg, target_name="test-target")
 
@@ -343,7 +343,7 @@ def test_repeated_synthesis_does_not_duplicate_a_knowledge_gap_with_the_same_top
         "knowledge_gaps": [{"topic": "Persistent Memory", "why_it_matters": "unknown", "importance": "high"}],
     }
 
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict):
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict):
         first = synthesize_insights(ssg, target_name="test-target")
         # Slightly different wording/case on the topic, same underlying gap.
         second = synthesize_insights(ssg, target_name="test-target")
@@ -367,7 +367,7 @@ def test_gap_with_prior_belief_and_matched_probe_forms_a_hypothesis():
             "prior_belief": "probably persists memory", "prior_confidence": "medium",
         }],
     }
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict):
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict):
         synthesize_insights(ssg, target_name="test-target", library=library)
 
     assert len(ssg.hypotheses) == 1
@@ -387,7 +387,7 @@ def test_gap_without_prior_belief_does_not_form_a_hypothesis():
         "behavioral_insights": [], "security_insights": [],
         "knowledge_gaps": [{"topic": "memory persistence", "why_it_matters": "unknown", "importance": "high"}],
     }
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict):
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict):
         synthesize_insights(ssg, target_name="test-target", library=library)
 
     assert ssg.hypotheses == {}
@@ -407,7 +407,7 @@ def test_hypothesis_resolves_when_its_experiment_later_executes():
             "prior_belief": "probably persists memory", "prior_confidence": "high",
         }],
     }
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict):
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict):
         synthesize_insights(ssg, target_name="test-target", library=library)
 
     hyp = next(iter(ssg.hypotheses.values()))
@@ -441,7 +441,7 @@ def test_no_hypothesis_formed_when_the_whole_chain_can_only_ever_hypothesize():
             "prior_belief": "probably persists memory", "prior_confidence": "high",
         }],
     }
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict):
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict):
         synthesize_insights(ssg, target_name="test-target", library=library)
 
     assert ssg.hypotheses == {}
@@ -472,7 +472,7 @@ def test_hypothesis_forms_through_a_plant_then_recall_chain():
             "prior_belief": "probably persists memory", "prior_confidence": "high",
         }],
     }
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict):
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict):
         synthesize_insights(ssg, target_name="test-target", library=library)
 
     assert len(ssg.hypotheses) == 1
@@ -487,7 +487,7 @@ def test_hypothesis_forms_through_a_plant_then_recall_chain():
 
 
 def test_resolving_chain_search_is_bounded_by_max_depth():
-    from aginiti.graph.insights import _find_resolving_chain
+    from aginiti.core.graph.insights import _find_resolving_chain
 
     # A chain of 6 hops, each only unlocking the next, none resolvable --
     # default max_depth=4 should give up rather than searching forever.

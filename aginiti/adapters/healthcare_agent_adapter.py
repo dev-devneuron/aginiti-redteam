@@ -47,8 +47,8 @@ from aginiti.adapters.scaled_evals_ground_truth import (
     KnownTextDisclosureIndex,
     VerbatimDisclosureIndex,
 )
-from aginiti.graph.independent_evidence import IndependentFinding
-from aginiti.graph.security_boundary import BOUNDARY_L0, BOUNDARY_L5
+from aginiti.core.graph.independent_evidence import IndependentFinding
+from aginiti.core.graph.security_boundary import BOUNDARY_L0, BOUNDARY_L5
 
 DEFAULT_BASE_URL = "http://localhost:8003"
 

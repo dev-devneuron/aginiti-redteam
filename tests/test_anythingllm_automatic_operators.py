@@ -3,10 +3,10 @@ pack (aginiti/operators/anythingllm_automatic_definitions.py) --
 deterministic-extractor correctness and precondition wiring, no live
 server or LLM calls.
 """
-from aginiti.adapter.observation_adapter import ObservationAdapter
+from aginiti.core.observation_adapter import ObservationAdapter
 from aginiti.adapters.base import SendResult
-from aginiti.graph.schema import ClaimStatus
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.schema import ClaimStatus
+from aginiti.core.graph.ssg import SecurityStateGraph
 from aginiti.operators.anythingllm_automatic_definitions import build_anythingllm_automatic_library
 
 

@@ -39,11 +39,11 @@ keyword extractor cannot reliably provide -- the same discipline data_
 exposure.py's own operators already follow."""
 from __future__ import annotations
 
-from aginiti.graph.attack_category import ENCODING_ATTACK
-from aginiti.graph.mitre_atlas_refs import DIRECT_PROMPT_INJECTION
-from aginiti.graph.owasp_llm_taxonomy import LLM02_SENSITIVE_INFORMATION_DISCLOSURE, LLM07_SYSTEM_PROMPT_LEAKAGE
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
+from aginiti.core.graph.attack_category import ENCODING_ATTACK
+from aginiti.core.graph.mitre_atlas_refs import DIRECT_PROMPT_INJECTION
+from aginiti.core.graph.owasp_llm_taxonomy import LLM02_SENSITIVE_INFORMATION_DISCLOSURE, LLM07_SYSTEM_PROMPT_LEAKAGE
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
 from aginiti.operators.library import ClaimEffect, Operator
 
 CONFIRMED = ClaimStatus.CONFIRMED

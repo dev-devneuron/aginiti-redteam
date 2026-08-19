@@ -40,11 +40,11 @@ diversification like every other operator.
 """
 from __future__ import annotations
 
-from aginiti.graph.attack_category import DIRECT_PROMPT_ATTACK
-from aginiti.graph.failure_diagnosis import ACTIVELY_REFUSED
-from aginiti.graph.owasp_llm_taxonomy import LLM02_SENSITIVE_INFORMATION_DISCLOSURE
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import CATEGORY_DEFENDER_CONTROL, CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
+from aginiti.core.graph.attack_category import DIRECT_PROMPT_ATTACK
+from aginiti.core.graph.failure_diagnosis import ACTIVELY_REFUSED
+from aginiti.core.graph.owasp_llm_taxonomy import LLM02_SENSITIVE_INFORMATION_DISCLOSURE
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import CATEGORY_DEFENDER_CONTROL, CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
 from aginiti.operators.library import ClaimEffect, ClassPrecondition, Operator
 
 CONFIRMED = ClaimStatus.CONFIRMED

@@ -5,11 +5,11 @@ family_diversification_term contributes can differ between candidates --
 this isolates `technique_cluster_diversification_term` specifically."""
 from __future__ import annotations
 
-from aginiti.graph.attack_category import DIRECT_PROMPT_ATTACK
-from aginiti.graph.failure_diagnosis import ACTIVELY_REFUSED
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L5
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
+from aginiti.core.graph.attack_category import DIRECT_PROMPT_ATTACK
+from aginiti.core.graph.failure_diagnosis import ACTIVELY_REFUSED
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L5
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
 from aginiti.operators.library import ClaimEffect, Operator
 from aginiti.target.technique_cluster_scenario_agent import (
     CLUSTER_MARKER,

@@ -1,7 +1,7 @@
-from aginiti.graph.schema import ClaimStatus
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, CATEGORY_TRUST_EDGE, SecurityStateGraph
+from aginiti.core.graph.schema import ClaimStatus
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, CATEGORY_TRUST_EDGE, SecurityStateGraph
 from aginiti.operators.dvaa_definitions import _RETIRED_OPERATORS_2026_08_08, build_dvaa_library
-from aginiti.scenarios import dvaa_mission
+from aginiti.core.scenarios import dvaa_mission
 
 
 def test_dvaa_library_has_twelve_operators():

@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from aginiti.adapters.hardened_agent_adapter import HardenedAgentAdapter  # noqa: E402
 from aginiti.adaptive.membership_inference import run_membership_inference  # noqa: E402
-from aginiti.graph.ssg import SecurityStateGraph  # noqa: E402
+from aginiti.core.graph.ssg import SecurityStateGraph  # noqa: E402
 
 _DATASETS = Path(__file__).parent.parent / "benchmarks" / "scaled_evals" / "datasets"
 

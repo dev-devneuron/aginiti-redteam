@@ -3,7 +3,7 @@ queries.py) -- the "graph as source of truth, planner as one consumer"
 functions. Built entirely from hand-constructed SSGs/libraries, no live
 API calls or campaign execution.
 """
-from aginiti.graph.queries import (
+from aginiti.core.graph.queries import (
     capabilities,
     consistent_defenses,
     disproven_assumptions,
@@ -15,15 +15,15 @@ from aginiti.graph.queries import (
     unexplored_frontier,
     unverified_capabilities,
 )
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import (
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import (
     CATEGORY_MISSION_OUTCOME,
     CATEGORY_TRUST_EDGE,
     SUBGRAPH_DEFENDER,
     SUBGRAPH_TARGET,
     SecurityStateGraph,
 )
-from aginiti.mission import Mission
+from aginiti.core.mission import Mission
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary, Precondition
 
 

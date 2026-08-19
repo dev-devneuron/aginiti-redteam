@@ -289,13 +289,13 @@ from __future__ import annotations
 
 import json
 
-from aginiti.graph.attack_category import MULTI_STEP_CHAIN, TOOL_DISCOVERY, TOOL_MANIPULATION
-from aginiti.graph.failure_diagnosis import BLOCKED_BY_NETWORK_EGRESS, BLOCKED_BY_PRIVILEGE
-from aginiti.graph.mitre_atlas_refs import EXFILTRATION_VIA_TOOL_INVOCATION
-from aginiti.graph.owasp_llm_taxonomy import LLM06_EXCESSIVE_AGENCY
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L3
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, CATEGORY_TRUST_EDGE, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
+from aginiti.core.graph.attack_category import MULTI_STEP_CHAIN, TOOL_DISCOVERY, TOOL_MANIPULATION
+from aginiti.core.graph.failure_diagnosis import BLOCKED_BY_NETWORK_EGRESS, BLOCKED_BY_PRIVILEGE
+from aginiti.core.graph.mitre_atlas_refs import EXFILTRATION_VIA_TOOL_INVOCATION
+from aginiti.core.graph.owasp_llm_taxonomy import LLM06_EXCESSIVE_AGENCY
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L3
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, CATEGORY_TRUST_EDGE, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary, Precondition
 
 CONFIRMED = ClaimStatus.CONFIRMED

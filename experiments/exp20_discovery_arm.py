@@ -29,10 +29,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from aginiti.adapters.anythingllm_adapter import AnythingLLMAdapter
 from aginiti.adaptive.encoding_discovery import run_encoding_chain_discovery
 from aginiti.adaptive.framing_discovery import FRAMINGS, run_framing_discovery
-from aginiti.graph.attack_category import DIRECT_PROMPT_ATTACK
-from aginiti.graph.owasp_llm_taxonomy import LLM07_SYSTEM_PROMPT_LEAKAGE
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.logging_utils import _json_safe, new_run_id, run_dir, save_json
+from aginiti.core.graph.attack_category import DIRECT_PROMPT_ATTACK
+from aginiti.core.graph.owasp_llm_taxonomy import LLM07_SYSTEM_PROMPT_LEAKAGE
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.logging_utils import _json_safe, new_run_id, run_dir, save_json
 from aginiti.operators.encoding_variants import DEFAULT_PIPELINES
 
 from hardened_target_v2_config import HARDENED_PROMPT_V2, HARDENED_WORKSPACE_SETTINGS_V2  # noqa: E402

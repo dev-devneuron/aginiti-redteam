@@ -50,11 +50,11 @@ import sys
 
 sys.path.insert(0, ".")
 
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary
-from aginiti.planner.aginiti_planner import AginitiPlanner
+from aginiti.core.planner.aginiti_planner import AginitiPlanner
 from experiments.results_io import save_result
 
 

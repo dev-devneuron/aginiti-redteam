@@ -10,8 +10,8 @@ fresh run_id. Use this after hitting an API rate limit mid-run.
 """
 import sys
 
-from aginiti.benchmark import run_benchmark
-from aginiti.scenarios import multi_path_mission
+from aginiti.core.benchmark import run_benchmark
+from aginiti.core.scenarios import multi_path_mission
 
 n_trials = int(sys.argv[1]) if len(sys.argv) > 1 else 5
 resume_run_id = sys.argv[2] if len(sys.argv) > 2 else None

@@ -50,10 +50,10 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from aginiti.adapters.anythingllm_adapter import AnythingLLMAdapter
-from aginiti.campaign import run_campaign
-from aginiti.graph.schema import RiskTier
-from aginiti.logging_utils import new_run_id, run_dir, save_json, save_trial
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.logging_utils import new_run_id, run_dir, save_json, save_trial
+from aginiti.core.mission import Mission
 from aginiti.operators.anythingllm_automatic_definitions import build_anythingllm_automatic_library
 from aginiti.operators.anythingllm_definitions import build_anythingllm_library
 from aginiti.operators.anythingllm_markdown_exfil_definitions import build_anythingllm_markdown_exfil_library
@@ -61,11 +61,11 @@ from aginiti.operators.anythingllm_multitool_definitions import build_anythingll
 from aginiti.operators.data_exposure import data_exposure_operators
 from aginiti.operators.encoding_variants import build_encoding_evasion_operators
 from aginiti.operators.library import OperatorLibrary
-from aginiti.planner.variants import GreedyInfoGainPlanner
-from aginiti.policies.aginiti_policy import AginitiPolicy
-from aginiti.policies.bayesian_policy import BayesianPolicy
-from aginiti.policies.random_policy import RandomPolicy
-from aginiti.policies.static_policy import StaticPolicy
+from aginiti.core.planner.variants import GreedyInfoGainPlanner
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.bayesian_policy import BayesianPolicy
+from aginiti.core.policies.random_policy import RandomPolicy
+from aginiti.core.policies.static_policy import StaticPolicy
 
 from exp11_live_anythingllm_planner_benchmark import _shuffled, _trial_is_complete  # noqa: E402
 from exp17_hardened_target import LISTENER_BASE_URL, LISTENER_LOG_PATH, TARGET_BRIEFING  # noqa: E402

@@ -21,13 +21,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from aginiti.adapters.base import SendResult
-from aginiti.campaign import run_campaign
-from aginiti.graph.failure_diagnosis import BLOCKED_BY_APPROVAL_GATE
-from aginiti.graph.schema import RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L3
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.failure_diagnosis import BLOCKED_BY_APPROVAL_GATE
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L3
+from aginiti.core.mission import Mission
 from aginiti.operators.agentic_primitives_definitions import build_agentic_primitives_library
-from aginiti.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
 
 
 @dataclass
@@ -54,7 +54,7 @@ def _mission() -> Mission:
 
 
 def _run(label: str, suppress_key: str | None) -> None:
-    from aginiti.graph.ssg import SecurityStateGraph
+    from aginiti.core.graph.ssg import SecurityStateGraph
 
     library = build_agentic_primitives_library()
     ssg = SecurityStateGraph()
@@ -83,7 +83,7 @@ def main() -> None:
          suppress_key="agentic_approval_gate_bypassed")
 
     print("\n=== Run B failure diagnosis check ===")
-    from aginiti.graph.ssg import SecurityStateGraph
+    from aginiti.core.graph.ssg import SecurityStateGraph
     library = build_agentic_primitives_library()
     ssg = SecurityStateGraph()
     mission = _mission()

@@ -7,9 +7,9 @@ from __future__ import annotations
 import dataclasses
 
 import aginiti.adaptive.many_shot as ms
-from aginiti.adapter.observation_adapter import ObservationAdapter, _effect_id
+from aginiti.core.observation_adapter import ObservationAdapter, _effect_id
 from aginiti.adapters.base import SendResult
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.ssg import SecurityStateGraph
 
 _real_many_shot_operator = ms._many_shot_operator
 

@@ -1,4 +1,4 @@
-from aginiti.graph.owasp_llm_taxonomy import (
+from aginiti.core.graph.owasp_llm_taxonomy import (
     ALL_CATEGORIES,
     CATEGORY_TITLES,
     LLM01_PROMPT_INJECTION,
@@ -9,8 +9,8 @@ from aginiti.graph.owasp_llm_taxonomy import (
     LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES,
     validate,
 )
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
 from aginiti.operators.anythingllm_automatic_definitions import build_anythingllm_automatic_library
 from aginiti.operators.anythingllm_definitions import build_anythingllm_library
 from aginiti.operators.anythingllm_markdown_exfil_definitions import build_anythingllm_markdown_exfil_library
@@ -132,7 +132,7 @@ def test_a2a_identity_spoof_is_tagged_llm06_excessive_agency():
 # threads owasp_llm_category through) ------------------------------------
 
 def test_observation_adapter_propagates_owasp_category_onto_the_ssg_claim():
-    from aginiti.adapter.observation_adapter import ObservationAdapter, _effect_id
+    from aginiti.core.observation_adapter import ObservationAdapter, _effect_id
     from aginiti.adapters.base import SendResult
     from aginiti.operators.library import ClaimEffect, Operator
 

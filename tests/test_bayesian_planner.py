@@ -5,12 +5,12 @@ every term this planner reuses (gap_priority, budget_feasible, etc.) is
 already independently tested in tests/test_aginiti_planner.py; these tests
 cover the NEW combination logic only.
 """
-from aginiti.graph.schema import ClaimStatus, InsightCategory, RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.graph.schema import ClaimStatus, InsightCategory, RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary
-from aginiti.planner.bayesian_planner import BayesianBanditPlanner
-from aginiti.policies.bayesian_policy import BayesianPolicy
+from aginiti.core.planner.bayesian_planner import BayesianBanditPlanner
+from aginiti.core.policies.bayesian_policy import BayesianPolicy
 
 
 def _op(op_id, edge=None, success_key=None, cost=1):

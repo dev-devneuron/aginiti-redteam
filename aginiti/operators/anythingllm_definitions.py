@@ -36,13 +36,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from aginiti.graph.attack_category import INDIRECT_INJECTION, RAG_POISONING
-from aginiti.graph.failure_diagnosis import NOT_RETRIEVED
-from aginiti.graph.mitre_atlas_refs import INDIRECT_PROMPT_INJECTION, RAG_POISONING as ATLAS_RAG_POISONING
-from aginiti.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION, LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L1
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
+from aginiti.core.graph.attack_category import INDIRECT_INJECTION, RAG_POISONING
+from aginiti.core.graph.failure_diagnosis import NOT_RETRIEVED
+from aginiti.core.graph.mitre_atlas_refs import INDIRECT_PROMPT_INJECTION, RAG_POISONING as ATLAS_RAG_POISONING
+from aginiti.core.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION, LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L1
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary, Precondition
 
 CONFIRMED = ClaimStatus.CONFIRMED

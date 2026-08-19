@@ -11,7 +11,7 @@ test_composition_chain.py's _extract_fetch_success tests.
 """
 import json
 
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SecurityStateGraph
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SecurityStateGraph
 from aginiti.operators.dvaa_definitions import _extract_rag_knowledge_base_exfil, build_dvaa_library
 
 

@@ -51,21 +51,21 @@ import time
 
 sys.path.insert(0, ".")
 
-from aginiti.campaign import run_campaign
-from aginiti.graph.insights import synthesize_insights
-from aginiti.graph.queries import latest_claims
-from aginiti.graph.schema import ClaimStatus
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, CATEGORY_TRUST_EDGE
-from aginiti.logging_utils import campaign_result_to_dict, load_json, save_json
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.insights import synthesize_insights
+from aginiti.core.graph.queries import latest_claims
+from aginiti.core.graph.schema import ClaimStatus
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, CATEGORY_TRUST_EDGE
+from aginiti.core.logging_utils import campaign_result_to_dict, load_json, save_json
+from aginiti.core.mission import Mission
 from aginiti.operators.definitions import build_library
-from aginiti.planner.aginiti_planner import AginitiPlanner
-from aginiti.planner.variants import BFSOnlyPlanner, GreedyBusinessImpactPlanner
-from aginiti.policies.aginiti_policy import AginitiPolicy
-from aginiti.policies.random_policy import RandomPolicy
-from aginiti.policies.static_policy import StaticPolicy
-from aginiti.scenarios import multi_path_mission
-from aginiti.stats import bootstrap_mean_ci, sign_test
+from aginiti.core.planner.aginiti_planner import AginitiPlanner
+from aginiti.core.planner.variants import BFSOnlyPlanner, GreedyBusinessImpactPlanner
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.random_policy import RandomPolicy
+from aginiti.core.policies.static_policy import StaticPolicy
+from aginiti.core.scenarios import multi_path_mission
+from aginiti.core.stats import bootstrap_mean_ci, sign_test
 from aginiti.target.demo_agent import DemoAgent
 from experiments.groq_quota import is_rate_limit_error, preflight_check
 from experiments.results_io import save_result, RESULTS_DIR

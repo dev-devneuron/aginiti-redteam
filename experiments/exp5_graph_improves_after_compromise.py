@@ -33,10 +33,10 @@ import sys
 
 sys.path.insert(0, ".")
 
-from aginiti.graph.persistence import load_ssg
-from aginiti.graph.schema import ClaimStatus, InsightCategory
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, CATEGORY_TRUST_EDGE
-from aginiti.scenarios import dvaa_mission
+from aginiti.core.graph.persistence import load_ssg
+from aginiti.core.graph.schema import ClaimStatus, InsightCategory
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, CATEGORY_TRUST_EDGE
+from aginiti.core.scenarios import dvaa_mission
 from experiments.results_io import save_result
 
 GRAPH_PATH = "runs/dvaa_ssg.json"

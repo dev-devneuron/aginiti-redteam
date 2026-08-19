@@ -1,10 +1,10 @@
 import dataclasses
 
-from aginiti.adapter.observation_adapter import _effect_id
+from aginiti.core.observation_adapter import _effect_id
 from aginiti.adapters.base import SendResult
 from aginiti.adaptive import encoding_discovery as ed
-from aginiti.graph.attack_category import ENCODING_ATTACK
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.attack_category import ENCODING_ATTACK
+from aginiti.core.graph.ssg import SecurityStateGraph
 from aginiti.transforms.converters import ALL_CONVERTERS, SelfCipherPrimerConverter
 
 

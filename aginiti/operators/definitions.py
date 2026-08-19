@@ -28,9 +28,9 @@ with whatever specific fact the judge actually extracted, not static text).
 """
 from __future__ import annotations
 
-from aginiti.graph.attack_category import DECOY, LOW_VALUE_RECONNAISSANCE
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import (
+from aginiti.core.graph.attack_category import DECOY, LOW_VALUE_RECONNAISSANCE
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import (
     CATEGORY_MISSION_OUTCOME,
     CATEGORY_TRUST_EDGE,
     SUBGRAPH_DEFENDER,

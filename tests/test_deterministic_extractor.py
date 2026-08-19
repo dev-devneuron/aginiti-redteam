@@ -6,9 +6,9 @@ calls.
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from aginiti.adapter.observation_adapter import ObservationAdapter
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import SecurityStateGraph, SUBGRAPH_TARGET
+from aginiti.core.observation_adapter import ObservationAdapter
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph, SUBGRAPH_TARGET
 from aginiti.operators.dvaa_definitions import _extract_mcp_tool_list
 from aginiti.operators.library import ClaimEffect, Operator
 
@@ -36,7 +36,7 @@ def test_extractor_set_skips_the_judge_entirely():
     op = _op_with_extractor(lambda raw: ["k::hypothesized"])
     ssg = SecurityStateGraph()
 
-    with patch("aginiti.adapter.observation_adapter.chat_json") as mock_chat:
+    with patch("aginiti.core.observation_adapter.chat_json") as mock_chat:
         result = ObservationAdapter().execute(op, ssg, _FakeAgent("some raw response"))
 
     mock_chat.assert_not_called()
@@ -49,7 +49,7 @@ def test_extractor_confirming_nothing_yields_no_claims():
     op = _op_with_extractor(lambda raw: [])
     ssg = SecurityStateGraph()
 
-    with patch("aginiti.adapter.observation_adapter.chat_json") as mock_chat:
+    with patch("aginiti.core.observation_adapter.chat_json") as mock_chat:
         result = ObservationAdapter().execute(op, ssg, _FakeAgent("no match here"))
 
     mock_chat.assert_not_called()
@@ -66,7 +66,7 @@ def test_operator_without_extractor_still_uses_the_judge():
     ssg = SecurityStateGraph()
     fake_verdict = {"confirmed_effect_ids": ["k::hypothesized"], "details": {}, "reasoning": "judged it"}
 
-    with patch("aginiti.adapter.observation_adapter.chat_json", return_value=fake_verdict) as mock_chat:
+    with patch("aginiti.core.observation_adapter.chat_json", return_value=fake_verdict) as mock_chat:
         result = ObservationAdapter().execute(op, ssg, _FakeAgent("some raw response"))
 
     mock_chat.assert_called_once()

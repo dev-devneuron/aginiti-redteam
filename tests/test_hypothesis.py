@@ -2,8 +2,8 @@
 first mutable, persistent-identity object in the graph. Pure logic, no
 graph/adapter involved.
 """
-from aginiti.graph.hypothesis import Hypothesis, HypothesisStatus, normalize_statement
-from aginiti.graph.schema import ClaimStatus
+from aginiti.core.graph.hypothesis import Hypothesis, HypothesisStatus, normalize_statement
+from aginiti.core.graph.schema import ClaimStatus
 
 
 def _hyp(confidence=0.5, expected=ClaimStatus.CONFIRMED):

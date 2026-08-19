@@ -2,15 +2,15 @@ import json
 import tempfile
 from pathlib import Path
 
-from aginiti.adapter.observation_adapter import ExecutionResult
-from aginiti.campaign import CampaignResult, DecisionLogEntry
-from aginiti.graph.attack_category import DIRECT_PROMPT_ATTACK
-from aginiti.graph.mitre_atlas_refs import DIRECT_PROMPT_INJECTION
-from aginiti.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION
-from aginiti.graph.schema import ClaimStatus
-from aginiti.graph.security_boundary import BOUNDARY_L0
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.logging_utils import campaign_result_to_dict, save_trial
+from aginiti.core.observation_adapter import ExecutionResult
+from aginiti.core.campaign import CampaignResult, DecisionLogEntry
+from aginiti.core.graph.attack_category import DIRECT_PROMPT_ATTACK
+from aginiti.core.graph.mitre_atlas_refs import DIRECT_PROMPT_INJECTION
+from aginiti.core.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION
+from aginiti.core.graph.schema import ClaimStatus
+from aginiti.core.graph.security_boundary import BOUNDARY_L0
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.logging_utils import campaign_result_to_dict, save_trial
 
 
 def _fake_result() -> CampaignResult:

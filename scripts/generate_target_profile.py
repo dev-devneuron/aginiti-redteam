@@ -18,12 +18,12 @@ from __future__ import annotations
 import os
 
 from aginiti.adapters.dvla_adapter import DVLAAdapter
-from aginiti.campaign import run_campaign
-from aginiti.graph.insights import synthesize_insights
-from aginiti.graph.persistence import load_ssg, save_ssg
-from aginiti.graph.target_profile import build_target_profile, render_markdown
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.insights import synthesize_insights
+from aginiti.core.graph.persistence import load_ssg, save_ssg
+from aginiti.core.graph.target_profile import build_target_profile, render_markdown
 from aginiti.operators.dvla_definitions import build_dvla_library
-from aginiti.scenarios import dvla_mission
+from aginiti.core.scenarios import dvla_mission
 
 TARGET_NAME = "damn-vulnerable-llm-agent"
 

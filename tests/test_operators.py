@@ -1,5 +1,5 @@
-from aginiti.graph.schema import ClaimStatus
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.schema import ClaimStatus
+from aginiti.core.graph.ssg import SecurityStateGraph
 from aginiti.operators.definitions import build_library
 
 

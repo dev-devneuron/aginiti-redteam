@@ -22,13 +22,13 @@ import pytest
 from groq import RateLimitError
 
 from aginiti import llm_client
-from aginiti.adapter.observation_adapter import ExecutionResult
-from aginiti.campaign import run_campaign
-from aginiti.graph.schema import RiskTier
-from aginiti.mission import Mission
+from aginiti.core.observation_adapter import ExecutionResult
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.mission import Mission
 from aginiti.operators.data_exposure import data_exposure_operators
 from aginiti.operators.library import OperatorLibrary
-from aginiti.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
 
 
 def _rate_limit_error() -> RateLimitError:

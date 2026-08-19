@@ -63,12 +63,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from aginiti.graph.attack_category import INDIRECT_INJECTION, TOOL_DISCOVERY, TOOL_MANIPULATION
-from aginiti.graph.failure_diagnosis import BLOCKED_BY_APPROVAL_GATE
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L2, BOUNDARY_L3
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, CATEGORY_TRUST_EDGE, CATEGORY_WORKFLOW, SUBGRAPH_TARGET
-from aginiti.graph.target_graph import START, attack_category_hub, boundary_hub, category_hub
+from aginiti.core.graph.attack_category import INDIRECT_INJECTION, TOOL_DISCOVERY, TOOL_MANIPULATION
+from aginiti.core.graph.failure_diagnosis import BLOCKED_BY_APPROVAL_GATE
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L2, BOUNDARY_L3
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, CATEGORY_TRUST_EDGE, CATEGORY_WORKFLOW, SUBGRAPH_TARGET
+from aginiti.core.graph.target_graph import START, attack_category_hub, boundary_hub, category_hub
 from aginiti.operators.library import ClaimEffect, ClassPrecondition, Operator, OperatorLibrary
 
 CONFIRMED = ClaimStatus.CONFIRMED

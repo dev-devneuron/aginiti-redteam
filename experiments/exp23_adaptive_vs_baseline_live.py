@@ -81,15 +81,15 @@ load_dotenv()
 
 from aginiti.adapters.hardened_agent_adapter import HardenedAgentAdapter
 from aginiti.adapters.scaled_evals_ground_truth import FuzzyDisclosureIndex, VerbatimDisclosureIndex
-from aginiti.campaign import run_campaign
-from aginiti.graph.schema import RiskTier
-from aginiti.graph.security_boundary import rank as boundary_rank
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.graph.security_boundary import rank as boundary_rank
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.hardened_agent_definitions import build_hardened_agent_library
 from aginiti.operators.library import OperatorLibrary
-from aginiti.planner.aginiti_planner import AginitiPlanner
-from aginiti.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.planner.aginiti_planner import AginitiPlanner
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
 
 _ROOT = Path(__file__).parent.parent
 _DATASETS = _ROOT / "benchmarks" / "scaled_evals" / "datasets"

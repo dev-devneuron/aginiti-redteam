@@ -1,5 +1,5 @@
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.security_boundary import (
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.security_boundary import (
     BOUNDARY_L0,
     BOUNDARY_L1,
     BOUNDARY_L3,
@@ -8,7 +8,7 @@ from aginiti.graph.security_boundary import (
     highest_level,
     rank,
 )
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.ssg import SecurityStateGraph
 from aginiti.operators.anythingllm_automatic_definitions import build_anythingllm_automatic_library
 from aginiti.operators.anythingllm_definitions import build_anythingllm_library
 from aginiti.operators.data_exposure import data_exposure_operators
@@ -120,7 +120,7 @@ def test_a2a_identity_spoof_is_l3_privilege_boundary():
 # through) -----------------------------------------------------------------
 
 def test_observation_adapter_propagates_security_boundary_onto_the_ssg_claim():
-    from aginiti.adapter.observation_adapter import ObservationAdapter, _effect_id
+    from aginiti.core.observation_adapter import ObservationAdapter, _effect_id
     from aginiti.adapters.base import SendResult
     from aginiti.operators.library import ClaimEffect, Operator
 

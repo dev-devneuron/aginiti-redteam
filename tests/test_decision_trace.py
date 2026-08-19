@@ -3,15 +3,15 @@ aginiti/campaign.py -- proves a DecisionTrace is actually attached to
 DecisionLogEntry.meta during a real (mock-target) campaign, and that its
 `reason` text is built from real utility-breakdown numbers, not generated
 prose."""
-from aginiti.campaign import run_campaign
-from aginiti.graph.decision_trace import DecisionTrace, build_decision_trace
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SecurityStateGraph
-from aginiti.graph.target_belief import TargetBeliefState
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.decision_trace import DecisionTrace, build_decision_trace
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SecurityStateGraph
+from aginiti.core.graph.target_belief import TargetBeliefState
+from aginiti.core.mission import Mission
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary
-from aginiti.planner.aginiti_planner import AginitiPlanner
-from aginiti.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.planner.aginiti_planner import AginitiPlanner
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
 
 CONFIRMED = ClaimStatus.CONFIRMED
 
@@ -86,7 +86,7 @@ def test_full_campaign_attaches_decision_trace_to_every_step():
 
 
 def test_baseline_policies_do_not_get_a_decision_trace():
-    from aginiti.policies.random_policy import RandomPolicy
+    from aginiti.core.policies.random_policy import RandomPolicy
 
     library = OperatorLibrary([_op("recon", "capability_found")])
     mission = Mission(goal="test", success_criteria=("capability_found",), budget=3, risk_threshold=RiskTier.MEDIUM)

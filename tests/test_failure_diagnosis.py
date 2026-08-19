@@ -4,7 +4,7 @@ and the planner term that reads it (AginitiPlanner.failure_evidence_penalty)
 better feedback from failure.\""""
 from __future__ import annotations
 
-from aginiti.graph.failure_diagnosis import (
+from aginiti.core.graph.failure_diagnosis import (
     ACTIVELY_REFUSED,
     BLOCKED_BY_APPROVAL_GATE,
     BLOCKED_BY_NETWORK_EGRESS,
@@ -13,11 +13,11 @@ from aginiti.graph.failure_diagnosis import (
     is_generalizable,
     validate,
 )
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.library import ClaimEffect, Operator
-from aginiti.planner.aginiti_planner import AginitiPlanner
+from aginiti.core.planner.aginiti_planner import AginitiPlanner
 
 CONFIRMED = ClaimStatus.CONFIRMED
 

@@ -4,9 +4,9 @@ other judge/reasoning-layer test in this suite.
 """
 from unittest.mock import patch
 
-from aginiti.graph.priors import _priority_weight, _rank_positions, seed_target_priors
-from aginiti.graph.schema import ClaimStatus, InsightCategory, RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.priors import _priority_weight, _rank_positions, seed_target_priors
+from aginiti.core.graph.schema import ClaimStatus, InsightCategory, RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
 from aginiti.operators.data_exposure import data_exposure_operators
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary
 
@@ -23,7 +23,7 @@ def test_seed_target_priors_records_one_insight_per_addressed_operator():
         "priorities": {op_ids[0]: "high", op_ids[1]: "low"},
         "reasoning": {op_ids[0]: "commonly disclosed", op_ids[1]: "rarely works"},
     }
-    with patch("aginiti.graph.priors.chat_json", return_value=verdict) as mock_chat:
+    with patch("aginiti.core.graph.priors.chat_json", return_value=verdict) as mock_chat:
         n = seed_target_priors(ssg, lib, "A RAG chat app.", seed=1)
 
     mock_chat.assert_called_once()
@@ -57,11 +57,11 @@ def test_seed_target_priors_presents_candidates_in_a_stable_id_sorted_order():
         captured["user"] = messages[1]["content"]
         return {"priorities": {}, "rank": [], "reasoning": {}}
 
-    with patch("aginiti.graph.priors.chat_json", side_effect=_capture):
+    with patch("aginiti.core.graph.priors.chat_json", side_effect=_capture):
         seed_target_priors(SecurityStateGraph(), reversed_lib, "ctx", seed=1)
     reversed_call_order = [c["id"] for c in json.loads(captured["user"].split("Candidate probes:\n", 1)[1])]
 
-    with patch("aginiti.graph.priors.chat_json", side_effect=_capture):
+    with patch("aginiti.core.graph.priors.chat_json", side_effect=_capture):
         seed_target_priors(SecurityStateGraph(), forward_lib, "ctx", seed=1)
     forward_call_order = [c["id"] for c in json.loads(captured["user"].split("Candidate probes:\n", 1)[1])]
 
@@ -71,13 +71,13 @@ def test_seed_target_priors_presents_candidates_in_a_stable_id_sorted_order():
 def test_seeded_priors_are_actually_readable_by_gap_priority():
     # The whole point: AginitiPlanner.gap_priority() must pick these up
     # completely unchanged -- no planner code touched.
-    from aginiti.planner.aginiti_planner import AginitiPlanner
+    from aginiti.core.planner.aginiti_planner import AginitiPlanner
 
     lib = _library()
     ssg = SecurityStateGraph()
     target_op = next(iter(lib)).id
     verdict = {"priorities": {target_op: "high"}, "reasoning": {}}
-    with patch("aginiti.graph.priors.chat_json", return_value=verdict):
+    with patch("aginiti.core.graph.priors.chat_json", return_value=verdict):
         seed_target_priors(ssg, lib, "context", seed=1)
 
     planner = AginitiPlanner()
@@ -89,7 +89,7 @@ def test_hallucinated_operator_id_is_silently_skipped_not_recorded():
     lib = _library()
     ssg = SecurityStateGraph()
     verdict = {"priorities": {"not_a_real_operator_id": "high"}, "reasoning": {}}
-    with patch("aginiti.graph.priors.chat_json", return_value=verdict):
+    with patch("aginiti.core.graph.priors.chat_json", return_value=verdict):
         n = seed_target_priors(ssg, lib, "context", seed=1)
 
     assert n == 0
@@ -101,7 +101,7 @@ def test_malformed_importance_level_is_silently_skipped_not_recorded():
     ssg = SecurityStateGraph()
     op_id = next(iter(lib)).id
     verdict = {"priorities": {op_id: "extremely-high"}, "reasoning": {}}  # not low/medium/high
-    with patch("aginiti.graph.priors.chat_json", return_value=verdict):
+    with patch("aginiti.core.graph.priors.chat_json", return_value=verdict):
         n = seed_target_priors(ssg, lib, "context", seed=1)
 
     assert n == 0
@@ -110,7 +110,7 @@ def test_malformed_importance_level_is_silently_skipped_not_recorded():
 def test_malformed_priorities_shape_returns_zero_not_a_crash():
     lib = _library()
     ssg = SecurityStateGraph()
-    with patch("aginiti.graph.priors.chat_json", return_value={"priorities": "not-a-dict"}):
+    with patch("aginiti.core.graph.priors.chat_json", return_value={"priorities": "not-a-dict"}):
         n = seed_target_priors(ssg, lib, "context", seed=1)
     assert n == 0
     assert ssg.insights == []
@@ -118,7 +118,7 @@ def test_malformed_priorities_shape_returns_zero_not_a_crash():
 
 def test_empty_library_never_calls_the_llm_at_all():
     ssg = SecurityStateGraph()
-    with patch("aginiti.graph.priors.chat_json") as mock_chat:
+    with patch("aginiti.core.graph.priors.chat_json") as mock_chat:
         n = seed_target_priors(ssg, OperatorLibrary([]), "context", seed=1)
     mock_chat.assert_not_called()
     assert n == 0
@@ -134,7 +134,7 @@ def test_seed_target_priors_warns_and_returns_zero_on_a_parse_error():
 
     lib = _library()
     ssg = SecurityStateGraph()
-    with patch("aginiti.graph.priors.chat_json",
+    with patch("aginiti.core.graph.priors.chat_json",
                return_value={"_parse_error": True, "_raw": '{"priorities": {"a": "hi'}):
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
@@ -168,11 +168,11 @@ def test_seed_target_priors_max_tokens_scales_with_library_size():
         calls["max_tokens"] = max_tokens
         return {"priorities": {}, "rank": [], "reasoning": {}}
 
-    with patch("aginiti.graph.priors.chat_json", side_effect=_capture):
+    with patch("aginiti.core.graph.priors.chat_json", side_effect=_capture):
         seed_target_priors(SecurityStateGraph(), small_lib, "context", seed=1)
     small_tokens = calls["max_tokens"]
 
-    with patch("aginiti.graph.priors.chat_json", side_effect=_capture):
+    with patch("aginiti.core.graph.priors.chat_json", side_effect=_capture):
         seed_target_priors(SecurityStateGraph(), big_lib, "context", seed=1)
     big_tokens = calls["max_tokens"]
 
@@ -190,7 +190,7 @@ class _FakeAdapter:
         self.calls = 0
 
     def execute(self, operator, ssg, agent, seed=None):
-        from aginiti.adapter.observation_adapter import ExecutionResult
+        from aginiti.core.observation_adapter import ExecutionResult
         self.calls += 1
         return ExecutionResult(
             operator_id=operator.id, operator_execution_id=f"exec_{self.calls}",
@@ -200,31 +200,31 @@ class _FakeAdapter:
 
 
 def test_run_campaign_does_not_seed_priors_by_default():
-    from aginiti.campaign import run_campaign
-    from aginiti.graph.schema import RiskTier
-    from aginiti.mission import Mission
-    from aginiti.policies.random_policy import RandomPolicy
+    from aginiti.core.campaign import run_campaign
+    from aginiti.core.graph.schema import RiskTier
+    from aginiti.core.mission import Mission
+    from aginiti.core.policies.random_policy import RandomPolicy
 
     lib = _library()
     mission = Mission(goal="x", success_criteria=("system_prompt_disclosed",),
                        success_mode="any", budget=1, risk_threshold=RiskTier.MEDIUM)
-    with patch("aginiti.graph.priors.chat_json") as mock_priors_chat:
+    with patch("aginiti.core.graph.priors.chat_json") as mock_priors_chat:
         run_campaign(mission, lib, agent=object(), policy=RandomPolicy(seed=1),
                      adapter=_FakeAdapter(), max_steps=1, seed=1)
     mock_priors_chat.assert_not_called()
 
 
 def test_run_campaign_seeds_priors_when_target_briefing_given():
-    from aginiti.campaign import run_campaign
-    from aginiti.graph.schema import RiskTier
-    from aginiti.mission import Mission
-    from aginiti.policies.random_policy import RandomPolicy
+    from aginiti.core.campaign import run_campaign
+    from aginiti.core.graph.schema import RiskTier
+    from aginiti.core.mission import Mission
+    from aginiti.core.policies.random_policy import RandomPolicy
 
     lib = _library()
     mission = Mission(goal="x", success_criteria=("system_prompt_disclosed",),
                        success_mode="any", budget=1, risk_threshold=RiskTier.MEDIUM)
     verdict = {"priorities": {}, "reasoning": {}}
-    with patch("aginiti.graph.priors.chat_json", return_value=verdict) as mock_priors_chat:
+    with patch("aginiti.core.graph.priors.chat_json", return_value=verdict) as mock_priors_chat:
         run_campaign(mission, lib, agent=object(), policy=RandomPolicy(seed=1),
                      adapter=_FakeAdapter(), max_steps=1, seed=1, target_briefing="A RAG chat app.")
     mock_priors_chat.assert_called_once()
@@ -234,10 +234,10 @@ def test_run_campaign_does_not_reseed_priors_on_a_graph_that_already_has_a_knowl
     # 2026-08-09 idempotency fix: a persistent graph reused across sessions
     # (aginiti/graph/persistence.py's whole point) should only ever pay for
     # this LLM call once per graph, not once per resumed campaign.
-    from aginiti.campaign import run_campaign
-    from aginiti.graph.schema import RiskTier
-    from aginiti.mission import Mission
-    from aginiti.policies.random_policy import RandomPolicy
+    from aginiti.core.campaign import run_campaign
+    from aginiti.core.graph.schema import RiskTier
+    from aginiti.core.mission import Mission
+    from aginiti.core.policies.random_policy import RandomPolicy
 
     lib = _library()
     ssg = SecurityStateGraph()
@@ -245,7 +245,7 @@ def test_run_campaign_does_not_reseed_priors_on_a_graph_that_already_has_a_knowl
                         related_probe_id=next(iter(lib)).id)
     mission = Mission(goal="x", success_criteria=("system_prompt_disclosed",),
                        success_mode="any", budget=1, risk_threshold=RiskTier.MEDIUM)
-    with patch("aginiti.graph.priors.chat_json") as mock_priors_chat:
+    with patch("aginiti.core.graph.priors.chat_json") as mock_priors_chat:
         run_campaign(mission, lib, agent=object(), policy=RandomPolicy(seed=1),
                      adapter=_FakeAdapter(), max_steps=1, seed=1, target_briefing="A RAG chat app.",
                      ssg=ssg)
@@ -307,7 +307,7 @@ def test_seed_target_priors_breaks_a_same_bucket_tie_using_rank():
         "reasoning": {},
     }
     ssg = SecurityStateGraph()
-    with patch("aginiti.graph.priors.chat_json", return_value=verdict):
+    with patch("aginiti.core.graph.priors.chat_json", return_value=verdict):
         seed_target_priors(ssg, lib, "context", seed=1)
 
     by_probe = {i.related_probe_id: i for i in ssg.insights if i.category == InsightCategory.KNOWLEDGE_GAP}
@@ -323,7 +323,7 @@ def test_seed_target_priors_degrades_gracefully_when_rank_is_missing():
     op_id = next(iter(lib)).id
     verdict = {"priorities": {op_id: "high"}, "reasoning": {}}  # no "rank" key
     ssg = SecurityStateGraph()
-    with patch("aginiti.graph.priors.chat_json", return_value=verdict):
+    with patch("aginiti.core.graph.priors.chat_json", return_value=verdict):
         seed_target_priors(ssg, lib, "context", seed=1)
 
     insight = next(i for i in ssg.insights if i.related_probe_id == op_id)

@@ -1,4 +1,4 @@
-from aginiti.adapter.observation_adapter import _judge
+from aginiti.core.observation_adapter import _judge
 from aginiti.operators.definitions import build_library
 
 lib = build_library()

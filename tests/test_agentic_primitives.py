@@ -10,14 +10,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from aginiti.adapters.base import SendResult
-from aginiti.campaign import run_campaign
-from aginiti.graph.failure_diagnosis import BLOCKED_BY_APPROVAL_GATE
-from aginiti.graph.schema import RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L3
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.failure_diagnosis import BLOCKED_BY_APPROVAL_GATE
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L3
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.agentic_primitives_definitions import build_agentic_primitives_library
-from aginiti.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
 
 
 @dataclass

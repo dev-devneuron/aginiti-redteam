@@ -1,7 +1,7 @@
-from aginiti.graph.schema import ClaimStatus
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.schema import ClaimStatus
+from aginiti.core.graph.ssg import SecurityStateGraph
 from aginiti.operators.dvla_definitions import build_dvla_library
-from aginiti.scenarios import dvla_mission
+from aginiti.core.scenarios import dvla_mission
 
 
 def test_dvla_library_has_three_operators():

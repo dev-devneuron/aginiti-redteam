@@ -20,7 +20,7 @@ that deliberately bypass the judge on purpose.
 Every builder function below needs a real, harmless placeholder argument
 only (canary strings, listener URLs, file paths) -- none of this touches
 a live target or LLM."""
-from aginiti.adapter.observation_adapter import KEY_DESCRIPTIONS
+from aginiti.core.observation_adapter import KEY_DESCRIPTIONS
 from aginiti.operators.anythingllm_automatic_definitions import build_anythingllm_automatic_library
 from aginiti.operators.anythingllm_definitions import build_anythingllm_library
 from aginiti.operators.anythingllm_markdown_exfil_definitions import build_anythingllm_markdown_exfil_library

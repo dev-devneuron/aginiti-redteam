@@ -61,18 +61,18 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import requests
 
 from aginiti.adapters.anythingllm_adapter import AnythingLLMAdapter
-from aginiti.campaign import run_campaign
-from aginiti.graph.schema import RiskTier
-from aginiti.logging_utils import load_json, new_run_id, run_dir, save_json, save_trial
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.logging_utils import load_json, new_run_id, run_dir, save_json, save_trial
+from aginiti.core.mission import Mission
 from aginiti.operators.anythingllm_automatic_definitions import build_anythingllm_automatic_library
 from aginiti.operators.anythingllm_definitions import build_anythingllm_library
 from aginiti.operators.data_exposure import data_exposure_operators
 from aginiti.operators.library import OperatorLibrary
-from aginiti.planner.variants import BFSOnlyPlanner, GreedyInfoGainPlanner
-from aginiti.policies.aginiti_policy import AginitiPolicy
-from aginiti.policies.random_policy import RandomPolicy
-from aginiti.policies.static_policy import StaticPolicy
+from aginiti.core.planner.variants import BFSOnlyPlanner, GreedyInfoGainPlanner
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.random_policy import RandomPolicy
+from aginiti.core.policies.static_policy import StaticPolicy
 
 BASE_URL = "http://localhost:3001"
 DEV_API_KEY = "5YAK747-MJ64GZW-HTSYBY7-HBF1E2A"

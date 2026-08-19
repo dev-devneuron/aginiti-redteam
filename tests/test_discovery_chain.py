@@ -14,13 +14,13 @@ from dataclasses import dataclass, field
 import pytest
 
 from aginiti.adapters.base import SendResult
-from aginiti.campaign import run_campaign
-from aginiti.graph.schema import RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L5
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L5
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.discovery_chain_definitions import build_discovery_chain_library
-from aginiti.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
 
 
 @dataclass

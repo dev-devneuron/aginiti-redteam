@@ -34,14 +34,14 @@ import sys
 
 sys.path.insert(0, ".")  # project convention -- see experiments/exp1_*.py
 
-from aginiti.campaign import run_campaign
-from aginiti.graph.schema import RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.hidden_state_definitions import build_hidden_state_library
 from aginiti.operators.library import OperatorLibrary
-from aginiti.planner.aginiti_planner import AginitiPlanner
-from aginiti.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.planner.aginiti_planner import AginitiPlanner
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
 from aginiti.target.hidden_state_agent import HiddenStateAgent
 
 _SUCCESS_CRITERIA = ("deep_secret_leaked",)

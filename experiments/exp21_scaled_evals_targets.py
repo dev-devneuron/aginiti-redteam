@@ -44,17 +44,17 @@ load_dotenv()
 from aginiti.adapters.hardened_agent_adapter import HardenedAgentAdapter
 from aginiti.adapters.healthcare_agent_adapter import HealthcareAgentAdapter
 from aginiti.adapters.scaled_evals_ground_truth import VerbatimDisclosureIndex
-from aginiti.campaign import run_campaign
-from aginiti.composite_score import composite_campaign_score
-from aginiti.graph.schema import RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.graph.target_profile import build_target_profile, render_markdown
-from aginiti.graph.persistence import save_ssg
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.composite_score import composite_campaign_score
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.target_profile import build_target_profile, render_markdown
+from aginiti.core.graph.persistence import save_ssg
+from aginiti.core.mission import Mission
 from aginiti.operators.hardened_agent_definitions import build_hardened_agent_library
 from aginiti.operators.healthcare_agent_definitions import build_healthcare_agent_library
 from aginiti.operators.library import OperatorLibrary
-from aginiti.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
 
 _ROOT = Path(__file__).parent.parent
 _DATASETS = _ROOT / "benchmarks" / "scaled_evals" / "datasets"

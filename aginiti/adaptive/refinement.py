@@ -65,11 +65,11 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import dataclass, field
 
-from aginiti.adapter.observation_adapter import ExecutionResult, ObservationAdapter
+from aginiti.core.observation_adapter import ExecutionResult, ObservationAdapter
 from aginiti.adapters.base import BaseAdapter
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.ssg import SecurityStateGraph
 from aginiti.llm_client import chat
-from aginiti.observability import get_logger
+from aginiti.core.observability import get_logger
 from aginiti.operators.library import Operator
 
 _logger = get_logger("adaptive_refinement")

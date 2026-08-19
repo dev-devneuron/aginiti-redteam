@@ -6,10 +6,10 @@ this primitive is grounded in (Embrace The Red's original markdown-
 injection work, EchoLeak/CVE-2025-32711, OWASP 2026 LLM13) and the live
 verification already run against the real target.
 """
-from aginiti.adapter.observation_adapter import ObservationAdapter
+from aginiti.core.observation_adapter import ObservationAdapter
 from aginiti.adapters.base import SendResult
-from aginiti.graph.schema import ClaimStatus
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.schema import ClaimStatus
+from aginiti.core.graph.ssg import SecurityStateGraph
 from aginiti.operators.anythingllm_markdown_exfil_definitions import (
     build_anythingllm_markdown_exfil_library,
 )

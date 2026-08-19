@@ -8,9 +8,9 @@ from __future__ import annotations
 import dataclasses
 
 import aginiti.adaptive.crescendo as cr
-from aginiti.adapter.observation_adapter import _effect_id
+from aginiti.core.observation_adapter import _effect_id
 from aginiti.adapters.base import SendResult
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.ssg import SecurityStateGraph
 
 _real_crescendo_operator = cr._crescendo_operator
 

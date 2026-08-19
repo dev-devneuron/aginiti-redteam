@@ -11,7 +11,7 @@ from aginiti.adaptive.membership_inference import (
     run_membership_inference,
 )
 from aginiti.adapters.base import SendResult
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.ssg import SecurityStateGraph
 
 _DOC = {"id": "cuad_0001", "document_text": "This agreement includes an indemnification clause "
                                               "and terminates automatically after thirty days."}

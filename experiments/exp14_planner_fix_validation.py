@@ -47,8 +47,8 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from aginiti.adapters.anythingllm_adapter import AnythingLLMAdapter
-from aginiti.campaign import run_campaign
-from aginiti.logging_utils import load_json, new_run_id, run_dir, save_json, save_trial
+from aginiti.core.campaign import run_campaign
+from aginiti.core.logging_utils import load_json, new_run_id, run_dir, save_json, save_trial
 
 from exp12_branching_benchmark import (  # noqa: E402
     BASE_URL,

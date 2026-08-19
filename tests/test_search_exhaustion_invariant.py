@@ -14,16 +14,16 @@ from __future__ import annotations
 
 import pytest
 
-from aginiti.adapter.observation_adapter import ObservationAdapter
-from aginiti.graph.candidate_status import CandidateStatus
-from aginiti.graph.schema import RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.observation_adapter import ObservationAdapter
+from aginiti.core.graph.candidate_status import CandidateStatus
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.hidden_state_definitions import build_hidden_state_library
 from aginiti.operators.library import OperatorLibrary
 from aginiti.operators.multi_family_definitions import build_multi_family_library
-from aginiti.planner.aginiti_planner import AginitiPlanner
-from aginiti.policies.base import eligible_operators
+from aginiti.core.planner.aginiti_planner import AginitiPlanner
+from aginiti.core.policies.base import eligible_operators
 from aginiti.target.hidden_state_agent import HiddenStateAgent
 from aginiti.target.multi_family_agent import MultiFamilyAgent
 
@@ -70,7 +70,7 @@ def _drive_and_check_invariant(build_library, build_agent, flags: dict, budget: 
         recency_window = max(4, 2 * mission.budget)
         belief = None
         if planner.enable_family_diversification:
-            from aginiti.graph.target_belief import TargetBeliefState
+            from aginiti.core.graph.target_belief import TargetBeliefState
             belief = TargetBeliefState.from_ssg(ssg, library)
 
         elig = eligible_operators(library, ssg, mission, prompts_used, frozenset(executed))

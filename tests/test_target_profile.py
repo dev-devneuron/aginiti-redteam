@@ -3,8 +3,8 @@ primary product artifact synthesized from the graph. No live API calls:
 built entirely from hand-constructed SSGs/libraries, same pattern as
 test_graph_queries.py.
 """
-from aginiti.graph.schema import ClaimStatus, InsightCategory, RiskTier
-from aginiti.graph.ssg import (
+from aginiti.core.graph.schema import ClaimStatus, InsightCategory, RiskTier
+from aginiti.core.graph.ssg import (
     CATEGORY_DEFENDER_CONTROL,
     CATEGORY_MISSION_OUTCOME,
     CATEGORY_TRUST_EDGE,
@@ -12,12 +12,12 @@ from aginiti.graph.ssg import (
     SUBGRAPH_DEFENDER,
     SecurityStateGraph,
 )
-from aginiti.graph.attack_category import ENCODING_ATTACK, MARKDOWN_NETWORK_EXFILTRATION
-from aginiti.graph.mitre_atlas_refs import EXFILTRATION_VIA_TOOL_INVOCATION
-from aginiti.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION, LLM06_EXCESSIVE_AGENCY
-from aginiti.graph.security_boundary import BOUNDARY_L0, BOUNDARY_L5
-from aginiti.graph.target_profile import build_target_profile, render_markdown
-from aginiti.mission import Mission
+from aginiti.core.graph.attack_category import ENCODING_ATTACK, MARKDOWN_NETWORK_EXFILTRATION
+from aginiti.core.graph.mitre_atlas_refs import EXFILTRATION_VIA_TOOL_INVOCATION
+from aginiti.core.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION, LLM06_EXCESSIVE_AGENCY
+from aginiti.core.graph.security_boundary import BOUNDARY_L0, BOUNDARY_L5
+from aginiti.core.graph.target_profile import build_target_profile, render_markdown
+from aginiti.core.mission import Mission
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary, Precondition
 
 

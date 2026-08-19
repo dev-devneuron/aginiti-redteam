@@ -6,16 +6,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from aginiti.adapters.base import SendResult
-from aginiti.campaign import run_campaign
-from aginiti.composite_score import composite_campaign_score
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.graph.target_graph import START
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.composite_score import composite_campaign_score
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.target_graph import START
+from aginiti.core.mission import Mission
 from aginiti.operators.discovery_chain_definitions import build_discovery_chain_library
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary
-from aginiti.policies.aginiti_policy import AginitiPolicy
-from aginiti.policies.random_policy import RandomPolicy
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.random_policy import RandomPolicy
 
 
 @dataclass
@@ -115,10 +115,10 @@ def test_any_mode_mission_success_is_a_strict_boolean_not_diluted_by_untried_cri
     must score mission_success=1.0 (the mission's own is_satisfied()
     agrees) -- NOT 1/5=0.2, which the pre-fix formula produced by reusing
     business_impact's fractional logic for both modes."""
-    from aginiti.composite_score import CompositeScore, composite_campaign_score
+    from aginiti.core.composite_score import CompositeScore, composite_campaign_score
 
     ssg = SecurityStateGraph()
-    from aginiti.graph.security_boundary import BOUNDARY_L2
+    from aginiti.core.graph.security_boundary import BOUNDARY_L2
 
     library = OperatorLibrary([
         Operator(id="only_attempt", description="x", prompt="x", channel="direct", preconditions=(),

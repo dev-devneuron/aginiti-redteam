@@ -11,11 +11,11 @@ from __future__ import annotations
 import os
 
 from aginiti.adapters.dvaa_adapter import DVAAAdapter
-from aginiti.graph.persistence import save_ssg
-from aginiti.graph.target_profile import build_target_profile, render_markdown
+from aginiti.core.graph.persistence import save_ssg
+from aginiti.core.graph.target_profile import build_target_profile, render_markdown
 from aginiti.operators.dvaa_definitions import build_dvaa_library
-from aginiti.scenarios import dvaa_mission
-from aginiti.understanding_loop import run_understanding_loop
+from aginiti.core.scenarios import dvaa_mission
+from aginiti.core.understanding_loop import run_understanding_loop
 
 TARGET_NAME = "DVAA (damn-vulnerable-ai-agent)"
 

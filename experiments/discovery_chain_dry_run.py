@@ -33,12 +33,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from aginiti.adapters.base import SendResult
-from aginiti.campaign import run_campaign
-from aginiti.graph.schema import RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L5
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L5
+from aginiti.core.mission import Mission
 from aginiti.operators.discovery_chain_definitions import build_discovery_chain_library
-from aginiti.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
 
 
 @dataclass
@@ -83,7 +83,7 @@ def _build_mission() -> Mission:
 
 
 def _run(label: str, suppress_marker_for_key: str | None) -> None:
-    from aginiti.graph.ssg import SecurityStateGraph
+    from aginiti.core.graph.ssg import SecurityStateGraph
 
     library = build_discovery_chain_library()
     ssg = SecurityStateGraph()

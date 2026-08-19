@@ -13,7 +13,7 @@ import json
 import os
 from datetime import datetime, timezone
 
-from aginiti.logging_utils import _json_safe
+from aginiti.core.logging_utils import _json_safe
 
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "results")
 

@@ -27,17 +27,17 @@ the false-exhaustion no longer occurs, and `encoding_v3` gets executed.
 This test file encodes that same scenario/budget as a permanent guard."""
 from __future__ import annotations
 
-from aginiti.adapter.observation_adapter import ObservationAdapter
-from aginiti.graph.schema import RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.observation_adapter import ObservationAdapter
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.library import OperatorLibrary
 from aginiti.operators.multi_family_definitions import build_multi_family_library
-from aginiti.planner.aginiti_planner import AginitiPlanner
-from aginiti.policies.aginiti_policy import AginitiPolicy
-from aginiti.policies.base import eligible_operators
+from aginiti.core.planner.aginiti_planner import AginitiPlanner
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.base import eligible_operators
 from aginiti.target.multi_family_agent import MultiFamilyAgent
-from aginiti.campaign import run_campaign
+from aginiti.core.campaign import run_campaign
 
 _BUDGET = 8  # the exact, empirically-verified reproduction budget -- see module docstring
 

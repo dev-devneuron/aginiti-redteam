@@ -1,6 +1,6 @@
 import pytest
 
-from aginiti.pdf_export import _find_browser
+from aginiti.core.pdf_export import _find_browser
 
 
 def test_finds_a_browser_on_this_machine():

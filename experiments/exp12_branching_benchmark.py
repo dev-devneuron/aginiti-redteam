@@ -85,10 +85,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 os.environ.setdefault("AGINITI_LLM_PROVIDER", "gemini")
 
 from aginiti.adapters.anythingllm_adapter import AnythingLLMAdapter
-from aginiti.campaign import run_campaign
-from aginiti.graph.schema import RiskTier
-from aginiti.logging_utils import load_json, new_run_id, run_dir, save_json, save_trial
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.logging_utils import load_json, new_run_id, run_dir, save_json, save_trial
+from aginiti.core.mission import Mission
 from aginiti.operators.anythingllm_automatic_definitions import build_anythingllm_automatic_library
 from aginiti.operators.anythingllm_definitions import build_anythingllm_library
 from aginiti.operators.data_exposure import data_exposure_operators

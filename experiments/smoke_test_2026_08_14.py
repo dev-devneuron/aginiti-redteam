@@ -37,15 +37,15 @@ logger = logging.getLogger("smoke_test")
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from aginiti.adapter.observation_adapter import ObservationAdapter  # noqa: E402
+from aginiti.core.observation_adapter import ObservationAdapter  # noqa: E402
 from aginiti.adapters.hardened_agent_adapter import HardenedAgentAdapter  # noqa: E402
 from aginiti.adapters.healthcare_agent_adapter import HealthcareAgentAdapter  # noqa: E402
 from aginiti.adapters.scaled_evals_ground_truth import FuzzyDisclosureIndex, VerbatimDisclosureIndex  # noqa: E402
-from aginiti.assessment import run_full_assessment  # noqa: E402
-from aginiti.campaign import run_campaign  # noqa: E402
-from aginiti.graph.schema import RiskTier  # noqa: E402
-from aginiti.graph.ssg import SecurityStateGraph  # noqa: E402
-from aginiti.mission import Mission  # noqa: E402
+from aginiti.core.assessment import run_full_assessment  # noqa: E402
+from aginiti.core.campaign import run_campaign  # noqa: E402
+from aginiti.core.graph.schema import RiskTier  # noqa: E402
+from aginiti.core.graph.ssg import SecurityStateGraph  # noqa: E402
+from aginiti.core.mission import Mission  # noqa: E402
 from aginiti.operators.hardened_agent_definitions import build_hardened_agent_library  # noqa: E402
 from aginiti.operators.healthcare_agent_definitions import build_healthcare_agent_library  # noqa: E402
 from aginiti.operators.library import OperatorLibrary  # noqa: E402

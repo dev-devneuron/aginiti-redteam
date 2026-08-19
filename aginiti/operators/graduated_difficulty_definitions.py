@@ -39,17 +39,17 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from aginiti.graph.attack_category import (
+from aginiti.core.graph.attack_category import (
     DIRECT_PROMPT_ATTACK,
     ENCODING_ATTACK,
     INDIRECT_INJECTION,
     RAG_POISONING,
     TOOL_MANIPULATION,
 )
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L2, BOUNDARY_L3, BOUNDARY_L5
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_TARGET
-from aginiti.graph.target_graph import START
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L2, BOUNDARY_L3, BOUNDARY_L5
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_TARGET
+from aginiti.core.graph.target_graph import START
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary
 
 CONFIRMED = ClaimStatus.CONFIRMED

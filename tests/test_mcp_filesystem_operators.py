@@ -1,7 +1,7 @@
-from aginiti.graph.schema import ClaimStatus
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SecurityStateGraph
+from aginiti.core.graph.schema import ClaimStatus
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SecurityStateGraph
 from aginiti.operators.mcp_filesystem_definitions import build_filesystem_mcp_library
-from aginiti.scenarios import filesystem_mcp_mission
+from aginiti.core.scenarios import filesystem_mcp_mission
 
 
 def _library():

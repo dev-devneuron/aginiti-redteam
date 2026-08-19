@@ -12,16 +12,16 @@ in this suite is at any risk of an accidental live call.
 """
 from unittest.mock import patch
 
-from aginiti.adapter.observation_adapter import ExecutionResult
-from aginiti.campaign import run_campaign
-from aginiti.graph.belief_state import BranchBelief, apply_reasoning_verdict, should_run_reasoning_pass
-from aginiti.graph.hypothesis import HypothesisStatus
-from aginiti.graph.insights import ReasoningPassResult, run_reasoning_pass
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import CATEGORY_DEFENDER_CONTROL, CATEGORY_MISSION_OUTCOME, CATEGORY_TRUST_EDGE, SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.observation_adapter import ExecutionResult
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.belief_state import BranchBelief, apply_reasoning_verdict, should_run_reasoning_pass
+from aginiti.core.graph.hypothesis import HypothesisStatus
+from aginiti.core.graph.insights import ReasoningPassResult, run_reasoning_pass
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import CATEGORY_DEFENDER_CONTROL, CATEGORY_MISSION_OUTCOME, CATEGORY_TRUST_EDGE, SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary
-from aginiti.policies.base import Candidate
+from aginiti.core.policies.base import Candidate
 
 
 def _tagged_operator(op_id, branch, effects_success=(), effects_failure=(), preconditions=()):
@@ -88,7 +88,7 @@ def test_run_reasoning_pass_makes_no_llm_call_when_the_diff_is_empty():
     claim = ssg.assert_claim("cap", "true", ClaimStatus.CONFIRMED)
     library = OperatorLibrary([])
 
-    with patch("aginiti.graph.insights.chat_json") as mock_chat:
+    with patch("aginiti.core.graph.insights.chat_json") as mock_chat:
         result = run_reasoning_pass(ssg, "target", library, since_claim_id=claim.id)  # diff is empty
 
     mock_chat.assert_not_called()
@@ -109,7 +109,7 @@ def test_run_reasoning_pass_only_shows_the_diff_but_still_grounds_against_the_fu
         ],
         "security_insights": [], "knowledge_gaps": [],
     }
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict) as mock_chat:
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict) as mock_chat:
         result = run_reasoning_pass(ssg, "target", library, since_claim_id=old.id)
 
     assert len(result.insights) == 1
@@ -124,7 +124,7 @@ def test_run_reasoning_pass_threads_prior_summary_into_the_prompt():
     ssg.assert_claim("k", "true", ClaimStatus.CONFIRMED)
     library = OperatorLibrary([])
 
-    with patch("aginiti.graph.insights.chat_json", return_value={}) as mock_chat:
+    with patch("aginiti.core.graph.insights.chat_json", return_value={}) as mock_chat:
         run_reasoning_pass(ssg, "target", library, prior_summary="Slack trusts unverified senders.")
 
     sent_user_message = mock_chat.call_args[0][0][1]["content"]
@@ -144,7 +144,7 @@ def test_run_reasoning_pass_parses_updated_summary_and_branch_signal():
             {"branch": "bad", "direction": "sideways", "why": "malformed direction -- dropped"},
         ],
     }
-    with patch("aginiti.graph.insights.chat_json", return_value=fake_verdict):
+    with patch("aginiti.core.graph.insights.chat_json", return_value=fake_verdict):
         result = run_reasoning_pass(ssg, "target", library)
 
     assert result.updated_summary == "Slack trust confirmed; GitHub likely similar."
@@ -156,7 +156,7 @@ def test_run_reasoning_pass_treats_missing_updated_summary_as_none():
     ssg.assert_claim("k", "true", ClaimStatus.CONFIRMED)
     library = OperatorLibrary([])
 
-    with patch("aginiti.graph.insights.chat_json", return_value={}):
+    with patch("aginiti.core.graph.insights.chat_json", return_value={}):
         result = run_reasoning_pass(ssg, "target", library)
 
     assert result.updated_summary is None
@@ -229,7 +229,7 @@ def test_apply_reasoning_verdict_interest_floors_at_zero():
 def test_apply_reasoning_verdict_rebuilds_open_questions_from_knowledge_gap_insights():
     ssg = SecurityStateGraph()
     library = OperatorLibrary([])
-    ssg.record_insight(__import__("aginiti.graph.schema", fromlist=["InsightCategory"]).InsightCategory.KNOWLEDGE_GAP,
+    ssg.record_insight(__import__("aginiti.core.graph.schema", fromlist=["InsightCategory"]).InsightCategory.KNOWLEDGE_GAP,
                         "memory persistence: unknown", importance="high", related_probe_id="probe_memory")
 
     apply_reasoning_verdict(ssg, library, ReasoningPassResult())
@@ -294,7 +294,7 @@ def test_campaign_never_calls_the_llm_when_reasoning_layer_disabled():
     library = OperatorLibrary([op])
     mission = Mission(goal="test", success_criteria=("unreachable",), budget=10, risk_threshold=RiskTier.LOW)
 
-    with patch("aginiti.graph.insights.chat_json") as mock_chat:
+    with patch("aginiti.core.graph.insights.chat_json") as mock_chat:
         run_campaign(mission, library, agent=object(), policy=_ScriptedPolicy(),
                      adapter=_SucceedAdapter(), stop_on_mission_success=False)
                      # enable_reasoning_layer defaults to False
@@ -311,7 +311,7 @@ def test_campaign_calls_the_llm_exactly_once_when_a_trust_edge_confirms_and_laye
     mission = Mission(goal="test-target", success_criteria=("unreachable",), budget=10, risk_threshold=RiskTier.LOW)
     ssg = SecurityStateGraph()
 
-    with patch("aginiti.graph.insights.chat_json", return_value={
+    with patch("aginiti.core.graph.insights.chat_json", return_value={
         "behavioral_insights": [], "security_insights": [], "knowledge_gaps": [],
         "updated_summary": "payroll trust confirmed",
     }) as mock_chat:

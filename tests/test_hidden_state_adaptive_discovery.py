@@ -14,15 +14,15 @@ behaviors explicitly, in order:
 
 Every assertion below reads real values off a real, executed campaign --
 no mocked ranking, no hand-waving."""
-from aginiti.campaign import run_campaign
-from aginiti.graph.schema import RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.graph.target_belief import TargetBeliefState
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.target_belief import TargetBeliefState
+from aginiti.core.mission import Mission
 from aginiti.operators.hidden_state_definitions import build_hidden_state_library
 from aginiti.operators.library import OperatorLibrary
-from aginiti.planner.aginiti_planner import AginitiPlanner
-from aginiti.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.planner.aginiti_planner import AginitiPlanner
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
 from aginiti.target.hidden_state_agent import HiddenStateAgent
 
 _SUCCESS_CRITERIA = ("deep_secret_leaked",)
@@ -46,7 +46,7 @@ def _run(planner: AginitiPlanner, budget: int):
 # --------------------------------------------------------------------------
 
 def test_1_and_2_failed_attack_is_observed_and_changes_belief_state():
-    from aginiti.adapter.observation_adapter import ObservationAdapter
+    from aginiti.core.observation_adapter import ObservationAdapter
 
     library = OperatorLibrary(build_hidden_state_library())
     ssg = SecurityStateGraph()
@@ -76,7 +76,7 @@ def test_1_and_2_failed_attack_is_observed_and_changes_belief_state():
 # --------------------------------------------------------------------------
 
 def test_3_ranking_changes_because_of_the_observation():
-    from aginiti.adapter.observation_adapter import ObservationAdapter
+    from aginiti.core.observation_adapter import ObservationAdapter
 
     library = OperatorLibrary(build_hidden_state_library())
     ssg = SecurityStateGraph()
@@ -95,7 +95,7 @@ def test_3_ranking_changes_because_of_the_observation():
     # deliberately smaller than the REACTIVE DIVERSIFICATION_BONUS tested
     # below (recon_fdiv_after), which fires once something else has
     # actually demonstrated a dead end -- a stronger signal.
-    from aginiti.graph.novelty import PROACTIVE_COVERAGE_BONUS
+    from aginiti.core.graph.novelty import PROACTIVE_COVERAGE_BONUS
     assert fdiv_before == PROACTIVE_COVERAGE_BONUS
 
     adapter.execute(library.get("direct_ask_v1"), ssg, agent)

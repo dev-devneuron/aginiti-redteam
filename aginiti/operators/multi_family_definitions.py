@@ -26,16 +26,16 @@ showed info_gain=4.00 for a never-attempted flat operator) -- not
 independently re-guessed."""
 from __future__ import annotations
 
-from aginiti.graph.attack_category import (
+from aginiti.core.graph.attack_category import (
     DIRECT_PROMPT_ATTACK,
     ENCODING_ATTACK,
     LOW_VALUE_RECONNAISSANCE,
     TOOL_DISCOVERY,
 )
-from aginiti.graph.failure_diagnosis import ACTIVELY_REFUSED
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L0, BOUNDARY_L5
-from aginiti.graph.ssg import CATEGORY_CAPABILITY, CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
+from aginiti.core.graph.failure_diagnosis import ACTIVELY_REFUSED
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L0, BOUNDARY_L5
+from aginiti.core.graph.ssg import CATEGORY_CAPABILITY, CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
 from aginiti.operators.library import ClaimEffect, Operator
 from aginiti.target.multi_family_agent import ENCODING_V3_MARKER, RECON_MARKER
 

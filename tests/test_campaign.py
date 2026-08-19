@@ -3,12 +3,12 @@ SEARCH_EXHAUSTED) with fake policy/adapter doubles -- no live API calls.
 Complements test_operators.py and test_llm_client.py, which cover the
 pieces the loop calls out to; this covers the loop's own control flow.
 """
-from aginiti.adapter.observation_adapter import ExecutionResult
-from aginiti.campaign import run_campaign
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.mission import Mission
+from aginiti.core.observation_adapter import ExecutionResult
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.mission import Mission
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary, Precondition
-from aginiti.policies.base import Candidate
+from aginiti.core.policies.base import Candidate
 
 
 def _operator(op_id, effects_success=(), effects_failure=(), preconditions=(), cost=1):

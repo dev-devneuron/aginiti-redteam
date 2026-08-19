@@ -25,8 +25,8 @@ from __future__ import annotations
 from aginiti.adaptive.refinement import AdaptiveRefinementResult, _refine_prompt, run_adaptive_refinement
 from aginiti.adaptive.variant_discovery import VariantDiscoveryResult, run_variant_discovery
 from aginiti.adapters.base import BaseAdapter
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
 from aginiti.operators.library import ClaimEffect, Operator
 
 CONFIRMED = ClaimStatus.CONFIRMED

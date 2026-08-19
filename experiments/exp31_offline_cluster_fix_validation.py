@@ -41,16 +41,16 @@ from pathlib import Path
 
 sys.path.insert(0, ".")
 
-from aginiti.campaign import run_campaign
-from aginiti.graph.schema import RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.technique_cluster_scenario_definitions import build_technique_cluster_library
 from aginiti.operators.library import OperatorLibrary
-from aginiti.planner.aginiti_planner import AginitiPlanner
-from aginiti.policies.aginiti_policy import AginitiPolicy
-from aginiti.policies.random_policy import RandomPolicy
-from aginiti.policies.static_policy import StaticPolicy
+from aginiti.core.planner.aginiti_planner import AginitiPlanner
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.random_policy import RandomPolicy
+from aginiti.core.policies.static_policy import StaticPolicy
 from aginiti.target.technique_cluster_scenario_agent import TechniqueClusterScenarioAgent
 
 _ROOT = Path(__file__).parent.parent

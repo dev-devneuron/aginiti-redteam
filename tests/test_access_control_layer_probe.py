@@ -32,7 +32,7 @@ def test_success_effect_is_capability_category_not_mission_outcome():
     FOLLOW-UP attacks, not itself a content disclosure -- CATEGORY_
     CAPABILITY, matching hardened_config_recon's own categorization,
     not CATEGORY_MISSION_OUTCOME."""
-    from aginiti.graph.ssg import CATEGORY_CAPABILITY
+    from aginiti.core.graph.ssg import CATEGORY_CAPABILITY
     for op in access_control_layer_probe_operators():
         assert op.effects_success[0].category == CATEGORY_CAPABILITY
 

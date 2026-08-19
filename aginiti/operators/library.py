@@ -12,8 +12,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import (
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import (
     CATEGORY_CAPABILITY,
     CATEGORY_DEFENDER_CONTROL,
     SUBGRAPH_DEFENDER,
@@ -298,7 +298,7 @@ class Operator:
         whichever of cpre's three fields are actually set, then confirmed
         against that key's CURRENT claim/status exactly as exact-key
         Precondition does."""
-        from aginiti.graph.security_boundary import rank as boundary_rank
+        from aginiti.core.graph.security_boundary import rank as boundary_rank
 
         candidate_keys = set(ssg.claim_category) | set(ssg.claim_attack_category) | set(ssg.claim_boundary)
         for key in candidate_keys:

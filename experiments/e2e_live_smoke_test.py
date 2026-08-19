@@ -29,14 +29,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import requests
 
 from aginiti.adapters.anythingllm_adapter import AnythingLLMAdapter
-from aginiti.campaign import run_campaign
-from aginiti.graph.schema import RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.anythingllm_definitions import build_anythingllm_library
 from aginiti.operators.data_exposure import data_exposure_operators
 from aginiti.operators.library import OperatorLibrary
-from aginiti.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
 from hardened_target_v2_config import HARDENED_PROMPT_V2, HARDENED_WORKSPACE_SETTINGS_V2
 
 GATEWAY_BASE_URL = "http://localhost:3002"

@@ -6,7 +6,7 @@ Claim under test (docs/EVIDENCE_AND_EVALUATION.md, "Cross-protocol
 reasoning"): the CATEGORY_TRUST_EDGE taxonomy generalizes across targets --
 already established via source inspection (three operator libraries tag
 CATEGORY_TRUST_EDGE independently). This experiment demonstrates the
-CONSUMER side: `aginiti.graph.queries.trust_assumptions()`, called
+CONSUMER side: `aginiti.core.graph.queries.trust_assumptions()`, called
 identically against three independently-produced graphs, surfaces all
 three findings with no per-target branching in the query itself.
 
@@ -37,10 +37,10 @@ import sys
 
 sys.path.insert(0, ".")
 
-from aginiti.graph.persistence import load_ssg
-from aginiti.graph.queries import trust_assumptions
-from aginiti.graph.schema import Claim, ClaimStatus, ConfidenceBand
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.persistence import load_ssg
+from aginiti.core.graph.queries import trust_assumptions
+from aginiti.core.graph.schema import Claim, ClaimStatus, ConfidenceBand
+from aginiti.core.graph.ssg import SecurityStateGraph
 from aginiti.operators.definitions import build_library
 from experiments.results_io import save_result
 
@@ -93,7 +93,7 @@ def main() -> None:
               "Proceeding with the two available real-target graphs.")
 
     print("=== Experiment 6: the SAME query, zero protocol-specific code, across targets ===")
-    print("query: aginiti.graph.queries.trust_assumptions(ssg)\n")
+    print("query: aginiti.core.graph.queries.trust_assumptions(ssg)\n")
 
     rows = []
     for name, ssg in graphs.items():

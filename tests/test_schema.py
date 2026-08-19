@@ -7,7 +7,7 @@ schema itself.
 """
 import pytest
 
-from aginiti.graph.schema import IMPORTANCE_BUCKET_SPAN, IMPORTANCE_WEIGHT, Insight, InsightCategory
+from aginiti.core.graph.schema import IMPORTANCE_BUCKET_SPAN, IMPORTANCE_WEIGHT, Insight, InsightCategory
 
 
 def test_priority_weight_none_is_always_valid_regardless_of_importance():

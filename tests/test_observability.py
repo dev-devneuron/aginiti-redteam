@@ -1,6 +1,6 @@
 import logging
 
-from aginiti.observability import get_logger
+from aginiti.core.observability import get_logger
 
 
 def test_get_logger_namespaces_under_aginiti():

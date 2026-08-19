@@ -1,8 +1,8 @@
-from aginiti.adapter.observation_adapter import _effect_id
+from aginiti.core.observation_adapter import _effect_id
 from aginiti.adapters.base import SendResult
 from aginiti.adaptive.variant_discovery import run_variant_discovery
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
 from aginiti.operators.library import ClaimEffect, Operator
 
 

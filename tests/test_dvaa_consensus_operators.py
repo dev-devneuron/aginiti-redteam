@@ -1,9 +1,9 @@
 import json
 
-from aginiti.graph.schema import ClaimStatus
-from aginiti.graph.ssg import CATEGORY_TRUST_EDGE, SecurityStateGraph
+from aginiti.core.graph.schema import ClaimStatus
+from aginiti.core.graph.ssg import CATEGORY_TRUST_EDGE, SecurityStateGraph
 from aginiti.operators.dvaa_consensus_definitions import build_dvaa_consensus_library
-from aginiti.scenarios import dvaa_consensus_mission
+from aginiti.core.scenarios import dvaa_consensus_mission
 
 
 def _library():

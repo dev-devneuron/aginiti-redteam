@@ -41,13 +41,13 @@ from __future__ import annotations
 import json
 
 from aginiti.adapters.scaled_evals_ground_truth import VerbatimDisclosureIndex, is_out_of_scope_for_persona
-from aginiti.graph.attack_category import DIRECT_PROMPT_ATTACK, LOW_VALUE_RECONNAISSANCE
-from aginiti.graph.failure_diagnosis import NOT_RETRIEVED
-from aginiti.graph.mitre_atlas_refs import DIRECT_PROMPT_INJECTION
-from aginiti.graph.owasp_llm_taxonomy import LLM02_SENSITIVE_INFORMATION_DISCLOSURE
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L1, BOUNDARY_L3
-from aginiti.graph.ssg import CATEGORY_CAPABILITY, CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
+from aginiti.core.graph.attack_category import DIRECT_PROMPT_ATTACK, LOW_VALUE_RECONNAISSANCE
+from aginiti.core.graph.failure_diagnosis import NOT_RETRIEVED
+from aginiti.core.graph.mitre_atlas_refs import DIRECT_PROMPT_INJECTION
+from aginiti.core.graph.owasp_llm_taxonomy import LLM02_SENSITIVE_INFORMATION_DISCLOSURE
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L1, BOUNDARY_L3
+from aginiti.core.graph.ssg import CATEGORY_CAPABILITY, CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
 from aginiti.operators.adaptive_followups import adaptive_followup_operators
 from aginiti.operators.data_exposure import data_exposure_operators
 from aginiti.operators.encoding_variants import build_encoding_evasion_operators

@@ -66,12 +66,12 @@ complete-sounding answer" requires semantic judgment, the same limitation
 `data_exposure.py`'s own judge-evaluated operators already have."""
 from __future__ import annotations
 
-from aginiti.graph.attack_category import LOW_VALUE_RECONNAISSANCE
-from aginiti.graph.mitre_atlas_refs import DIRECT_PROMPT_INJECTION
-from aginiti.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L1
-from aginiti.graph.ssg import CATEGORY_CAPABILITY, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
+from aginiti.core.graph.attack_category import LOW_VALUE_RECONNAISSANCE
+from aginiti.core.graph.mitre_atlas_refs import DIRECT_PROMPT_INJECTION
+from aginiti.core.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L1
+from aginiti.core.graph.ssg import CATEGORY_CAPABILITY, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
 from aginiti.operators.library import ClaimEffect, Operator
 
 CONFIRMED = ClaimStatus.CONFIRMED

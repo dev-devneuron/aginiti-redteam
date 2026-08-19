@@ -40,16 +40,16 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from aginiti.graph.attack_category import MULTI_STEP_CHAIN, RAG_POISONING, TOOL_MANIPULATION
-from aginiti.graph.mitre_atlas_refs import RAG_POISONING as ATLAS_RAG_POISONING
-from aginiti.graph.owasp_llm_taxonomy import (
+from aginiti.core.graph.attack_category import MULTI_STEP_CHAIN, RAG_POISONING, TOOL_MANIPULATION
+from aginiti.core.graph.mitre_atlas_refs import RAG_POISONING as ATLAS_RAG_POISONING
+from aginiti.core.graph.owasp_llm_taxonomy import (
     LLM02_SENSITIVE_INFORMATION_DISCLOSURE,
     LLM06_EXCESSIVE_AGENCY,
     LLM08_VECTOR_AND_EMBEDDING_WEAKNESSES,
 )
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L1, BOUNDARY_L2, BOUNDARY_L5
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L1, BOUNDARY_L2, BOUNDARY_L5
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary, Precondition
 
 CONFIRMED = ClaimStatus.CONFIRMED

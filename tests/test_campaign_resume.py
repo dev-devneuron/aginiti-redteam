@@ -3,13 +3,13 @@ from disk) SecurityStateGraph instead of always starting fresh -- the
 concrete mechanism behind "the graph outlives a single campaign." No live
 API calls.
 """
-from aginiti.adapter.observation_adapter import ExecutionResult
-from aginiti.campaign import run_campaign
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import CATEGORY_TRUST_EDGE, SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.observation_adapter import ExecutionResult
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import CATEGORY_TRUST_EDGE, SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary
-from aginiti.policies.base import Candidate
+from aginiti.core.policies.base import Candidate
 
 
 def _operator(op_id, effects_success=(), cost=1, branch=None):

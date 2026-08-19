@@ -54,7 +54,7 @@ import warnings
 from dotenv import load_dotenv
 from groq import Groq, RateLimitError
 
-from aginiti.observability import get_logger
+from aginiti.core.observability import get_logger
 
 load_dotenv()
 _logger = get_logger("llm_client")

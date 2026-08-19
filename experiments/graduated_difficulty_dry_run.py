@@ -36,11 +36,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from aginiti.adapters.base import SendResult
-from aginiti.campaign import run_campaign
-from aginiti.composite_score import composite_campaign_score
-from aginiti.graph.schema import RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.composite_score import composite_campaign_score
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.graduated_difficulty_definitions import (
     ALL_SUCCESS_KEYS,
     TRUE_SUCCESS_PROBABILITY,
@@ -49,10 +49,10 @@ from aginiti.operators.graduated_difficulty_definitions import (
     build_graduated_difficulty_library,
     success_marker,
 )
-from aginiti.policies.aginiti_policy import AginitiPolicy
-from aginiti.policies.bayesian_policy import BayesianPolicy
-from aginiti.policies.random_policy import RandomPolicy
-from aginiti.policies.static_policy import StaticPolicy
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.bayesian_policy import BayesianPolicy
+from aginiti.core.policies.random_policy import RandomPolicy
+from aginiti.core.policies.static_policy import StaticPolicy
 
 N_TRIALS = 300
 BUDGET = 7  # total cost of all 5 is 16 -- this affords 2-3 attempts, never all 5

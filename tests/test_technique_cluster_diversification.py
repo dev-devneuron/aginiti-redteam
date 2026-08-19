@@ -5,21 +5,21 @@ tests/test_novelty.py's own structure) plus a full-campaign regression
 test locking in exp31's own offline validation finding."""
 from __future__ import annotations
 
-from aginiti.campaign import run_campaign
-from aginiti.graph.novelty import (
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.novelty import (
     CLUSTER_PENALTY_PER_ATTEMPT,
     MAX_CLUSTER_PENALTY,
     technique_cluster_diversification_term,
 )
-from aginiti.graph.schema import RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.graph.target_belief import FamilyStats, TargetBeliefState
-from aginiti.mission import Mission
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.target_belief import FamilyStats, TargetBeliefState
+from aginiti.core.mission import Mission
 from aginiti.operators.technique_cluster_scenario_definitions import build_technique_cluster_library
 from aginiti.operators.library import OperatorLibrary
-from aginiti.planner.aginiti_planner import AginitiPlanner
-from aginiti.policies.aginiti_policy import AginitiPolicy
-from aginiti.policies.static_policy import StaticPolicy
+from aginiti.core.planner.aginiti_planner import AginitiPlanner
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.static_policy import StaticPolicy
 from aginiti.target.technique_cluster_scenario_agent import TechniqueClusterScenarioAgent
 
 _TIGHT_BUDGET = 5  # exactly the cluster's own size -- see technique_cluster_scenario_agent.py

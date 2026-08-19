@@ -4,16 +4,16 @@ a real target + judge round trip, same pattern as test_campaign.py.
 """
 import base64
 
-from aginiti.adapter.observation_adapter import KEY_DESCRIPTIONS, ExecutionResult
-from aginiti.campaign import run_campaign
-from aginiti.graph.belief_state import update_branch_beliefs
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import CATEGORY_DEFENDER_CONTROL, CATEGORY_MISSION_OUTCOME, SecurityStateGraph
+from aginiti.core.observation_adapter import KEY_DESCRIPTIONS, ExecutionResult
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.belief_state import update_branch_beliefs
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import CATEGORY_DEFENDER_CONTROL, CATEGORY_MISSION_OUTCOME, SecurityStateGraph
 from aginiti.operators.data_exposure import data_exposure_operators
 from aginiti.operators.definitions import build_library
 from aginiti.operators.library import OperatorLibrary
-from aginiti.policies.base import Candidate
-from aginiti.scenarios import data_exposure_mission
+from aginiti.core.policies.base import Candidate
+from aginiti.core.scenarios import data_exposure_mission
 
 
 def test_pack_has_seven_uniquely_ided_operators():

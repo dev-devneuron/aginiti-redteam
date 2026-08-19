@@ -19,10 +19,10 @@ CATEGORY_MISSION_OUTCOME confirmation like any other).
 """
 from __future__ import annotations
 
-from aginiti.graph.attack_category import INDIRECT_INJECTION
-from aginiti.graph.mitre_atlas_refs import INDIRECT_PROMPT_INJECTION
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER
+from aginiti.core.graph.attack_category import INDIRECT_INJECTION
+from aginiti.core.graph.mitre_atlas_refs import INDIRECT_PROMPT_INJECTION
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER
 from aginiti.operators.library import ClaimEffect, Operator
 
 CONFIRMED = ClaimStatus.CONFIRMED

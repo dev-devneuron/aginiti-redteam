@@ -31,12 +31,12 @@ import sys
 sys.path.insert(0, ".")
 
 from aginiti.adapters.dvaa_adapter import DVAAAdapter
-from aginiti.campaign import run_campaign
-from aginiti.graph.schema import RiskTier
-from aginiti.logging_utils import campaign_result_to_dict, save_json
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.logging_utils import campaign_result_to_dict, save_json
+from aginiti.core.mission import Mission
 from aginiti.operators.dvaa_definitions import build_dvaa_library
-from aginiti.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
 from experiments.groq_quota import is_rate_limit_error, preflight_check
 from experiments.results_io import RESULTS_DIR, save_result
 
@@ -47,7 +47,7 @@ RAW_DIR = os.path.join(RESULTS_DIR, "exp10_raw")
 
 
 def _all_mission_outcome_keys() -> tuple[str, ...]:
-    from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME
+    from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME
     lib = build_dvaa_library()
     keys = set()
     for op in lib:

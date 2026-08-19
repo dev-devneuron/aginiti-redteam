@@ -1,4 +1,4 @@
-from aginiti.scenarios import multi_path_mission
+from aginiti.core.scenarios import multi_path_mission
 
 
 def test_multi_path_mission_uses_any_success_mode_with_four_criteria():

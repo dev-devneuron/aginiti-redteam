@@ -2,14 +2,14 @@
 ClassPrecondition-gated follow-ups genuinely become eligible off of
 WHATEVER upstream operator produces a matching claim (not one hardcoded
 predecessor), and that a full campaign actually chains through them."""
-from aginiti.campaign import run_campaign
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import CATEGORY_DEFENDER_CONTROL, CATEGORY_MISSION_OUTCOME, SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import CATEGORY_DEFENDER_CONTROL, CATEGORY_MISSION_OUTCOME, SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.adaptive_followups import adaptive_followup_operators
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary
-from aginiti.planner.aginiti_planner import AginitiPlanner
-from aginiti.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.planner.aginiti_planner import AginitiPlanner
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
 
 CONFIRMED = ClaimStatus.CONFIRMED
 

@@ -67,11 +67,11 @@ import itertools
 
 from aginiti.adaptive.variant_discovery import VariantTrial, run_variant_discovery
 from aginiti.adapters.base import BaseAdapter
-from aginiti.graph.attack_category import ENCODING_ATTACK
-from aginiti.graph.mitre_atlas_refs import DIRECT_PROMPT_INJECTION
-from aginiti.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
+from aginiti.core.graph.attack_category import ENCODING_ATTACK
+from aginiti.core.graph.mitre_atlas_refs import DIRECT_PROMPT_INJECTION
+from aginiti.core.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
 from aginiti.operators.library import ClaimEffect, Operator
 from aginiti.transforms.converters import (
     ALL_CONVERTERS,

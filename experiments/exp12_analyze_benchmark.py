@@ -10,8 +10,8 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from aginiti.logging_utils import load_json
-from aginiti.stats import bootstrap_mean_ci, compare_to_aginiti
+from aginiti.core.logging_utils import load_json
+from aginiti.core.stats import bootstrap_mean_ci, compare_to_aginiti
 from results_io import save_result
 
 RUN_DIR = "runs_live_anythingllm_benchmark/exp12_bench_20260809"

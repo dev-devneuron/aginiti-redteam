@@ -20,17 +20,17 @@ discovery mechanism (2026-08-12) and the NEW independent-evidence path
 (2026-08-14) compose correctly, end to end, exactly as intended."""
 from __future__ import annotations
 
-from aginiti.adapter.observation_adapter import ObservationAdapter
-from aginiti.graph.schema import RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L5
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.graph.target_belief import TargetBeliefState
-from aginiti.mission import Mission
+from aginiti.core.observation_adapter import ObservationAdapter
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L5
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.graph.target_belief import TargetBeliefState
+from aginiti.core.mission import Mission
 from aginiti.operators.adaptive_followups import adaptive_followup_operators
 from aginiti.operators.library import OperatorLibrary
 from aginiti.operators.multi_family_definitions import build_multi_family_library
-from aginiti.planner.aginiti_planner import AginitiPlanner
-from aginiti.policies.base import eligible_operators
+from aginiti.core.planner.aginiti_planner import AginitiPlanner
+from aginiti.core.policies.base import eligible_operators
 from aginiti.target.multi_family_agent import MultiFamilyAgent
 
 

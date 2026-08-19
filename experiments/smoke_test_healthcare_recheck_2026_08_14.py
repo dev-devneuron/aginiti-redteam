@@ -15,10 +15,10 @@ logger = logging.getLogger("healthcare_recheck")
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from aginiti.adapter.observation_adapter import ObservationAdapter  # noqa: E402
+from aginiti.core.observation_adapter import ObservationAdapter  # noqa: E402
 from aginiti.adapters.healthcare_agent_adapter import HealthcareAgentAdapter  # noqa: E402
 from aginiti.adapters.scaled_evals_ground_truth import VerbatimDisclosureIndex  # noqa: E402
-from aginiti.graph.ssg import SecurityStateGraph  # noqa: E402
+from aginiti.core.graph.ssg import SecurityStateGraph  # noqa: E402
 from aginiti.operators.healthcare_agent_definitions import build_healthcare_agent_library  # noqa: E402
 from aginiti.operators.library import OperatorLibrary  # noqa: E402
 

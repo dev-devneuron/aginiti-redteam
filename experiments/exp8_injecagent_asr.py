@@ -32,13 +32,13 @@ import sys
 
 sys.path.insert(0, ".")
 
-from aginiti.campaign import run_campaign
-from aginiti.logging_utils import campaign_result_to_dict, save_json
-from aginiti.mission import Mission
-from aginiti.graph.schema import RiskTier
+from aginiti.core.campaign import run_campaign
+from aginiti.core.logging_utils import campaign_result_to_dict, save_json
+from aginiti.core.mission import Mission
+from aginiti.core.graph.schema import RiskTier
 from aginiti.operators.injecagent import injecagent_operator
 from aginiti.operators.library import OperatorLibrary
-from aginiti.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
 from aginiti.target.injecagent_adapter import InjecAgentAdapter, build_test_cases
 from experiments.groq_quota import is_rate_limit_error, preflight_check
 from experiments.results_io import RESULTS_DIR, save_result

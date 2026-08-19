@@ -1,9 +1,9 @@
-from aginiti.graph.belief_state import BranchBelief
-from aginiti.graph.schema import ClaimStatus, InsightCategory, RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.graph.belief_state import BranchBelief
+from aginiti.core.graph.schema import ClaimStatus, InsightCategory, RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary
-from aginiti.planner.variants import BFSOnlyPlanner, GreedyBusinessImpactPlanner, GreedyInfoGainPlanner
+from aginiti.core.planner.variants import BFSOnlyPlanner, GreedyBusinessImpactPlanner, GreedyInfoGainPlanner
 
 
 def _op(op_id, edge, success_key, weight=1, branch=None):
@@ -164,7 +164,7 @@ def test_all_three_variants_ignore_failure_evidence_penalty():
     prospective failure would match a CONFIRMED generalizable diagnosis
     elsewhere in the graph must score failure_evidence_penalty == 0.0 under
     all three variants, even though the base AginitiPlanner would demote it."""
-    from aginiti.graph.failure_diagnosis import BLOCKED_BY_PRIVILEGE
+    from aginiti.core.graph.failure_diagnosis import BLOCKED_BY_PRIVILEGE
     from aginiti.operators.library import ClaimEffect
 
     op = Operator(
@@ -185,5 +185,5 @@ def test_all_three_variants_ignore_failure_evidence_penalty():
     # Sanity: the BASE planner genuinely would demote this candidate --
     # proves the test fixture actually exercises real demotion evidence,
     # not a no-op scenario that would pass trivially either way.
-    from aginiti.planner.aginiti_planner import AginitiPlanner
+    from aginiti.core.planner.aginiti_planner import AginitiPlanner
     assert AginitiPlanner().failure_evidence_penalty(op, ssg) < 0.0

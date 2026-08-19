@@ -16,11 +16,11 @@ import shutil
 import tempfile
 
 from aginiti.adapters.mcp_stdio_adapter import McpStdioAdapter
-from aginiti.graph.persistence import save_ssg
-from aginiti.graph.target_profile import build_target_profile, render_markdown
+from aginiti.core.graph.persistence import save_ssg
+from aginiti.core.graph.target_profile import build_target_profile, render_markdown
 from aginiti.operators.mcp_filesystem_definitions import build_filesystem_mcp_library
-from aginiti.scenarios import filesystem_mcp_mission
-from aginiti.understanding_loop import run_understanding_loop
+from aginiti.core.scenarios import filesystem_mcp_mission
+from aginiti.core.understanding_loop import run_understanding_loop
 
 TARGET_NAME = "MCP Filesystem Server (official reference implementation)"
 SERVER_ENTRY = os.environ.get(

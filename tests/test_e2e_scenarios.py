@@ -23,13 +23,13 @@ from unittest.mock import patch
 import pytest
 
 from aginiti.adapters.base import SendResult
-from aginiti.campaign import run_campaign
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SecurityStateGraph
-from aginiti.mission import Mission
+from aginiti.core.campaign import run_campaign
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SecurityStateGraph
+from aginiti.core.mission import Mission
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary, Precondition
-from aginiti.policies.aginiti_policy import AginitiPolicy
-from aginiti.policies.static_policy import StaticPolicy
+from aginiti.core.policies.aginiti_policy import AginitiPolicy
+from aginiti.core.policies.static_policy import StaticPolicy
 
 CONFIRMED = ClaimStatus.CONFIRMED
 
@@ -245,7 +245,7 @@ def test_scenario_7_malformed_judge_response_does_not_crash_and_confirms_nothing
 
     # chat_json's own documented fallback for a truncated/unparseable
     # response: {"_parse_error": True, "_raw": "..."}
-    with patch("aginiti.adapter.observation_adapter.chat_json",
+    with patch("aginiti.core.observation_adapter.chat_json",
                return_value={"_parse_error": True, "_raw": "not valid json{{{"}):
         with pytest.warns(RuntimeWarning, match="failed to parse as JSON"):
             result = run_campaign(mission, library, agent=agent, policy=AginitiPolicy(),

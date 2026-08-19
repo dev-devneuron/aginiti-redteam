@@ -38,8 +38,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from aginiti.graph.schema import Claim, ClaimStatus, next_id
-from aginiti.graph.ssg import CATEGORY_CAPABILITY, SecurityStateGraph
+from aginiti.core.graph.schema import Claim, ClaimStatus, next_id
+from aginiti.core.graph.ssg import CATEGORY_CAPABILITY, SecurityStateGraph
 
 # Adapted verbatim from Cisco mcp-scanner's DEFENSE_RULES (see module
 # docstring for exact source/license). Each rule's PATTERNS detect the

@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import pytest
 
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.security_boundary import BOUNDARY_L2, BOUNDARY_L4
-from aginiti.graph.ssg import CATEGORY_TRUST_EDGE, SecurityStateGraph
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.security_boundary import BOUNDARY_L2, BOUNDARY_L4
+from aginiti.core.graph.ssg import CATEGORY_TRUST_EDGE, SecurityStateGraph
 from aginiti.operators.library import ClaimEffect, ClassPrecondition, Operator
 
 CONFIRMED = ClaimStatus.CONFIRMED

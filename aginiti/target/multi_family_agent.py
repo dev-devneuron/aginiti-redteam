@@ -30,8 +30,8 @@ about Aginiti's architecture, not about one target's specific wording."""
 from __future__ import annotations
 
 from aginiti.adapters.base import SendResult
-from aginiti.graph.independent_evidence import IndependentFinding
-from aginiti.graph.security_boundary import BOUNDARY_L5
+from aginiti.core.graph.independent_evidence import IndependentFinding
+from aginiti.core.graph.security_boundary import BOUNDARY_L5
 
 # The one response that carries a genuine, independently-verifiable partial
 # disclosure -- deliberately worded so a GENERIC refusal-keyword extractor

@@ -21,15 +21,15 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from aginiti.graph.schema import RiskTier
-from aginiti.mission import Mission
+from aginiti.core.graph.schema import RiskTier
+from aginiti.core.mission import Mission
 from aginiti.operators.anythingllm_definitions import build_anythingllm_library
 from aginiti.operators.dvaa_consensus_definitions import build_dvaa_consensus_library
 from aginiti.operators.dvaa_definitions import build_dvaa_library
 from aginiti.operators.dvla_definitions import build_dvla_library
 from aginiti.operators.mcp_filesystem_definitions import build_filesystem_mcp_library
-from aginiti.planner.aginiti_planner import AginitiPlanner
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.planner.aginiti_planner import AginitiPlanner
+from aginiti.core.graph.ssg import SecurityStateGraph
 
 
 def _mission_from_library(library, budget=10):

@@ -6,9 +6,9 @@ every single campaign until caught by a full benchmark run.
 """
 from unittest.mock import patch
 
-from aginiti.adapter.observation_adapter import KEY_DESCRIPTIONS, ObservationAdapter, _build_candidates, _effect_id
-from aginiti.graph.schema import ClaimStatus, RiskTier
-from aginiti.graph.ssg import SecurityStateGraph
+from aginiti.core.observation_adapter import KEY_DESCRIPTIONS, ObservationAdapter, _build_candidates, _effect_id
+from aginiti.core.graph.schema import ClaimStatus, RiskTier
+from aginiti.core.graph.ssg import SecurityStateGraph
 from aginiti.operators.definitions import build_library
 from aginiti.operators.library import ClaimEffect, Operator
 
@@ -60,7 +60,7 @@ def test_hypothesized_effect_gets_a_linked_observation_not_just_a_claim():
         "confirmed_effect_ids": ["payroll_api_exists::hypothesized"],
         "details": {}, "reasoning": "mentions payroll",
     }
-    with patch("aginiti.adapter.observation_adapter.chat_json", return_value=fake_verdict), \
+    with patch("aginiti.core.observation_adapter.chat_json", return_value=fake_verdict), \
          patch.object(type(op), "render_prompt", return_value="x"):
         from types import SimpleNamespace
 
@@ -114,10 +114,10 @@ def test_build_candidates_falls_back_to_key_descriptions_when_effect_description
 def test_judge_warns_on_a_parse_error_instead_of_silently_reporting_nothing_confirmed():
     import warnings
 
-    from aginiti.adapter.observation_adapter import _judge
+    from aginiti.core.observation_adapter import _judge
 
     op = build_library().get("recon_capabilities")
-    with patch("aginiti.adapter.observation_adapter.chat_json",
+    with patch("aginiti.core.observation_adapter.chat_json",
                return_value={"_parse_error": True, "_raw": '{"confirmed_effect_ids": ["a'}):
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
@@ -130,10 +130,10 @@ def test_judge_warns_on_a_parse_error_instead_of_silently_reporting_nothing_conf
 def test_judge_does_not_warn_on_a_genuine_empty_verdict():
     import warnings
 
-    from aginiti.adapter.observation_adapter import _judge
+    from aginiti.core.observation_adapter import _judge
 
     op = build_library().get("recon_capabilities")
-    with patch("aginiti.adapter.observation_adapter.chat_json",
+    with patch("aginiti.core.observation_adapter.chat_json",
                return_value={"confirmed_effect_ids": [], "details": {}, "reasoning": "no evidence found"}):
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
@@ -143,7 +143,7 @@ def test_judge_does_not_warn_on_a_genuine_empty_verdict():
 
 
 def test_judge_max_tokens_scales_with_candidate_count():
-    from aginiti.adapter.observation_adapter import _judge
+    from aginiti.core.observation_adapter import _judge
 
     single_effect_op = build_library().get("recon_capabilities")
     assert len(single_effect_op.effects_success) + len(single_effect_op.effects_failure) == 1
@@ -154,7 +154,7 @@ def test_judge_max_tokens_scales_with_candidate_count():
         calls["max_tokens"] = max_tokens
         return {"confirmed_effect_ids": [], "details": {}, "reasoning": "x"}
 
-    with patch("aginiti.adapter.observation_adapter.chat_json", side_effect=_capture):
+    with patch("aginiti.core.observation_adapter.chat_json", side_effect=_capture):
         _judge(single_effect_op, "x", seed=1)
     single_tokens = calls["max_tokens"]
 
@@ -167,7 +167,7 @@ def test_judge_max_tokens_scales_with_candidate_count():
         effects_failure=(), cost_prompts=1, risk_tier=RiskTier.LOW,
     )
 
-    with patch("aginiti.adapter.observation_adapter.chat_json", side_effect=_capture):
+    with patch("aginiti.core.observation_adapter.chat_json", side_effect=_capture):
         _judge(multi_effect_op, "x", seed=1)
     multi_tokens = calls["max_tokens"]
 
@@ -250,10 +250,10 @@ def test_agent_send_raising_still_charges_cost_and_continues_the_campaign():
     budget (a real attempt was made) and the campaign keeps going --
     this is the actual end-to-end proof that run_campaign() survives a
     crashing adapter instead of propagating the exception."""
-    from aginiti.campaign import run_campaign
-    from aginiti.mission import Mission
+    from aginiti.core.campaign import run_campaign
+    from aginiti.core.mission import Mission
     from aginiti.operators.library import OperatorLibrary
-    from aginiti.policies.static_policy import StaticPolicy
+    from aginiti.core.policies.static_policy import StaticPolicy
 
     flaky = Operator(
         id="flaky", description="x", prompt="x", channel="direct", preconditions=(),
