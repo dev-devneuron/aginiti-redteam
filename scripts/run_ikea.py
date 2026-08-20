@@ -1,3 +1,4 @@
+import argparse
 import os
 import json
 import logging
@@ -56,9 +57,34 @@ def _key_for(model: str):
     return key
 
 
+# CLI flags (added 2026-08-20, integration Slice F — same staged-verification
+# convention already established for run_secret.py/run_ikea_hardened.py):
+# lets --agent-url/--queries/--provider be dialed for a cheap smoke test
+# without editing this file, e.g.:
+#   python scripts/run_ikea.py --agent-url http://localhost:8001 --queries 2 \
+#       --provider groq/openai/gpt-oss-20b
+# Every flag's default matches this script's original hardcoded constant
+# exactly, so a bare `python scripts/run_ikea.py` with no flags behaves
+# identically to before this change.
+parser = argparse.ArgumentParser(
+    description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+)
+# IKEA_TARGET_URL default preserved (see the docstring below on why it
+# exists — Docker Compose's attack-ikea service sets it instead of passing
+# --agent-url, so both paths keep working).
+parser.add_argument("--agent-url", default=os.getenv("IKEA_TARGET_URL", "http://localhost:8001"),
+                     help="Target agent base URL. Default: %(default)s")
+parser.add_argument("--queries", type=int, default=20,
+                     help="Query budget (paper used 256). Default: 20.")
+parser.add_argument("--provider", default="gemini/gemini-3.5-flash",
+                     help="The attacker's own completion model (anchor/query generation) — "
+                          "independent of the target agent's AGENT_MODEL in .env. "
+                          "Default: %(default)s")
+args = parser.parse_args()
+
 # The attacker's own completion model (anchor/query generation) — independent
 # of the target agent's AGENT_MODEL in .env.
-LLM_PROVIDER = "gemini/gemini-3.5-flash"
+LLM_PROVIDER = args.provider
 
 # The attacker's own embedding model (ERS/TRDM similarity math). Default is now
 # local ONNX via ChromaDB — zero embedding API cost, no key needed. Reads
@@ -72,10 +98,12 @@ EMBED_MODEL = os.getenv("EMBED_MODEL", "chromadb/all-MiniLM-L6-v2")
 # "localhost" would resolve to that container itself, not the
 # reference_agent_blackbox container — so the compose service points this at
 # "http://reference_agent_blackbox:8001" (Docker's embedded DNS) instead.
-# Falls back to the original hardcoded default for host/manual runs.
-TARGET_URL = os.getenv("IKEA_TARGET_URL", "http://localhost:8001")
+# Falls back to the original hardcoded default for host/manual runs. Now also
+# overridable directly via --agent-url (both read into the same argparse
+# default above, so neither path was removed).
+TARGET_URL = args.agent_url
 TOPIC = "HR records"
-MAX_QUERIES = 20   # start small; paper used 256
+MAX_QUERIES = args.queries   # start small; paper used 256
 
 # Recorded verbatim in the report header (see markdown_report.py) — not
 # verified, just a record-keeping field. This script only ever targets the

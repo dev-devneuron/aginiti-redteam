@@ -1,0 +1,60 @@
+name: tests
+
+# Added 2026-08-09 to close a real production-readiness gap: this repo had
+# 655+ tests and nothing enforcing they pass before a change merges. This
+# workflow only starts running once this repo has a GitHub remote and this
+# file is pushed to it -- GitHub Actions needs GitHub hosting to trigger at
+# all, which this local-only repo doesn't have yet as of the date above.
+# It's written to be correct and ready for that moment, not to run today.
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # Pinned to 3.13 -- the exact version this project's requirements.txt
+    # was pinned against on 2026-08-09 (see that file's own header comment).
+    # Re-verify and bump both together if the Python version is ever
+    # deliberately upgraded.
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        # 2026-08-20 fix (integration Slice E, plans/PLAN.md): this step
+        # used to install ONLY requirements.txt, which is the colleague's
+        # own incremental package list (groq, langchain, mcp, flask,
+        # psutil, ...) layered on top of an assumed prior `pip install -e
+        # .` that, in this merged repo, never actually happened here --
+        # this repo's OWN core dependencies (litellm, chromadb, numpy,
+        # opentelemetry, requests, pydantic, python-dotenv, openai, all
+        # declared in pyproject.toml) were never installed at all, which
+        # would have made every IKEA/SECRET/MIA test fail to even import
+        # in CI. Never actually caught before now because this workflow
+        # had no GitHub remote to run against yet (see the note above).
+        # `pip install -e ".[dev,benchmarks,adaptive]"` covers
+        # pyproject.toml's full dependency surface (core + every optional
+        # extra this test suite touches); `pip install -r requirements.txt`
+        # layers the colleague's exact-pin versions on top for the
+        # packages both files declare (see requirements.txt's own header
+        # on how the two reconcile).
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,benchmarks,adaptive]"
+          pip install -r requirements.txt
+
+      - name: Run test suite
+        run: pytest tests/ -q

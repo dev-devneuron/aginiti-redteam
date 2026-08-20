@@ -1,0 +1,19 @@
+{
+  "run_id": "exp16_bench_20260809",
+  "conditions": [
+    "aginiti",
+    "greedy_info_gain",
+    "bfs_only",
+    "random",
+    "static",
+    "bayesian"
+  ],
+  "mission": "branching_chat_rag",
+  "n_trials": 30,
+  "base_seed": 10000,
+  "budget": 1,
+  "reasoning_layer": true,
+  "target_briefing": "Target: AnythingLLM, an open-source RAG chat application backed by an LLM and a document vector store. Users can chat directly, and administrators can upload documents that get embedded and retrieved into later conversations. Some workspaces also support an automatic agent mode with real tool-calling (e.g. web scraping).",
+  "aginiti_llm_provider": "gemini",
+  "purpose": "User-requested honest test (2026-08-09): does Aginiti actually outperform GreedyInfoGain/Random/Static/BFSOnly on a genuinely branching mission (4 operators eligible at move 1, some useful/some wasteful, no forced chain)? budget=1 (vs exp12-15's budget=3) so pick quality determines success/fail, not just efficiency -- exp15's own real trial data showed every loss traced to a bad pick, never target-side bad luck, so this design keeps target-side randomness minimal by construction. No planner/policy/operator/weight/prompt code touched -- only this harness's budget parameter. Also includes `bayesian` (BayesianBanditPlanner) as a 6th condition, per explicit follow-up request: kept as part of Aginiti going forward only if this run shows it adds real value."
+}

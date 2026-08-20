@@ -1,0 +1,20 @@
+{
+  "run_id": "exp13_bench_20260809",
+  "conditions": [
+    "aginiti",
+    "greedy_info_gain",
+    "bfs_only",
+    "random",
+    "static"
+  ],
+  "missions": [
+    "single_step_comprehensive",
+    "branching_chat_rag",
+    "branching_automatic_rag"
+  ],
+  "n_trials": 5,
+  "base_seed": 7000,
+  "reasoning_layer": true,
+  "target_briefing": "Target: AnythingLLM, an open-source RAG chat application backed by an LLM and a document vector store. Users can chat directly, and administrators can upload documents that get embedded and retrieved into later conversations. Some workspaces also support an automatic agent mode with real tool-calling (e.g. web scraping).",
+  "aginiti_llm_provider": "gemini"
+}

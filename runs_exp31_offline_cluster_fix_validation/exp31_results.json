@@ -1,0 +1,263 @@
+{
+  "pre_fix_aginiti": [
+    {
+      "operators_executed": [
+        "cluster_probe_0",
+        "cluster_probe_1",
+        "cluster_probe_2",
+        "cluster_probe_3",
+        "cluster_probe_4"
+      ],
+      "distinct_findings_found": 1,
+      "ground_truth_mission_achieved": false
+    }
+  ],
+  "post_fix_aginiti": [
+    {
+      "operators_executed": [
+        "cluster_probe_0",
+        "cluster_probe_1",
+        "singleton_probe_0",
+        "singleton_probe_1",
+        "singleton_probe_2"
+      ],
+      "distinct_findings_found": 2,
+      "ground_truth_mission_achieved": true
+    }
+  ],
+  "static": [
+    {
+      "operators_executed": [
+        "cluster_probe_0",
+        "cluster_probe_1",
+        "cluster_probe_2",
+        "cluster_probe_3",
+        "cluster_probe_4"
+      ],
+      "distinct_findings_found": 1,
+      "ground_truth_mission_achieved": false
+    }
+  ],
+  "random": [
+    {
+      "operators_executed": [
+        "cluster_probe_0",
+        "cluster_probe_4",
+        "singleton_probe_0",
+        "cluster_probe_3",
+        "cluster_probe_1"
+      ],
+      "distinct_findings_found": 1,
+      "ground_truth_mission_achieved": false
+    },
+    {
+      "operators_executed": [
+        "cluster_probe_0",
+        "cluster_probe_1",
+        "singleton_probe_2",
+        "cluster_probe_4",
+        "singleton_probe_1"
+      ],
+      "distinct_findings_found": 2,
+      "ground_truth_mission_achieved": true
+    },
+    {
+      "operators_executed": [
+        "singleton_probe_2",
+        "cluster_probe_4",
+        "cluster_probe_3",
+        "cluster_probe_2",
+        "singleton_probe_0"
+      ],
+      "distinct_findings_found": 0,
+      "ground_truth_mission_achieved": false
+    },
+    {
+      "operators_executed": [
+        "cluster_probe_2",
+        "singleton_probe_2",
+        "cluster_probe_1",
+        "singleton_probe_0",
+        "cluster_probe_3"
+      ],
+      "distinct_findings_found": 0,
+      "ground_truth_mission_achieved": false
+    },
+    {
+      "operators_executed": [
+        "singleton_probe_1",
+        "cluster_probe_2",
+        "singleton_probe_0",
+        "cluster_probe_4",
+        "singleton_probe_2"
+      ],
+      "distinct_findings_found": 1,
+      "ground_truth_mission_achieved": false
+    },
+    {
+      "operators_executed": [
+        "cluster_probe_2",
+        "cluster_probe_3",
+        "singleton_probe_0",
+        "singleton_probe_1",
+        "cluster_probe_0"
+      ],
+      "distinct_findings_found": 2,
+      "ground_truth_mission_achieved": true
+    },
+    {
+      "operators_executed": [
+        "singleton_probe_2",
+        "cluster_probe_2",
+        "cluster_probe_0",
+        "cluster_probe_3",
+        "singleton_probe_0"
+      ],
+      "distinct_findings_found": 1,
+      "ground_truth_mission_achieved": false
+    },
+    {
+      "operators_executed": [
+        "singleton_probe_1",
+        "cluster_probe_0",
+        "cluster_probe_3",
+        "singleton_probe_0",
+        "cluster_probe_2"
+      ],
+      "distinct_findings_found": 2,
+      "ground_truth_mission_achieved": true
+    },
+    {
+      "operators_executed": [
+        "cluster_probe_4",
+        "cluster_probe_1",
+        "cluster_probe_0",
+        "cluster_probe_2",
+        "singleton_probe_1"
+      ],
+      "distinct_findings_found": 2,
+      "ground_truth_mission_achieved": true
+    },
+    {
+      "operators_executed": [
+        "cluster_probe_3",
+        "singleton_probe_0",
+        "singleton_probe_1",
+        "cluster_probe_1",
+        "singleton_probe_2"
+      ],
+      "distinct_findings_found": 1,
+      "ground_truth_mission_achieved": false
+    },
+    {
+      "operators_executed": [
+        "cluster_probe_1",
+        "cluster_probe_3",
+        "singleton_probe_2",
+        "cluster_probe_4",
+        "singleton_probe_1"
+      ],
+      "distinct_findings_found": 1,
+      "ground_truth_mission_achieved": false
+    },
+    {
+      "operators_executed": [
+        "cluster_probe_2",
+        "cluster_probe_4",
+        "cluster_probe_0",
+        "cluster_probe_1",
+        "cluster_probe_3"
+      ],
+      "distinct_findings_found": 1,
+      "ground_truth_mission_achieved": false
+    },
+    {
+      "operators_executed": [
+        "cluster_probe_3",
+        "cluster_probe_1",
+        "singleton_probe_2",
+        "cluster_probe_2",
+        "singleton_probe_1"
+      ],
+      "distinct_findings_found": 1,
+      "ground_truth_mission_achieved": false
+    },
+    {
+      "operators_executed": [
+        "singleton_probe_2",
+        "cluster_probe_2",
+        "cluster_probe_0",
+        "cluster_probe_1",
+        "cluster_probe_3"
+      ],
+      "distinct_findings_found": 1,
+      "ground_truth_mission_achieved": false
+    },
+    {
+      "operators_executed": [
+        "cluster_probe_3",
+        "singleton_probe_1",
+        "cluster_probe_4",
+        "cluster_probe_1",
+        "singleton_probe_2"
+      ],
+      "distinct_findings_found": 1,
+      "ground_truth_mission_achieved": false
+    },
+    {
+      "operators_executed": [
+        "cluster_probe_3",
+        "cluster_probe_0",
+        "singleton_probe_0",
+        "cluster_probe_1",
+        "cluster_probe_4"
+      ],
+      "distinct_findings_found": 1,
+      "ground_truth_mission_achieved": false
+    },
+    {
+      "operators_executed": [
+        "cluster_probe_0",
+        "cluster_probe_4",
+        "singleton_probe_1",
+        "cluster_probe_3",
+        "singleton_probe_2"
+      ],
+      "distinct_findings_found": 2,
+      "ground_truth_mission_achieved": true
+    },
+    {
+      "operators_executed": [
+        "singleton_probe_2",
+        "singleton_probe_1",
+        "cluster_probe_3",
+        "cluster_probe_2",
+        "cluster_probe_0"
+      ],
+      "distinct_findings_found": 2,
+      "ground_truth_mission_achieved": true
+    },
+    {
+      "operators_executed": [
+        "cluster_probe_1",
+        "cluster_probe_3",
+        "singleton_probe_2",
+        "cluster_probe_0",
+        "singleton_probe_0"
+      ],
+      "distinct_findings_found": 1,
+      "ground_truth_mission_achieved": false
+    },
+    {
+      "operators_executed": [
+        "singleton_probe_2",
+        "cluster_probe_1",
+        "singleton_probe_0",
+        "singleton_probe_1",
+        "cluster_probe_0"
+      ],
+      "distinct_findings_found": 2,
+      "ground_truth_mission_achieved": true
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "run_id": "exp15_bench_20260809",
+  "conditions": [
+    "aginiti",
+    "greedy_info_gain",
+    "bfs_only",
+    "random",
+    "static"
+  ],
+  "mission": "branching_chat_rag",
+  "n_trials": 30,
+  "base_seed": 9000,
+  "reasoning_layer": true,
+  "target_briefing": "Target: AnythingLLM, an open-source RAG chat application backed by an LLM and a document vector store. Users can chat directly, and administrators can upload documents that get embedded and retrieved into later conversations. Some workspaces also support an automatic agent mode with real tool-calling (e.g. web scraping).",
+  "aginiti_llm_provider": "gemini",
+  "purpose": "Properly-powered (n=30/condition) live re-run of exp14's branching_chat_rag cell -- NO algorithm changes from exp14 -- to determine whether the mechanism advantage exp14 showed (aginiti never picking the known trap first) translates into a measurable success-rate advantage over Random/GreedyInfoGain/Static/BFSOnly."
+}

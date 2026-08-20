@@ -464,8 +464,8 @@ paper's evaluation-time usage.
 paper's stated number, despite its own "avoid false negatives" framing
 being internally confusing for a low distance value).
 
-Tested via `tests/test_jailbreak_optimizer.py` (45 tests) and
-`tests/test_secret.py` (66 tests) — both fully mocked, no live API/network
+Tested via `tests/unit/test_jailbreak_optimizer.py` (45 tests) and
+`tests/unit/test_secret.py` (66 tests) — both fully mocked, no live API/network
 calls. Not yet run against a live target; `scripts/run_secret.py` exists
 for that smoke test (deliberately small hyperparameters — see its module
 docstring's cost warning) but hasn't been executed yet.
@@ -716,7 +716,7 @@ algorithm is implemented correctly given controlled inputs.
 
 ---
 
-### `tests/test_base.py` — 11 tests
+### `tests/unit/test_base.py` — 11 tests
 
 Verifies the locked `LeakFinding` and `BaseAttack` contracts.
 
@@ -734,7 +734,7 @@ tell you before anything else breaks.
 
 ---
 
-### `tests/test_endpoint.py` — 9 tests
+### `tests/unit/test_endpoint.py` — 9 tests
 
 Verifies `AgentEndpoint` HTTP behavior using the `responses` library
 (`@responses.activate` decorator intercepts requests without a real server).
@@ -758,7 +758,7 @@ silently.
 
 ---
 
-### `tests/test_ikea.py` — 69 tests
+### `tests/unit/test_ikea.py` — 69 tests
 
 The core algorithmic test suite for `IKEAAttack`. Every method and property
 is tested in isolation first, then integration scenarios test the full loop.

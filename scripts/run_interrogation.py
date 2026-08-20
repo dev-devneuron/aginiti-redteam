@@ -14,6 +14,7 @@ yet, core library module only"). This script exists specifically to close
 the "has this ever actually been run against a live agent" gap before that
 larger integration is worth doing.
 """
+import argparse
 import json
 import logging
 import os
@@ -49,13 +50,34 @@ def _key_for(model: str):
     return key
 
 
-TARGET_URL = os.getenv("IKEA_TARGET_URL", "http://localhost:8001")
-LLM_PROVIDER = "gemini/gemini-3.5-flash"
+# CLI flags (added 2026-08-20, integration Slice F — same convention as
+# scripts/run_ikea.py): every default matches this script's original
+# hardcoded constant exactly, so a bare `python scripts/run_interrogation.py`
+# with no flags behaves identically to before this change.
+parser = argparse.ArgumentParser(
+    description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+)
+parser.add_argument("--agent-url", default=os.getenv("IKEA_TARGET_URL", "http://localhost:8001"),
+                     help="Target agent base URL. Default: %(default)s")
+parser.add_argument("--queries", type=int, default=4,
+                     help="n_probe_questions per candidate document. Default: 4.")
+parser.add_argument("--provider", default="gemini/gemini-3.5-flash",
+                     help="The attacker's own completion model (question generation). "
+                          "Default: %(default)s")
+parser.add_argument("--shadow-provider", default="groq/llama-3.3-70b-versatile",
+                     help="Independent grading model — deliberately a DIFFERENT model "
+                          "family from --provider, matching the paper's own design "
+                          "(see InterrogationAttack's shadow_llm_provider docstring). "
+                          "Default: %(default)s")
+args = parser.parse_args()
+
+TARGET_URL = args.agent_url
+LLM_PROVIDER = args.provider
 # Deliberately a DIFFERENT model family from the attacker LLM, matching the
 # paper's own design choice (see InterrogationAttack's shadow_llm_provider
 # docstring) — also exercises the "no same-provider warning" code path.
-SHADOW_LLM_PROVIDER = "groq/llama-3.3-70b-versatile"
-N_PROBE_QUESTIONS = 4  # small on purpose -- this is a wiring smoke test
+SHADOW_LLM_PROVIDER = args.shadow_provider
+N_PROBE_QUESTIONS = args.queries  # small on purpose -- this is a wiring smoke test
 
 # Two REAL records from benchmarks/dev_fixtures/datasets/ground_truth.json
 # (all 25 records are seeded into reference_agent_blackbox's store) --

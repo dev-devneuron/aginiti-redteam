@@ -1,0 +1,420 @@
+[
+  {
+    "config": "A_current",
+    "budget": 3,
+    "outcome": "BUDGET_EXHAUSTED",
+    "steps": 3,
+    "prompts_used": 3,
+    "reached_indirect_ask": false,
+    "tried_redundant_direct_v3": true,
+    "ground_truth_achieved": false,
+    "decision_traces_recorded": 3,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "direct_ask_v3"
+    ]
+  },
+  {
+    "config": "B_current_plus_state",
+    "budget": 3,
+    "outcome": "BUDGET_EXHAUSTED",
+    "steps": 3,
+    "prompts_used": 3,
+    "reached_indirect_ask": false,
+    "tried_redundant_direct_v3": true,
+    "ground_truth_achieved": false,
+    "decision_traces_recorded": 3,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "direct_ask_v3"
+    ]
+  },
+  {
+    "config": "C_state_plus_failure_learning",
+    "budget": 3,
+    "outcome": "BUDGET_EXHAUSTED",
+    "steps": 3,
+    "prompts_used": 3,
+    "reached_indirect_ask": false,
+    "tried_redundant_direct_v3": true,
+    "ground_truth_achieved": false,
+    "decision_traces_recorded": 3,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "direct_ask_v3"
+    ]
+  },
+  {
+    "config": "D_full_adaptive",
+    "budget": 3,
+    "outcome": "BUDGET_EXHAUSTED",
+    "steps": 3,
+    "prompts_used": 3,
+    "reached_indirect_ask": false,
+    "tried_redundant_direct_v3": true,
+    "ground_truth_achieved": false,
+    "decision_traces_recorded": 3,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "direct_ask_v3"
+    ]
+  },
+  {
+    "config": "A_current",
+    "budget": 4,
+    "outcome": "SEARCH_EXHAUSTED",
+    "steps": 3,
+    "prompts_used": 3,
+    "reached_indirect_ask": false,
+    "tried_redundant_direct_v3": true,
+    "ground_truth_achieved": false,
+    "decision_traces_recorded": 3,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "direct_ask_v3"
+    ]
+  },
+  {
+    "config": "B_current_plus_state",
+    "budget": 4,
+    "outcome": "SEARCH_EXHAUSTED",
+    "steps": 3,
+    "prompts_used": 3,
+    "reached_indirect_ask": false,
+    "tried_redundant_direct_v3": true,
+    "ground_truth_achieved": false,
+    "decision_traces_recorded": 3,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "direct_ask_v3"
+    ]
+  },
+  {
+    "config": "C_state_plus_failure_learning",
+    "budget": 4,
+    "outcome": "SEARCH_EXHAUSTED",
+    "steps": 3,
+    "prompts_used": 3,
+    "reached_indirect_ask": false,
+    "tried_redundant_direct_v3": true,
+    "ground_truth_achieved": false,
+    "decision_traces_recorded": 3,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "direct_ask_v3"
+    ]
+  },
+  {
+    "config": "D_full_adaptive",
+    "budget": 4,
+    "outcome": "SEARCH_EXHAUSTED",
+    "steps": 3,
+    "prompts_used": 3,
+    "reached_indirect_ask": false,
+    "tried_redundant_direct_v3": true,
+    "ground_truth_achieved": false,
+    "decision_traces_recorded": 3,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "direct_ask_v3"
+    ]
+  },
+  {
+    "config": "A_current",
+    "budget": 5,
+    "outcome": "SEARCH_EXHAUSTED",
+    "steps": 3,
+    "prompts_used": 3,
+    "reached_indirect_ask": false,
+    "tried_redundant_direct_v3": true,
+    "ground_truth_achieved": false,
+    "decision_traces_recorded": 3,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "direct_ask_v3"
+    ]
+  },
+  {
+    "config": "B_current_plus_state",
+    "budget": 5,
+    "outcome": "SEARCH_EXHAUSTED",
+    "steps": 3,
+    "prompts_used": 3,
+    "reached_indirect_ask": false,
+    "tried_redundant_direct_v3": true,
+    "ground_truth_achieved": false,
+    "decision_traces_recorded": 3,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "direct_ask_v3"
+    ]
+  },
+  {
+    "config": "C_state_plus_failure_learning",
+    "budget": 5,
+    "outcome": "SUCCESS",
+    "steps": 5,
+    "prompts_used": 5,
+    "reached_indirect_ask": true,
+    "tried_redundant_direct_v3": false,
+    "ground_truth_achieved": true,
+    "decision_traces_recorded": 5,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "recon_probe",
+      "trust_probe",
+      "indirect_ask"
+    ]
+  },
+  {
+    "config": "D_full_adaptive",
+    "budget": 5,
+    "outcome": "SUCCESS",
+    "steps": 5,
+    "prompts_used": 5,
+    "reached_indirect_ask": true,
+    "tried_redundant_direct_v3": false,
+    "ground_truth_achieved": true,
+    "decision_traces_recorded": 5,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "recon_probe",
+      "trust_probe",
+      "indirect_ask"
+    ]
+  },
+  {
+    "config": "A_current",
+    "budget": 6,
+    "outcome": "SUCCESS",
+    "steps": 6,
+    "prompts_used": 6,
+    "reached_indirect_ask": true,
+    "tried_redundant_direct_v3": true,
+    "ground_truth_achieved": true,
+    "decision_traces_recorded": 6,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "direct_ask_v3",
+      "recon_probe",
+      "trust_probe",
+      "indirect_ask"
+    ]
+  },
+  {
+    "config": "B_current_plus_state",
+    "budget": 6,
+    "outcome": "SUCCESS",
+    "steps": 6,
+    "prompts_used": 6,
+    "reached_indirect_ask": true,
+    "tried_redundant_direct_v3": true,
+    "ground_truth_achieved": true,
+    "decision_traces_recorded": 6,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "direct_ask_v3",
+      "recon_probe",
+      "trust_probe",
+      "indirect_ask"
+    ]
+  },
+  {
+    "config": "C_state_plus_failure_learning",
+    "budget": 6,
+    "outcome": "SUCCESS",
+    "steps": 5,
+    "prompts_used": 5,
+    "reached_indirect_ask": true,
+    "tried_redundant_direct_v3": false,
+    "ground_truth_achieved": true,
+    "decision_traces_recorded": 5,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "recon_probe",
+      "trust_probe",
+      "indirect_ask"
+    ]
+  },
+  {
+    "config": "D_full_adaptive",
+    "budget": 6,
+    "outcome": "SUCCESS",
+    "steps": 5,
+    "prompts_used": 5,
+    "reached_indirect_ask": true,
+    "tried_redundant_direct_v3": false,
+    "ground_truth_achieved": true,
+    "decision_traces_recorded": 5,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "recon_probe",
+      "trust_probe",
+      "indirect_ask"
+    ]
+  },
+  {
+    "config": "A_current",
+    "budget": 7,
+    "outcome": "SUCCESS",
+    "steps": 6,
+    "prompts_used": 6,
+    "reached_indirect_ask": true,
+    "tried_redundant_direct_v3": true,
+    "ground_truth_achieved": true,
+    "decision_traces_recorded": 6,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "direct_ask_v3",
+      "recon_probe",
+      "trust_probe",
+      "indirect_ask"
+    ]
+  },
+  {
+    "config": "B_current_plus_state",
+    "budget": 7,
+    "outcome": "SUCCESS",
+    "steps": 6,
+    "prompts_used": 6,
+    "reached_indirect_ask": true,
+    "tried_redundant_direct_v3": true,
+    "ground_truth_achieved": true,
+    "decision_traces_recorded": 6,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "direct_ask_v3",
+      "recon_probe",
+      "trust_probe",
+      "indirect_ask"
+    ]
+  },
+  {
+    "config": "C_state_plus_failure_learning",
+    "budget": 7,
+    "outcome": "SUCCESS",
+    "steps": 5,
+    "prompts_used": 5,
+    "reached_indirect_ask": true,
+    "tried_redundant_direct_v3": false,
+    "ground_truth_achieved": true,
+    "decision_traces_recorded": 5,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "recon_probe",
+      "trust_probe",
+      "indirect_ask"
+    ]
+  },
+  {
+    "config": "D_full_adaptive",
+    "budget": 7,
+    "outcome": "SUCCESS",
+    "steps": 5,
+    "prompts_used": 5,
+    "reached_indirect_ask": true,
+    "tried_redundant_direct_v3": false,
+    "ground_truth_achieved": true,
+    "decision_traces_recorded": 5,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "recon_probe",
+      "trust_probe",
+      "indirect_ask"
+    ]
+  },
+  {
+    "config": "A_current",
+    "budget": 8,
+    "outcome": "SUCCESS",
+    "steps": 6,
+    "prompts_used": 6,
+    "reached_indirect_ask": true,
+    "tried_redundant_direct_v3": true,
+    "ground_truth_achieved": true,
+    "decision_traces_recorded": 6,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "direct_ask_v3",
+      "recon_probe",
+      "trust_probe",
+      "indirect_ask"
+    ]
+  },
+  {
+    "config": "B_current_plus_state",
+    "budget": 8,
+    "outcome": "SUCCESS",
+    "steps": 6,
+    "prompts_used": 6,
+    "reached_indirect_ask": true,
+    "tried_redundant_direct_v3": true,
+    "ground_truth_achieved": true,
+    "decision_traces_recorded": 6,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "direct_ask_v3",
+      "recon_probe",
+      "trust_probe",
+      "indirect_ask"
+    ]
+  },
+  {
+    "config": "C_state_plus_failure_learning",
+    "budget": 8,
+    "outcome": "SUCCESS",
+    "steps": 5,
+    "prompts_used": 5,
+    "reached_indirect_ask": true,
+    "tried_redundant_direct_v3": false,
+    "ground_truth_achieved": true,
+    "decision_traces_recorded": 5,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "recon_probe",
+      "trust_probe",
+      "indirect_ask"
+    ]
+  },
+  {
+    "config": "D_full_adaptive",
+    "budget": 8,
+    "outcome": "SUCCESS",
+    "steps": 5,
+    "prompts_used": 5,
+    "reached_indirect_ask": true,
+    "tried_redundant_direct_v3": false,
+    "ground_truth_achieved": true,
+    "decision_traces_recorded": 5,
+    "operator_sequence": [
+      "direct_ask_v1",
+      "direct_ask_v2",
+      "recon_probe",
+      "trust_probe",
+      "indirect_ask"
+    ]
+  }
+]

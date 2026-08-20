@@ -196,6 +196,6 @@ read) worked fine natively and was verified that way first; the segfault
 only reproduced once a request reached real retrieval. Docker sidesteps it
 entirely by running the same Linux ChromaDB/onnxruntime wheels every other
 agent here already relies on. The 55 offline unit tests
-(`tests/test_hardened_agent.py`, `tests/test_prepare_hardened_dataset.py`)
+(`tests/unit/test_hardened_agent.py`, `tests/unit/test_prepare_hardened_dataset.py`)
 cover all the actual logic (chunking, redaction, rate limiting, memory,
 persona filter construction) independent of any of this.

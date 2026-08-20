@@ -1,0 +1,17 @@
+{
+  "run_id": "exp11_bench_20260808T223600Z",
+  "conditions": [
+    "aginiti",
+    "greedy_info_gain",
+    "bfs_only",
+    "random",
+    "static"
+  ],
+  "missions": [
+    "single_step_data_exposure",
+    "chat_rag_chain",
+    "automatic_tool_exfil_chain"
+  ],
+  "n_trials": 6,
+  "base_seed": 5000
+}

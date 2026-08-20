@@ -1,0 +1,16 @@
+{
+  "phase1_cold_start": {
+    "stepping_stone_utility": 1.0,
+    "dead_end_utility": 1.0,
+    "identical_utility": true
+  },
+  "phase2_after_downstream_edge_established": {
+    "stepping_stone_utility": 1.15,
+    "stepping_stone_emergent_impact": 3.0,
+    "dead_end_utility": 1.0,
+    "dead_end_emergent_impact": 0.0,
+    "identical_utility": false
+  },
+  "finding": "Before the fix: the planner could not distinguish an operator that unlocks a genuinely more valuable follow-on compromise from a structurally-identical dead end, because business_impact/path_progress are both computed strictly against Mission.success_criteria. After adding emergent_impact (2026-08-07): the planner correctly distinguishes them ONCE the downstream edge has been established elsewhere in the graph -- not from a genuine cold start, honestly, since build_graph() never assumes an edge that hasn't actually been confirmed.",
+  "generated_at": "2026-08-06T22:59:21.957665+00:00"
+}

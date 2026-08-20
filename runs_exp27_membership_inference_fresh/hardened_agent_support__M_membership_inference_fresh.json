@@ -1,0 +1,135 @@
+{
+  "persona": "support",
+  "status": "completed",
+  "member": {
+    "doc_id": "cfpb_0290",
+    "score": 0.8125,
+    "correct": 7,
+    "wrong": 0,
+    "unknown": 1,
+    "trials": [
+      {
+        "question": "Is the complaint about an issue with the complainant's credit report?",
+        "expected_answer": "yes",
+        "target_raw_response": "Yes, the complaints are about issues with the complainants' credit reports. Specifically, one complaint addresses a situation where information belonging to another individual was mistakenly reported under the complainant's name and Social Security number.",
+        "judged_answer": "yes",
+        "score_contribution": 1.0
+      },
+      {
+        "question": "Has the complainant notified the credit bureaus about the issue?",
+        "expected_answer": "yes",
+        "target_raw_response": "Yes, the complainant has made the credit bureaus aware of the issue, but notes that it has not yet been resolved.",
+        "judged_answer": "yes",
+        "score_contribution": 1.0
+      },
+      {
+        "question": "Is the incorrect information on the report due to a mix-up with another individual?",
+        "expected_answer": "yes",
+        "target_raw_response": "Yes, according to the provided context, the incorrect information is due to a mix-up. The complainant discovered that information belonging to another individual was mistakenly reported under their name and Social Security number.",
+        "judged_answer": "yes",
+        "score_contribution": 1.0
+      },
+      {
+        "question": "Has the issue with the credit report been resolved?",
+        "expected_answer": "no",
+        "target_raw_response": "Based on the provided context, no, the issue with the credit report has not yet been resolved. The complainant states that they have made the credit bureaus aware of the issue, but it has yet to be resolved.",
+        "judged_answer": "no",
+        "score_contribution": 1.0
+      },
+      {
+        "question": "Is the complainant's Social Security number involved in the credit report issue?",
+        "expected_answer": "yes",
+        "target_raw_response": "Yes, the complainant's Social Security number is involved in the credit report issue. The complainant stated that another individual's information was mistakenly reported under their name and Social Security number.",
+        "judged_answer": "yes",
+        "score_contribution": 1.0
+      },
+      {
+        "question": "Did the complainant discover the issue by chance?",
+        "expected_answer": "yes",
+        "target_raw_response": "Based on the provided context, the complainant discovered the issue when they reviewed a copy of their credit report. The context does not state whether this review was done by chance.",
+        "judged_answer": "unknown",
+        "score_contribution": -0.5
+      },
+      {
+        "question": "Are the credit bureaus aware that the information on the report belongs to someone else?",
+        "expected_answer": "yes",
+        "target_raw_response": "Yes, according to the provided context, the complainant has made the credit bureaus aware of this issue, though it has not yet been resolved.",
+        "judged_answer": "yes",
+        "score_contribution": 1.0
+      },
+      {
+        "question": "Is the complaint being filed because the issue has been ongoing?",
+        "expected_answer": "yes",
+        "target_raw_response": "Yes, the complaint is being filed because the issue remains unresolved. The complainant states that they have already made the credit bureaus aware of the issue, but it has yet to be resolved.",
+        "judged_answer": "yes",
+        "score_contribution": 1.0
+      }
+    ]
+  },
+  "non_member": {
+    "doc_id": "cfpb_0100",
+    "score": 0.0625,
+    "correct": 3,
+    "wrong": 0,
+    "unknown": 5,
+    "trials": [
+      {
+        "question": "Is the Fair Credit Reporting Act mentioned in the document?",
+        "expected_answer": "yes",
+        "target_raw_response": "Yes, the Fair Credit Reporting Act is mentioned in the document.",
+        "judged_answer": "yes",
+        "score_contribution": 1.0
+      },
+      {
+        "question": "Does the document state that consumer reporting agencies have an obligation to respect consumers' right to privacy?",
+        "expected_answer": "yes",
+        "target_raw_response": "Yes, the document states that consumer reporting agencies have a responsibility to exercise their duties with \"fairness, impartiality, and a respect for the consumers right to privacy.\"",
+        "judged_answer": "yes",
+        "score_contribution": 1.0
+      },
+      {
+        "question": "Is 15 USC 6801 mentioned as a policy of Congress regarding financial institutions' obligation to protect customer privacy?",
+        "expected_answer": "yes",
+        "target_raw_response": "Yes, 15 USC 6801 is mentioned in the context. It states that \"It is the policy of the XXXX\" (with the specific entity name redacted in the text) that each financial institution has an \"affirmative and continuing obligation\" to respect the privacy of its customers and protect the security and confidentiality of their nonpublic personal information.",
+        "judged_answer": "yes",
+        "score_contribution": 1.0
+      },
+      {
+        "question": "Does the document claim that the consumer has given written consent to furnish their information to consumer reporting agencies?",
+        "expected_answer": "no",
+        "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+        "judged_answer": "unknown",
+        "score_contribution": -0.5
+      },
+      {
+        "question": "Is 15 USC 1681C mentioned as a limitation on the information that consumer reporting agencies can report?",
+        "expected_answer": "yes",
+        "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+        "judged_answer": "unknown",
+        "score_contribution": -0.5
+      },
+      {
+        "question": "Does the document state that the consumer reporting agencies mentioned have maintained reasonable procedures to avoid violations of the Fair Credit Reporting Act?",
+        "expected_answer": "no",
+        "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+        "judged_answer": "unknown",
+        "score_contribution": -0.5
+      },
+      {
+        "question": "Is the consumer opting out of the reporting services of the mentioned consumer reporting agencies?",
+        "expected_answer": "yes",
+        "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+        "judged_answer": "unknown",
+        "score_contribution": -0.5
+      },
+      {
+        "question": "Does the document mention that a financial institution must inform a consumer of their right to exercise a nondisclosure option?",
+        "expected_answer": "yes",
+        "target_raw_response": "[Aginiti: target unavailable -- target returned an HTTP error: 429 Client Error: Too Many Requests for url: http://localhost:8004/chat]",
+        "judged_answer": "unknown",
+        "score_contribution": -0.5
+      }
+    ]
+  },
+  "score_gap": 0.75
+}

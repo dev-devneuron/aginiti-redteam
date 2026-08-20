@@ -1,0 +1,40 @@
+#!/bin/sh
+# Local pre-commit test gate -- added 2026-08-09 to give SOME real
+# enforcement value today, since .github/workflows/tests.yml (added the
+# same day) can't actually run until this repo has a GitHub remote to be
+# hosted on. Git hooks live in .git/hooks/, which git does NOT version
+# control, so this tracked copy is the source of truth -- install it once
+# per clone:
+#
+#   cp scripts/pre-commit .git/hooks/pre-commit   (macOS/Linux/Git Bash)
+#   chmod +x .git/hooks/pre-commit
+#
+# Runs the full test suite before allowing a commit; blocks the commit on
+# any failure. Skip once, deliberately, with: git commit --no-verify
+
+echo "Running pytest before commit (see scripts/pre-commit)..."
+# 2026-08-12: prefer the project's own venv (.venv/, built with every
+# pinned requirement + garak) over whatever "python" happens to resolve to
+# globally -- this project's own dependencies now live entirely inside
+# E:\Aginiti-Extended, not scattered across a global site-packages on C:.
+# Falls back to global python if the venv isn't present (e.g. a fresh
+# clone that hasn't run `python -m venv .venv && pip install -r
+# requirements.txt` yet), so this hook still works either way.
+if [ -x ".venv/Scripts/python.exe" ]; then
+    PYTHON=".venv/Scripts/python.exe"
+elif [ -x ".venv/bin/python" ]; then
+    PYTHON=".venv/bin/python"
+else
+    PYTHON="python"
+fi
+"$PYTHON" -m pytest tests/ -q
+status=$?
+
+if [ $status -ne 0 ]; then
+    echo ""
+    echo "pre-commit: test suite failed (exit $status) -- commit blocked."
+    echo "Fix the failure, or bypass deliberately with: git commit --no-verify"
+    exit 1
+fi
+
+exit 0
