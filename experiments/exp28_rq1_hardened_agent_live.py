@@ -123,7 +123,7 @@ from aginiti.core.policies.static_policy import StaticPolicy
 
 _ROOT = Path(__file__).parent.parent
 _DATASETS = _ROOT / "benchmarks" / "scaled_evals" / "datasets"
-_RESULTS_DIR = _ROOT / "runs_exp28_rq1_hardened_agent"
+_RESULTS_DIR = _ROOT / "experiments/results/runs_exp28_rq1_hardened_agent"
 _RESULTS_DIR.mkdir(exist_ok=True)
 
 _PERSONA = "legal"

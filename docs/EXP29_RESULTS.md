@@ -8,9 +8,10 @@ harness-methodology gaps), `exp30`/`exp31` (offline, zero-cost validation
 of the two planner fixes those gaps required, each isolated so neither
 result could be credited to the wrong mechanism), and `exp29` (the
 corrected live re-run). Every number below is read directly from
-`runs_exp28_rq1_hardened_agent/`, `runs_exp30_offline_planner_fix_
-validation/`, `runs_exp31_offline_cluster_fix_validation/`, and
-`runs_exp29_rq1_hardened_agent_fresh_state/exp29_run.log` — nothing here
+`experiments/results/runs_exp28_rq1_hardened_agent/`,
+`experiments/results/runs_exp30_offline_planner_fix_validation/`,
+`experiments/results/runs_exp31_offline_cluster_fix_validation/`, and
+`experiments/results/runs_exp29_rq1_hardened_agent_fresh_state/exp29_run.log` — nothing here
 is recalled from memory or estimated. The findings audit in this document's
 second half was built by re-reading `exp29_run.log` line by line, not by
 trusting the campaign's own summary metric — see "A note on `distinct_
@@ -240,7 +241,7 @@ claim to.
 
 ## Findings audit — evidence-only, judge-confirmations excluded
 
-Re-derived directly from `runs_exp29_rq1_hardened_agent_fresh_state/
+Re-derived directly from `experiments/results/runs_exp29_rq1_hardened_agent_fresh_state/
 exp29_run.log`'s 17 `independent finding confirmed` lines, each mapped to
 an exact persona/condition trial via the log's own timestamps against
 `exp29_summary.json`'s per-trial boundaries.
@@ -412,9 +413,9 @@ disclosing something.
 
 ## Raw data
 
-- `runs_exp28_rq1_hardened_agent/exp28_summary.json`, `exp28_run.log`
-- `runs_exp30_offline_planner_fix_validation/exp30_results.json`
-- `runs_exp31_offline_cluster_fix_validation/exp31_results.json`
-- `runs_exp29_rq1_hardened_agent_fresh_state/exp29_summary.json`,
+- `experiments/results/runs_exp28_rq1_hardened_agent/exp28_summary.json`, `exp28_run.log`
+- `experiments/results/runs_exp30_offline_planner_fix_validation/exp30_results.json`
+- `experiments/results/runs_exp31_offline_cluster_fix_validation/exp31_results.json`
+- `experiments/results/runs_exp29_rq1_hardened_agent_fresh_state/exp29_summary.json`,
   `exp29_run.log`, and one `hardened_agent_<persona>__<condition>.json`
   per trial

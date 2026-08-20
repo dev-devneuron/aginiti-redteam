@@ -190,17 +190,17 @@ gotcha) to get a clean signal:
 Every experiment script writes to its own `runs_<name>/` directory at the
 repo root — nothing is only printed to the console:
 
-- `runs_exp26_full_assessment_v2/exp26_summary.json` — one row per
+- `experiments/results/runs_exp26_full_assessment_v2/exp26_summary.json` — one row per
   (persona, condition), the outcome, ground-truth signals, RBAC-crossing
   status.
-- `runs_exp26_full_assessment_v2/*_discovery_trials.json` — every
+- `experiments/results/runs_exp26_full_assessment_v2/*_discovery_trials.json` — every
   individual trial's actual prompt and response, not just booleans.
-- `runs_exp26_full_assessment_v2/*_ssg.json` — the full
+- `experiments/results/runs_exp26_full_assessment_v2/*_ssg.json` — the full
   SecurityStateGraph (every claim, every taxonomy tag) for that run.
-- `runs_exp26_full_assessment_v2/exp26_run.log` — every logged event
+- `experiments/results/runs_exp26_full_assessment_v2/exp26_run.log` — every logged event
   (campaign starts/finishes, confirmed findings, corroboration-gate
   activity) in order, with timestamps.
-- `runs_exp27_membership_inference_fresh/exp27_summary.json` — per-persona
+- `experiments/results/runs_exp27_membership_inference_fresh/exp27_summary.json` — per-persona
   member/non-member scores and the gap between them.
 
 For a worked example of reading this output and turning it into an honest

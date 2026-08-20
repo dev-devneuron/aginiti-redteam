@@ -54,7 +54,7 @@ from aginiti.core.policies.static_policy import StaticPolicy
 from benchmarks.agents.technique_cluster_scenario_agent import TechniqueClusterScenarioAgent
 
 _ROOT = Path(__file__).parent.parent
-_RESULTS_DIR = _ROOT / "runs_exp31_offline_cluster_fix_validation"
+_RESULTS_DIR = _ROOT / "experiments/results/runs_exp31_offline_cluster_fix_validation"
 _RESULTS_DIR.mkdir(exist_ok=True)
 
 _BUDGET = 5  # exactly the cluster's own size -- see module docstring

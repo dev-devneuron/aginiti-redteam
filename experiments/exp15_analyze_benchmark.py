@@ -34,7 +34,7 @@ from results_io import save_result
 
 from exp15_branching_chat_rag_powered_benchmark import BASE_SEED, N_TRIALS  # noqa: E402
 
-RUN_DIR = "runs_live_anythingllm_benchmark/exp15_bench_20260809"
+RUN_DIR = "experiments/results/runs_live_anythingllm_benchmark/exp15_bench_20260809"
 CONDITIONS = ("aginiti", "greedy_info_gain", "bfs_only", "random", "static")
 MISSION = "branching_chat_rag"
 

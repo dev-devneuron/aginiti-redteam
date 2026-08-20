@@ -112,7 +112,7 @@ def main() -> None:
     _run_safely("hardened_legal_calibrate_threshold", _sweep_hardened_legal_calibrate_threshold)
     _run_safely("healthcare_new_operators", _sweep_healthcare_new_operators)
 
-    out_path = Path(__file__).parent.parent / "runs_smoke_sweep_2026_08_14.json"
+    out_path = Path(__file__).parent.parent / "experiments/results/runs_smoke_sweep_2026_08_14.json"
     out_path.write_text(json.dumps(_RESULTS, indent=2, default=str), encoding="utf-8")
     logger.info("=== SWEEP DONE -- results written to %s ===", out_path)
     all_ok = all(r["ok"] for r in _RESULTS.values())

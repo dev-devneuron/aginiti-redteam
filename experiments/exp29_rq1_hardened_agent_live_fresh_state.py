@@ -80,7 +80,7 @@ from experiments._target_lifecycle import restart_target, stop_target
 
 _ROOT = Path(__file__).parent.parent
 _DATASETS = _ROOT / "benchmarks" / "scaled_evals" / "datasets"
-_RESULTS_DIR = _ROOT / "runs_exp29_rq1_hardened_agent_fresh_state"
+_RESULTS_DIR = _ROOT / "experiments/results/runs_exp29_rq1_hardened_agent_fresh_state"
 _RESULTS_DIR.mkdir(exist_ok=True)
 
 _PERSONAS = ("legal", "support", "ops")

@@ -166,7 +166,7 @@ def main() -> None:
     _run_safely("hardened_new_operators_support", _smoke_hardened_new_operators)
     _run_safely("healthcare_campaign", _smoke_healthcare_campaign)
 
-    out_path = Path(__file__).parent.parent / "runs_smoke_test_2026_08_14.json"
+    out_path = Path(__file__).parent.parent / "experiments/results/runs_smoke_test_2026_08_14.json"
     out_path.write_text(json.dumps(_RESULTS, indent=2, default=str), encoding="utf-8")
     logger.info("=== SMOKE TEST DONE -- results written to %s ===", out_path)
 

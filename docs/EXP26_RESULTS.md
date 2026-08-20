@@ -7,9 +7,10 @@ which found 2 real bugs), `exp26` (the first live run of the COMPLETE
 pipeline — many-shot, Crescendo, 17 new RBAC-focused operators — after
 those bugs were fixed), and `exp27` (the corrected membership-inference
 run, fixing a design flaw `exp26` itself exposed). Every number below is
-read directly from `runs_exp25_full_assessment_vs_baseline/`,
-`runs_exp26_full_assessment_v2/`, and `runs_exp27_membership_inference_
-fresh/` — nothing here is recalled from memory or estimated._
+read directly from `experiments/results/runs_exp25_full_assessment_vs_baseline/`,
+`experiments/results/runs_exp26_full_assessment_v2/`, and
+`experiments/results/runs_exp27_membership_inference_fresh/` — nothing here is
+recalled from memory or estimated._
 
 ---
 
@@ -119,6 +120,6 @@ Aginiti's tooling is now demonstrably solid: every new mechanism ran against a r
 
 ## Raw data
 
-- `runs_exp25_full_assessment_vs_baseline/` — `exp25_summary.json`, `exp25_rerun_summary.json`, full per-persona decision traces, SSG snapshots, `exp25_run.log`.
-- `runs_exp26_full_assessment_v2/` — `exp26_summary.json`, full per-persona discovery-trial JSON (every encoding/many-shot/framing/Crescendo trial, not just booleans), decision traces, SSG snapshots, `exp26_run.log`.
-- `runs_exp27_membership_inference_fresh/` — `exp27_summary.json`, full per-probe trial detail (question, expected answer, judged answer, raw response) for every persona, `exp27_run.log`.
+- `experiments/results/runs_exp25_full_assessment_vs_baseline/` — `exp25_summary.json`, `exp25_rerun_summary.json`, full per-persona decision traces, SSG snapshots, `exp25_run.log`.
+- `experiments/results/runs_exp26_full_assessment_v2/` — `exp26_summary.json`, full per-persona discovery-trial JSON (every encoding/many-shot/framing/Crescendo trial, not just booleans), decision traces, SSG snapshots, `exp26_run.log`.
+- `experiments/results/runs_exp27_membership_inference_fresh/` — `exp27_summary.json`, full per-probe trial detail (question, expected answer, judged answer, raw response) for every persona, `exp27_run.log`.

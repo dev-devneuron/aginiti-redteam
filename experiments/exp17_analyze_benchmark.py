@@ -29,7 +29,7 @@ from results_io import save_result
 
 from exp17_hardened_target import BASE_SEED, N_TRIALS  # noqa: E402
 
-RUN_DIR = "runs_live_anythingllm_benchmark/exp17_bench_20260809"
+RUN_DIR = "experiments/results/runs_live_anythingllm_benchmark/exp17_bench_20260809"
 CONDITIONS = ("aginiti", "greedy_info_gain", "bfs_only", "random", "static")
 NON_BFS_BASELINES = ("greedy_info_gain", "random", "static")
 MISSION = "hardened_multi_path"

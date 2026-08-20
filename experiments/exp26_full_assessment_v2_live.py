@@ -87,7 +87,7 @@ from aginiti.core.policies.aginiti_policy import AginitiPolicy
 
 _ROOT = Path(__file__).parent.parent
 _DATASETS = _ROOT / "benchmarks" / "scaled_evals" / "datasets"
-_RESULTS_DIR = _ROOT / "runs_exp26_full_assessment_v2"
+_RESULTS_DIR = _ROOT / "experiments/results/runs_exp26_full_assessment_v2"
 _RESULTS_DIR.mkdir(exist_ok=True)
 
 # -- locked design constants (see module docstring) --------------------------

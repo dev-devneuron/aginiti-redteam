@@ -37,7 +37,7 @@ persona/condition:
     -- every campaign start/finish, every confirmed finding (WARNING-level
     in observation_adapter.py), every discovery-phase trial, every
     variant-discovery/refinement attempt -- written to
-    runs_exp25_full_assessment_vs_baseline/exp25_run.log, in addition to
+    experiments/results/runs_exp25_full_assessment_vs_baseline/exp25_run.log, in addition to
     console output. This is the library's own documented "deploying
     application attaches a handler" pattern (aginiti/observability.py).
   - Full rendered DecisionTrace text for every AginitiPolicy-driven step
@@ -97,7 +97,7 @@ from aginiti.core.policies.aginiti_policy import AginitiPolicy
 
 _ROOT = Path(__file__).parent.parent
 _DATASETS = _ROOT / "benchmarks" / "scaled_evals" / "datasets"
-_RESULTS_DIR = _ROOT / "runs_exp25_full_assessment_vs_baseline"
+_RESULTS_DIR = _ROOT / "experiments/results/runs_exp25_full_assessment_vs_baseline"
 _RESULTS_DIR.mkdir(exist_ok=True)
 
 # -- locked design constants (see module docstring) --------------------------

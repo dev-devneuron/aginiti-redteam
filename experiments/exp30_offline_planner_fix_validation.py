@@ -70,7 +70,7 @@ from aginiti.core.policies.static_policy import StaticPolicy
 from benchmarks.agents.family_coverage_scenario_agent import FamilyCoverageScenarioAgent
 
 _ROOT = Path(__file__).parent.parent
-_RESULTS_DIR = _ROOT / "runs_exp30_offline_planner_fix_validation"
+_RESULTS_DIR = _ROOT / "experiments/results/runs_exp30_offline_planner_fix_validation"
 _RESULTS_DIR.mkdir(exist_ok=True)
 
 # Two budgets, deliberately: 18 matches exp28/29's own real live budget

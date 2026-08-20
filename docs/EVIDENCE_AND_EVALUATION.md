@@ -738,8 +738,8 @@ variant shows zero signal on this specific, pre-filter-correct target).
 
 **Full experimental record and final analysis: `docs/EXP26_RESULTS.md`**
 (covers `exp25`/`exp26`/`exp27` as one assessment arc) — raw data in
-`runs_exp25_full_assessment_vs_baseline/`, `runs_exp26_full_assessment_v2/`,
-`runs_exp27_membership_inference_fresh/`.
+`experiments/results/runs_exp25_full_assessment_vs_baseline/`, `experiments/results/runs_exp26_full_assessment_v2/`,
+`experiments/results/runs_exp27_membership_inference_fresh/`.
 
 **A second, later chapter — `docs/EXP29_RESULTS.md`** (covers `exp28`
 through `exp31`): the first live run of RQ1's own 4-condition methodology
@@ -748,10 +748,11 @@ harness-methodology gaps (memory contamination across trials, fake
 replication from a deterministic policy's repeated seed); both fixed,
 each isolated and offline-proven (`exp30`/`exp31`) before the corrected
 live re-run (`exp29`) — the RBAC crossings above are that re-run's own
-independent-oracle-verified finding. Raw data in `runs_exp28_rq1_
-hardened_agent/`, `runs_exp30_offline_planner_fix_validation/`,
-`runs_exp31_offline_cluster_fix_validation/`, `runs_exp29_rq1_hardened_
-agent_fresh_state/`.
+independent-oracle-verified finding. Raw data in
+`experiments/results/runs_exp28_rq1_hardened_agent/`,
+`experiments/results/runs_exp30_offline_planner_fix_validation/`,
+`experiments/results/runs_exp31_offline_cluster_fix_validation/`,
+`experiments/results/runs_exp29_rq1_hardened_agent_fresh_state/`.
 
 ### InjecAgent (Zhan et al., ACL Findings 2024)
 

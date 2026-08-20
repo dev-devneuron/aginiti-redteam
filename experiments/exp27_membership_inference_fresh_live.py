@@ -50,7 +50,7 @@ from aginiti.core.graph.ssg import SecurityStateGraph
 
 _ROOT = Path(__file__).parent.parent
 _DATASETS = _ROOT / "benchmarks" / "scaled_evals" / "datasets"
-_RESULTS_DIR = _ROOT / "runs_exp27_membership_inference_fresh"
+_RESULTS_DIR = _ROOT / "experiments/results/runs_exp27_membership_inference_fresh"
 _RESULTS_DIR.mkdir(exist_ok=True)
 
 _PERSONAS = ("legal", "support", "ops")

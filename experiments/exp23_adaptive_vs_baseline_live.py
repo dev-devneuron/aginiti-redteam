@@ -93,7 +93,7 @@ from aginiti.core.policies.aginiti_policy import AginitiPolicy
 
 _ROOT = Path(__file__).parent.parent
 _DATASETS = _ROOT / "benchmarks" / "scaled_evals" / "datasets"
-_RESULTS_DIR = _ROOT / "runs_exp23_adaptive_vs_baseline"
+_RESULTS_DIR = _ROOT / "experiments/results/runs_exp23_adaptive_vs_baseline"
 _RESULTS_DIR.mkdir(exist_ok=True)
 
 # -- locked design constants (see docstring) --------------------------------

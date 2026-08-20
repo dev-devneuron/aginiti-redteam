@@ -29,7 +29,7 @@ from results_io import save_result
 
 from exp16_tight_budget_validation import BASE_SEED, N_TRIALS  # noqa: E402
 
-RUN_DIR = "runs_live_anythingllm_benchmark/exp16_bench_20260809"
+RUN_DIR = "experiments/results/runs_live_anythingllm_benchmark/exp16_bench_20260809"
 CONDITIONS = ("aginiti", "greedy_info_gain", "bfs_only", "random", "static", "bayesian")
 NON_BFS_BASELINES = ("greedy_info_gain", "random", "static")
 MISSION = "branching_chat_rag"

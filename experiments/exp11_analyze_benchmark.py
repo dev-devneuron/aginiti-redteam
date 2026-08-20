@@ -1,5 +1,5 @@
 """Analysis pass for experiments/exp11_live_anythingllm_planner_benchmark.py's
-raw trial JSONs -- reads runs_live_anythingllm_benchmark/<run_id>/, computes
+raw trial JSONs -- reads experiments/results/runs_live_anythingllm_benchmark/<run_id>/, computes
 the requested metrics per (mission, condition), runs aginiti/stats.py's
 existing Fisher's-exact/bootstrap-CI helpers (unchanged, no new statistics
 code), and writes one summary JSON via experiments/results_io.py's existing
@@ -17,7 +17,7 @@ from aginiti.core.logging_utils import load_json
 from aginiti.core.stats import bootstrap_mean_ci, compare_to_aginiti
 from results_io import save_result
 
-RUN_DIR = "runs_live_anythingllm_benchmark/exp11_bench_20260808T223600Z"
+RUN_DIR = "experiments/results/runs_live_anythingllm_benchmark/exp11_bench_20260808T223600Z"
 CONDITIONS = ("aginiti", "greedy_info_gain", "bfs_only", "random", "static")
 MISSIONS = ("single_step_data_exposure", "chat_rag_chain", "automatic_tool_exfil_chain")
 MISSION_SUCCESS_KEY = {

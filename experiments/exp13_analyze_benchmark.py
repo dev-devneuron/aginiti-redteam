@@ -28,7 +28,7 @@ from results_io import save_result
 # below stays correct even if the benchmark script's own trial count changes.
 from exp13_cold_start_fix_benchmark import N_TRIALS  # noqa: E402
 
-RUN_DIR = "runs_live_anythingllm_benchmark/exp13_bench_20260809"
+RUN_DIR = "experiments/results/runs_live_anythingllm_benchmark/exp13_bench_20260809"
 CONDITIONS = ("aginiti", "greedy_info_gain", "bfs_only", "random", "static")
 MISSIONS = ("single_step_comprehensive", "branching_chat_rag", "branching_automatic_rag")
 

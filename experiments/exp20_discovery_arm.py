@@ -122,7 +122,7 @@ def _run_one_trial(trial: int, seed: int) -> dict:
 def main():
     n_trials = int(os.environ.get("AGINITI_EXP20_DISCOVERY_N_TRIALS", "2"))
     run_id = os.environ.get("AGINITI_BENCH_RUN_ID") or new_run_id()
-    out_dir = run_dir(run_id, base="runs_live_anythingllm_benchmark")
+    out_dir = run_dir(run_id, base="experiments/results/runs_live_anythingllm_benchmark")
     save_json(f"{out_dir}/discovery_arm_meta.json", {
         "run_id": run_id, "n_trials": n_trials, "base_seed": BASE_SEED, "goal": GOAL,
         "static_pipeline_names": sorted(_STATIC_PIPELINE_NAMES),

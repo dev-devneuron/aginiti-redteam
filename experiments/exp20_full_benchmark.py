@@ -150,7 +150,7 @@ def main():
     n_trials = int(os.environ.get("AGINITI_EXP20_N_TRIALS", "2"))
 
     run_id = os.environ.get("AGINITI_BENCH_RUN_ID") or new_run_id()
-    out_dir = run_dir(run_id, base="runs_live_anythingllm_benchmark")
+    out_dir = run_dir(run_id, base="experiments/results/runs_live_anythingllm_benchmark")
     save_json(f"{out_dir}/meta.json", {
         "run_id": run_id, "conditions": list(CONDITIONS), "mission": mission_name,
         "n_trials": n_trials, "base_seed": BASE_SEED, "budget": BUDGET,

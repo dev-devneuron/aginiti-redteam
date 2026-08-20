@@ -300,7 +300,7 @@ def main():
     run_id = sys.argv[1]
     discovery_run_id = sys.argv[2] if len(sys.argv) > 2 else run_id
 
-    run_dir = os.path.join("runs_live_anythingllm_benchmark", run_id)
+    run_dir = os.path.join("experiments/results/runs_live_anythingllm_benchmark", run_id)
     all_trials = load_trials(run_dir)
     by_condition = group_by_condition(all_trials)
 
@@ -324,7 +324,7 @@ def main():
     print("\n--- garak (exp19) comparison, frozen numbers ---")
     print(json.dumps(load_garak_exp19_comparison(), indent=2))
 
-    discovery_dir = os.path.join("runs_live_anythingllm_benchmark", discovery_run_id)
+    discovery_dir = os.path.join("experiments/results/runs_live_anythingllm_benchmark", discovery_run_id)
     discovery_files = sorted(glob.glob(os.path.join(discovery_dir, "discovery_arm_trial*.json")))
     if discovery_files:
         print(f"\n--- 7. Novel attack discovery ({len(discovery_files)} discovery-arm trials) ---")

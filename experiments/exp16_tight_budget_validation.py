@@ -81,7 +81,7 @@ def _build_policy_ext(condition: str, seed: int):
 
 def main():
     run_id = os.environ.get("AGINITI_BENCH_RUN_ID") or new_run_id()
-    out_dir = run_dir(run_id, base="runs_live_anythingllm_benchmark")
+    out_dir = run_dir(run_id, base="experiments/results/runs_live_anythingllm_benchmark")
     save_json(f"{out_dir}/meta.json", {
         "run_id": run_id, "conditions": list(CONDITIONS), "mission": MISSION_NAME,
         "n_trials": N_TRIALS, "base_seed": BASE_SEED, "budget": TIGHT_BUDGET,

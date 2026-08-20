@@ -258,9 +258,9 @@ garak nor Aginiti's own earlier benchmark runs had demonstrated.
 
 ## Raw data
 
-`runs_live_anythingllm_benchmark/exp20_full_broad/` (75 trials),
-`runs_live_anythingllm_benchmark/exp20_full_chain/` (75 trials),
-`runs_live_anythingllm_benchmark/exp20_discovery_rerun/` (10 trials, the
+`experiments/results/runs_live_anythingllm_benchmark/exp20_full_broad/` (75 trials),
+`experiments/results/runs_live_anythingllm_benchmark/exp20_full_chain/` (75 trials),
+`experiments/results/runs_live_anythingllm_benchmark/exp20_discovery_rerun/` (10 trials, the
 clean re-run — `exp20_full_discovery/` is the interrupted first attempt,
 kept for the record, zero usable trials in it),
 `experiments/exp20_full_benchmark.py` / `exp20_discovery_arm.py` /

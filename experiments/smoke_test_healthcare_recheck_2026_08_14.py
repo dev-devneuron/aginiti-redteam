@@ -39,7 +39,7 @@ def main() -> None:
         results[op_id] = {"overall_success": r.overall_success, "preview": (r.raw_signal or "")[:300]}
         logger.info("RECHECK [%s]: %s", op_id, results[op_id])
 
-    Path("runs_healthcare_recheck_2026_08_14.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
+    Path("experiments/results/runs_healthcare_recheck_2026_08_14.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":

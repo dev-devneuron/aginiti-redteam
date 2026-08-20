@@ -14,7 +14,7 @@ from aginiti.core.logging_utils import load_json
 from aginiti.core.stats import bootstrap_mean_ci, compare_to_aginiti
 from results_io import save_result
 
-RUN_DIR = "runs_live_anythingllm_benchmark/exp12_bench_20260809"
+RUN_DIR = "experiments/results/runs_live_anythingllm_benchmark/exp12_bench_20260809"
 CONDITIONS = ("aginiti", "greedy_info_gain", "bfs_only", "random", "static")
 MISSIONS = ("single_step_comprehensive", "branching_chat_rag", "branching_automatic_rag")
 
