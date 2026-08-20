@@ -65,9 +65,13 @@ AGENT_URL = os.getenv("HARDENED_AGENT_URL", "http://localhost:8004")
 INGESTED_PATH = "benchmarks/scaled_evals/datasets/hardened_dataset_ingested.json"
 HELD_OUT_PATH = "benchmarks/scaled_evals/datasets/hardened_dataset_held_out.json"
 DEFAULT_LLM_PROVIDER = "gemini/gemini-3.5-flash"
-DEFAULT_SHADOW_LLM_PROVIDER = "groq/llama-3.3-70b-versatile"  # deliberately different family,
-                                                                # see InterrogationAttack's
-                                                                # shadow_llm_provider docstring
+# groq/openai/gpt-oss-20b (deliberately a different model family from
+# DEFAULT_LLM_PROVIDER, see InterrogationAttack's shadow_llm_provider
+# docstring) -- was groq/llama-3.3-70b-versatile until 2026-08-21,
+# confirmed live during a Phase 2 Slice F health sweep that model no
+# longer exists on Groq at all; updated to the replacement already
+# verified live and adopted as this project's shared _GROQ_MODEL default.
+DEFAULT_SHADOW_LLM_PROVIDER = "groq/openai/gpt-oss-20b"
 DEFAULT_QUERIES = 15  # paper default is 30; starting smaller for the first real run
                        # against this target -- see plans/mia-interrogation-attack.md
                        # and the methodology doc's own n-ablation ("n=5 already beats

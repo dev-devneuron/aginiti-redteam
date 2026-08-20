@@ -67,7 +67,12 @@ from aginiti.attacks.dra import SECRETAttack
 # ---------------------------------------------------------------------------
 AGENT_URL = os.getenv("HARDENED_AGENT_URL", "http://localhost:8004")
 DEFAULT_LLM_PROVIDER = "gemini/gemini-3.5-flash"
-FALLBACK_LLM_PROVIDER = "groq/llama-3.3-70b-versatile"
+# groq/llama-3.3-70b-versatile no longer exists on Groq at all (confirmed
+# live during a Phase 2 Slice F health sweep, 2026-08-21) -- both
+# constants below updated to the replacement already verified live and
+# adopted as this project's shared _GROQ_MODEL default
+# (aginiti/core/llm.py).
+FALLBACK_LLM_PROVIDER = "groq/openai/gpt-oss-20b"
 # Semantic-shift (Phase 2 LE trigger generation) routed to Groq (added
 # 2026-08-19) -- the paper's own design runs this step on a small/local
 # model (Qwen2.5-1.5B-Instruct, secret-methodology.md line 292), not a
@@ -79,7 +84,7 @@ FALLBACK_LLM_PROVIDER = "groq/llama-3.3-70b-versatile"
 # Phase 1 Optimizer/Evaluator deliberately stay on Gemini -- those
 # determine finding-label accuracy and jailbreak-artifact quality
 # respectively, not a place to trade quality for free-tier cost.
-SEMANTIC_SHIFT_LLM_PROVIDER = "groq/llama-3.3-70b-versatile"
+SEMANTIC_SHIFT_LLM_PROVIDER = "groq/openai/gpt-oss-20b"
 DEFAULT_PHASE1_N_ITER = 5
 DEFAULT_PHASE1_N_CAND = 2
 DEFAULT_QUERIES = 15  # smaller than run_ikea_hardened.py's 20 -- see module docstring

@@ -82,7 +82,11 @@ ATTACK = "ikea"
 AGENT_URL = os.getenv("HARDENED_AGENT_URL", "http://localhost:8004")
 GROUND_TRUTH = "benchmarks/scaled_evals/datasets/hardened_dataset_ingested.json"
 DEFAULT_LLM_PROVIDER = "gemini/gemini-3.5-flash"
-FALLBACK_LLM_PROVIDER = "groq/llama-3.3-70b-versatile"
+# groq/llama-3.3-70b-versatile no longer exists on Groq at all (confirmed
+# live during a Phase 2 Slice F health sweep, 2026-08-21); updated to the
+# replacement already verified live and adopted as this project's shared
+# _GROQ_MODEL default (aginiti/core/llm.py).
+FALLBACK_LLM_PROVIDER = "groq/openai/gpt-oss-20b"
 EMBED_MODEL = "chromadb/all-MiniLM-L6-v2"
 THETA_INTER = 0.6
 ENABLE_LEAK_PREFILTER = True

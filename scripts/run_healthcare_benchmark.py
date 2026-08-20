@@ -63,7 +63,11 @@ LLM_PROVIDER = "gemini/gemini-3.5-flash"       # attacker LLM — switched back 
 # (ServiceUnavailableError, not RateLimitError) and isn't caught by this
 # failover; IKEAAttack.execute_black_box's own openai.APIError handling still
 # degrades that case to partial findings instead of crashing (see 5.3).
-FALLBACK_LLM_PROVIDER = "groq/llama-3.3-70b-versatile"
+# groq/llama-3.3-70b-versatile no longer exists on Groq at all (confirmed
+# live during a Phase 2 Slice F health sweep, 2026-08-21); updated to the
+# replacement already verified live and adopted as this project's shared
+# _GROQ_MODEL default (aginiti/core/llm.py).
+FALLBACK_LLM_PROVIDER = "groq/openai/gpt-oss-20b"
 EMBED_MODEL = "chromadb/all-MiniLM-L6-v2"      # attacker embedding model (local ONNX, free)
 THETA_INTER = 0.6                             # narrow-domain anchor-diversity override; None = library default
 
