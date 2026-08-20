@@ -1,4 +1,4 @@
-from aginiti.target.tools import SUSPICION_THRESHOLD, ToolWorld
+from benchmarks.agents.tools import SUSPICION_THRESHOLD, ToolWorld
 
 
 def test_payroll_modify_requires_manager_approved():

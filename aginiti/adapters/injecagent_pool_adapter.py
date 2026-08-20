@@ -29,7 +29,7 @@ already-tested InjecAgentAdapter.
 from __future__ import annotations
 
 from aginiti.adapters.base import SendResult
-from aginiti.target.injecagent_adapter import InjecAgentAdapter
+from aginiti.adapters.injecagent_adapter import InjecAgentAdapter
 
 
 class InjecAgentPoolAdapter:

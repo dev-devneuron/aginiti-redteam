@@ -178,8 +178,8 @@ def test_every_adapter_that_synthesizes_fallback_text_marks_it_synthetic():
     # silently reintroducing the exact DVLA bug.
     import inspect
 
-    from aginiti.adapters import dvla_adapter
-    from aginiti.target import demo_agent, injecagent_adapter
+    from aginiti.adapters import dvla_adapter, injecagent_adapter
+    from benchmarks.agents import demo_agent
 
     for module, needle in (
         (dvla_adapter, '"[Aginiti: target API rejected the request'),

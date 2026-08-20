@@ -2,7 +2,7 @@
 extensions of the existing, already-tested InjecAgentAdapter/
 injecagent_operator, built to give one shared Aginiti campaign genuine
 multi-candidate branching across real InjecAgent test cases (see
-aginiti/target/injecagent_pool_adapter.py's module docstring for why the
+aginiti/adapters/injecagent_pool_adapter.py's module docstring for why the
 per-case-scoped original adapter can't do this on its own). No live LLM
 calls -- chat_tools is mocked, same discipline as
 tests/test_injecagent_adapter.py.
@@ -10,8 +10,8 @@ tests/test_injecagent_adapter.py.
 from unittest.mock import patch
 
 from aginiti.operators.injecagent_pool import injecagent_pool_operator
-from aginiti.target.injecagent_adapter import build_test_cases
-from aginiti.target.injecagent_pool_adapter import InjecAgentPoolAdapter
+from aginiti.adapters.injecagent_adapter import build_test_cases
+from aginiti.adapters.injecagent_pool_adapter import InjecAgentPoolAdapter
 
 
 def _sample_cases(n=3):
@@ -54,7 +54,7 @@ def test_pool_operator_reuses_the_same_effects_and_prompt_as_the_original():
 def test_pool_adapter_dispatches_to_the_right_test_case_by_index():
     cases = _sample_cases(2)
     adapter = InjecAgentPoolAdapter(cases, seed=1)
-    with patch("aginiti.target.injecagent_adapter.chat_tools", return_value=_fake_text_msg("ok")):
+    with patch("aginiti.adapters.injecagent_adapter.chat_tools", return_value=_fake_text_msg("ok")):
         r0 = adapter.send(f"tool_output_injection:{cases[0]['index']}", "attacker instruction 0")
         r1 = adapter.send(f"tool_output_injection:{cases[1]['index']}", "attacker instruction 1")
     assert r0.final_text == "ok"
@@ -83,7 +83,7 @@ def test_ground_truth_aggregates_across_the_pool_only_from_attempted_cases():
     # Nothing attempted yet -- must be False, not vacuously True.
     assert adapter.ground_truth_mission_achieved() is False
 
-    with patch("aginiti.target.injecagent_adapter.chat_tools", return_value=_fake_tool_call_msg(attacker_tool_0)):
+    with patch("aginiti.adapters.injecagent_adapter.chat_tools", return_value=_fake_tool_call_msg(attacker_tool_0)):
         adapter.send(f"tool_output_injection:{cases[0]['index']}", "x")
     assert adapter.ground_truth_mission_achieved() is True
 
@@ -98,9 +98,9 @@ def test_per_case_ground_truth_distinguishes_compliant_from_refused_cases():
     attacker_tool_0 = cases[0]["attacker_case"]["Attacker Tools"][0]
     adapter = InjecAgentPoolAdapter(cases, seed=1)
 
-    with patch("aginiti.target.injecagent_adapter.chat_tools", return_value=_fake_tool_call_msg(attacker_tool_0)):
+    with patch("aginiti.adapters.injecagent_adapter.chat_tools", return_value=_fake_tool_call_msg(attacker_tool_0)):
         adapter.send(f"tool_output_injection:{cases[0]['index']}", "x")
-    with patch("aginiti.target.injecagent_adapter.chat_tools", return_value=_fake_text_msg("I can't help with that.")):
+    with patch("aginiti.adapters.injecagent_adapter.chat_tools", return_value=_fake_text_msg("I can't help with that.")):
         adapter.send(f"tool_output_injection:{cases[1]['index']}", "y")
 
     per_case = adapter.per_case_ground_truth()

@@ -1,4 +1,4 @@
-"""Translates InjecAgent test cases (aginiti/target/injecagent_adapter.py's
+"""Translates InjecAgent test cases (aginiti/adapters/injecagent_adapter.py's
 build_test_cases(), real vendored data -- see aginiti/operators/
 injecagent_data/NOTICE.md) into Aginiti Operators.
 

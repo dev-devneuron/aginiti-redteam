@@ -44,7 +44,7 @@ from aginiti.core.graph.target_belief import TargetBeliefState
 from aginiti.core.mission import Mission
 from aginiti.operators.library import OperatorLibrary
 from aginiti.operators.multi_family_definitions import build_multi_family_library
-from aginiti.target.multi_family_agent import MultiFamilyAgent
+from benchmarks.agents.multi_family_agent import MultiFamilyAgent
 
 _real_pipeline_to_operator = ed._pipeline_to_operator
 _real_framing_operator = fd._framing_operator

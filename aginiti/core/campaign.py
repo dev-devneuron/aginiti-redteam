@@ -24,9 +24,40 @@ from aginiti.core.observability import get_logger
 from aginiti.operators.library import OperatorLibrary
 from aginiti.core.policies.aginiti_policy import AginitiPolicy
 from aginiti.core.policies.base import Policy
-from aginiti.target.demo_agent import DemoAgent
 
 _logger = get_logger("campaign")
+
+
+def _default_demo_agent(seed: int | None):
+    """Lazily imports DemoAgent (benchmarks/agents/demo_agent.py) only when
+    `run_campaign()` is actually called with no `agent=` supplied.
+
+    2026-08-20 fix (Slice C, plans/PLAN.md): DemoAgent used to be a
+    top-level import here, but it now lives under `benchmarks/`, which
+    `pyproject.toml`'s `[tool.setuptools.packages.find]` deliberately
+    excludes from the published wheel (include = ["aginiti*"] only) --
+    the same "core stays lean" principle already applied to fastapi/
+    uvicorn/faker. A top-level import would have made `import
+    aginiti.core.campaign` itself fail for any real `pip install
+    aginiti-redteam` user, since this module is central plumbing many
+    other public entry points import. Deferring the import here means a
+    real caller who always passes their own `agent=` (an
+    AgentEndpoint-backed adapter, an InjecAgent adapter, etc. -- the
+    actual published-library use case) never touches `benchmarks/` at
+    all; only the dev/test/benchmark convenience of omitting `agent=`
+    needs it, and only dev/test/benchmark environments have
+    `benchmarks/` on the path in the first place."""
+    try:
+        from benchmarks.agents.demo_agent import DemoAgent
+    except ImportError as exc:
+        raise ImportError(
+            "run_campaign() was called with no agent= and could not fall back "
+            "to DemoAgent: benchmarks/agents/ is a dev/benchmark fixture, not "
+            "part of the published aginiti package. Pass an explicit agent= "
+            "(a BaseAdapter), or run from a source checkout with benchmarks/ "
+            "on the Python path."
+        ) from exc
+    return DemoAgent(seed=seed)
 
 
 @dataclass
@@ -116,7 +147,8 @@ def run_campaign(mission: Mission, library: OperatorLibrary, agent: BaseAdapter 
     condition in a benchmark, matching the project's own "same
     configuration for every planner" fairness rule."""
     ssg = ssg or SecurityStateGraph()
-    agent = agent or DemoAgent(seed=seed)
+    if agent is None:
+        agent = _default_demo_agent(seed=seed)
     policy = policy or AginitiPolicy()
     adapter = adapter or ObservationAdapter()
 

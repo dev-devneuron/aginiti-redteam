@@ -1,7 +1,7 @@
 """One-off manual check: does the DemoAgent's tool-calling loop actually
 work against the live Groq API? Not part of the pytest suite (hits a real
 API, costs tokens, and target behavior is inherently non-deterministic)."""
-from aginiti.target.demo_agent import DemoAgent
+from benchmarks.agents.demo_agent import DemoAgent
 
 agent = DemoAgent()
 

@@ -4,8 +4,8 @@ raises TypeError -- this crashed a real live run."""
 import json
 from types import SimpleNamespace
 
-import aginiti.target.demo_agent as demo_agent_module
-from aginiti.target.demo_agent import DemoAgent
+import benchmarks.agents.demo_agent as demo_agent_module
+from benchmarks.agents.demo_agent import DemoAgent
 
 
 def _tool_call(name, arguments):

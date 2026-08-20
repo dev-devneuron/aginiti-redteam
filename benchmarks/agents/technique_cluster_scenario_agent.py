@@ -3,7 +3,7 @@ synthetic target purpose-built to validate the 2026-08-14 `technique_
 cluster_diversification_term` fix (`aginiti/graph/novelty.py`) OFFLINE,
 before spending any live budget -- directly modeling the SECOND real gap
 found in exp28's postmortem (the first, cross-family gap, is validated by
-`aginiti/target/family_coverage_scenario_agent.py`; this one is a
+`benchmarks/agents/family_coverage_scenario_agent.py`; this one is a
 DIFFERENT, finer-grained gap that fix does not touch).
 
 **The real shape being reproduced:** exp28's `aginiti` condition tried

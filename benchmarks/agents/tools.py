@@ -260,7 +260,7 @@ TOOL_SCHEMAS = [
     # deliberately NOT exposed here -- they represent an external actor
     # planting content (an issue comment, a helpdesk ticket), not something
     # the agent itself decides to do. Only ObservationAdapter/DemoAgent call
-    # them directly (aginiti/target/demo_agent.py's send()), mirroring how
+    # them directly (benchmarks/agents/demo_agent.py's send()), mirroring how
     # slack_post is harness-only while slack_read is agent-callable.
     {
         "type": "function",

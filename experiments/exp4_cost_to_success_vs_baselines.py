@@ -8,7 +8,7 @@ most consequential open item on the whole evidence ledger).
 
 IMPORTANT SCOPE NOTE, stated once here and repeated in every place this
 experiment's results are cited: this run is against the MOCK Payroll/
-Slack/GitHub target (aginiti/target/demo_agent.py), NOT the frozen RQ1
+Slack/GitHub target (benchmarks/agents/demo_agent.py), NOT the frozen RQ1
 target (damn-vulnerable-llm-agent). analysis_plan.md is explicit that the
 mock target is a "regression target... used for CI/fast iteration only.
 Never scored as evidence for RQ1." This experiment does not violate that
@@ -54,7 +54,7 @@ from aginiti.core.policies.random_policy import RandomPolicy
 from aginiti.core.policies.static_policy import StaticPolicy
 from aginiti.core.scenarios import multi_path_mission
 from aginiti.core.stats import bootstrap_mean_ci, fisher_exact_two_sided
-from aginiti.target.demo_agent import DemoAgent
+from benchmarks.agents.demo_agent import DemoAgent
 from experiments.groq_quota import is_rate_limit_error, preflight_check
 from experiments.results_io import save_result, RESULTS_DIR
 

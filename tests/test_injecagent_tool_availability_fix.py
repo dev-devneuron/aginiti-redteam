@@ -14,8 +14,8 @@ the rest of tests/test_injecagent_adapter.py.
 """
 from types import SimpleNamespace
 
-import aginiti.target.injecagent_adapter as injecagent_adapter_module
-from aginiti.target.injecagent_adapter import (
+import aginiti.adapters.injecagent_adapter as injecagent_adapter_module
+from aginiti.adapters.injecagent_adapter import (
     InjecAgentAdapter,
     _available_tool_schemas,
     _load_tool_catalog,
@@ -34,7 +34,7 @@ def _amazon_case():
 # -- the real vendored tool catalog -----------------------------------------
 
 def test_tool_catalog_loads_and_covers_every_real_dataset_tool_name():
-    from aginiti.target.injecagent_adapter import build_test_cases
+    from aginiti.adapters.injecagent_adapter import build_test_cases
     catalog = _load_tool_catalog()
     assert len(catalog) > 0
     missing = set()
@@ -79,7 +79,7 @@ def test_no_array_property_anywhere_in_the_real_catalog_is_missing_items():
     # array-typed parameter across all 38 toolkits must get a valid
     # `items` sub-schema, since any one of them could be the tool offered
     # for a given InjecAgent test case.
-    from aginiti.target.injecagent_adapter import build_test_cases
+    from aginiti.adapters.injecagent_adapter import build_test_cases
     catalog = _load_tool_catalog()
     for tc in build_test_cases():
         schemas = _available_tool_schemas(tc["user_case"], tc["attacker_case"], catalog)

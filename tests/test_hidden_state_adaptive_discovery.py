@@ -1,6 +1,6 @@
 """The integration test this whole 2026-08-14 architectural pass was built
 to satisfy: a deterministic, zero-LLM synthetic target with genuine hidden
-state (`aginiti/target/hidden_state_agent.py`) where different attack
+state (`benchmarks/agents/hidden_state_agent.py`) where different attack
 paths reveal different information, proving each of the required
 behaviors explicitly, in order:
 
@@ -23,7 +23,7 @@ from aginiti.operators.hidden_state_definitions import build_hidden_state_librar
 from aginiti.operators.library import OperatorLibrary
 from aginiti.core.planner.aginiti_planner import AginitiPlanner
 from aginiti.core.policies.aginiti_policy import AginitiPolicy
-from aginiti.target.hidden_state_agent import HiddenStateAgent
+from benchmarks.agents.hidden_state_agent import HiddenStateAgent
 
 _SUCCESS_CRITERIA = ("deep_secret_leaked",)
 

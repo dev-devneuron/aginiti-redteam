@@ -31,7 +31,7 @@ from aginiti.operators.library import OperatorLibrary
 from aginiti.operators.multi_family_definitions import build_multi_family_library
 from aginiti.core.planner.aginiti_planner import AginitiPlanner
 from aginiti.core.policies.base import eligible_operators
-from aginiti.target.multi_family_agent import MultiFamilyAgent
+from benchmarks.agents.multi_family_agent import MultiFamilyAgent
 
 
 class _BlindMultiFamilyAgent(MultiFamilyAgent):

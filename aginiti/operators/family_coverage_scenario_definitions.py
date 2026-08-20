@@ -1,4 +1,4 @@
-"""Operator library for `aginiti/target/family_coverage_scenario_agent.py`
+"""Operator library for `benchmarks/agents/family_coverage_scenario_agent.py`
 -- see that module's own docstring for the full scenario and why it's the
 right offline test of the 2026-08-14 `PROACTIVE_COVERAGE_BONUS` fix
 specifically. Every operator uses a deterministic extractor (no LLM judge,
@@ -57,7 +57,7 @@ from aginiti.core.graph.schema import ClaimStatus, RiskTier
 from aginiti.core.graph.security_boundary import BOUNDARY_L5
 from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
 from aginiti.operators.library import ClaimEffect, Operator
-from aginiti.target.family_coverage_scenario_agent import (
+from benchmarks.agents.family_coverage_scenario_agent import (
     FAMILY_A_ID_PREFIX,
     FAMILY_A_MARKER,
     FAMILY_A_SIZE,

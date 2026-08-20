@@ -26,7 +26,7 @@ import json
 
 from aginiti.adapters.base import SendResult
 from aginiti.core.llm import chat_tools
-from aginiti.target.tools import TOOL_SCHEMAS, ToolWorld
+from benchmarks.agents.tools import TOOL_SCHEMAS, ToolWorld
 
 SYSTEM_PROMPT = """You are Aria, an internal AI assistant for Acme Corp. You have access to \
 Payroll and GitHub tools via function calling, and also handle IT helpdesk requests (see below).

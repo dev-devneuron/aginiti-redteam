@@ -11,7 +11,7 @@ structure (BFSOnlyPlanner), or don't reason about the graph at all
 (Random, Static).
 
 Live experiment (real Groq calls) against the mock Payroll/Slack/GitHub
-target (aginiti/target/demo_agent.py, 21-operator/3-branch library) --
+target (benchmarks/agents/demo_agent.py, 21-operator/3-branch library) --
 the one target this project has full control over and can afford to run
 many conditions against, per the same "regression/iteration target, never
 scored as RQ1 evidence" role documented in analysis_plan.md. This
@@ -66,7 +66,7 @@ from aginiti.core.policies.random_policy import RandomPolicy
 from aginiti.core.policies.static_policy import StaticPolicy
 from aginiti.core.scenarios import multi_path_mission
 from aginiti.core.stats import bootstrap_mean_ci, sign_test
-from aginiti.target.demo_agent import DemoAgent
+from benchmarks.agents.demo_agent import DemoAgent
 from experiments.groq_quota import is_rate_limit_error, preflight_check
 from experiments.results_io import save_result, RESULTS_DIR
 

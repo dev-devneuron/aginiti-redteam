@@ -30,9 +30,23 @@ from aginiti.core.policies.memory_guided_policy import MemoryGuidedPolicy, Opera
 from aginiti.core.policies.random_policy import RandomPolicy
 from aginiti.core.policies.static_policy import StaticPolicy
 from aginiti.core.report import load_run
-from aginiti.target.demo_agent import DemoAgent
 
 CONDITIONS = ("random", "static", "memory_guided", "aginiti")
+
+
+def _demo_agent(seed: int):
+    """Lazily imports DemoAgent -- see aginiti/core/campaign.py's
+    `_default_demo_agent` for the full rationale (2026-08-20, Slice C):
+    `benchmarks/` is excluded from the published wheel, and this whole
+    module is itself shipped inside the `aginiti` package
+    (`aginiti.core.benchmark`), so a top-level import here would break
+    `import aginiti.core.benchmark` for any real pip install even though
+    `run_benchmark()` is, by design, always specifically benchmarking
+    against the reference DemoAgent target (unlike run_campaign, it takes
+    no agent= override -- that's this module's actual job, not a
+    convenience default)."""
+    from benchmarks.agents.demo_agent import DemoAgent
+    return DemoAgent(seed=seed)
 
 
 def _build_policy(condition: str, memory: OperatorMemory, seed: int):
@@ -103,7 +117,7 @@ def run_benchmark(mission: Mission, n_trials: int = 5, base_seed: int = 1000,
             if os.path.exists(trial_path):
                 print(f"[{run_id}] trial {trial} | {condition:14s} -> (already logged, skipping)")
                 continue
-            agent = DemoAgent(seed=seed)
+            agent = _demo_agent(seed=seed)
             policy = _build_policy(condition, memory, seed)
             t0 = time.time()
             result = run_campaign(mission, library, agent=agent, policy=policy,

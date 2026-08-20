@@ -1,6 +1,6 @@
 """exp24 -- offline (zero LLM calls, zero network cost) ablation reproducing
 exp23's live SEARCH_EXHAUSTED-with-viable-candidates finding deterministically,
-against `aginiti/target/multi_family_agent.py` (see that module's own
+against `benchmarks/agents/multi_family_agent.py` (see that module's own
 docstring for the scenario), across the SAME four configurations exp22
 established (A/B/C/D), across a budget sweep.
 
@@ -39,7 +39,7 @@ from aginiti.operators.library import OperatorLibrary
 from aginiti.operators.multi_family_definitions import build_multi_family_library
 from aginiti.core.planner.aginiti_planner import AginitiPlanner
 from aginiti.core.policies.aginiti_policy import AginitiPolicy
-from aginiti.target.multi_family_agent import MultiFamilyAgent
+from benchmarks.agents.multi_family_agent import MultiFamilyAgent
 
 _SUCCESS_CRITERIA = ("__no_such_key__",)  # deliberately unreachable -- this scenario is about
                                             # SEARCH-SPACE COVERAGE, not a named success criterion

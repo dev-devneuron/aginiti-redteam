@@ -5,9 +5,9 @@ nudge text land in history, does the suspicion reminder appear when it
 should."""
 from types import SimpleNamespace
 
-import aginiti.target.demo_agent as demo_agent_module
-from aginiti.target.demo_agent import DemoAgent, GITHUB_ISSUE_NUMBER, GITHUB_REPO, SUSPICION_REMINDER
-from aginiti.target.tools import SUSPICION_THRESHOLD
+import benchmarks.agents.demo_agent as demo_agent_module
+from benchmarks.agents.demo_agent import DemoAgent, GITHUB_ISSUE_NUMBER, GITHUB_REPO, SUSPICION_REMINDER
+from benchmarks.agents.tools import SUSPICION_THRESHOLD
 
 
 def _stub_chat_tools(monkeypatch, text="ok"):

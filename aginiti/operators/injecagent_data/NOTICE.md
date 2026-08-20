@@ -20,7 +20,7 @@ attribution, which this file provides.
 **What is NOT vendored**: InjecAgent's own evaluation harness
 (`evaluate_prompted_agent.py`, `evaluate_finetuned_agent.py`,
 `src/models.py`) — Aginiti drives these test cases through its own
-adapter (`aginiti/target/injecagent_adapter.py`) and campaign loop
+adapter (`aginiti/adapters/injecagent_adapter.py`) and campaign loop
 instead, per the project's own principle: adapt data/attack patterns into
 Aginiti's architecture rather than running an external harness alongside
 it. `attacker_cases_dh.jsonl` = "direct harm" attack intentions (30

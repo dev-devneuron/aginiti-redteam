@@ -9,7 +9,7 @@ target needs a new adapter -- a class implementing this shape -- plus an
 operator library written against ITS actual vulnerabilities. Nothing about
 the planner changes.
 
-`aginiti/target/demo_agent.py`'s `DemoAgent` already implements this shape
+`benchmarks/agents/demo_agent.py`'s `DemoAgent` already implements this shape
 by duck typing (it predates this file); it's the reference MockAdapter --
 kept as a fast, free, deterministic regression fixture, not the thing
 benchmark results get reported from going forward.

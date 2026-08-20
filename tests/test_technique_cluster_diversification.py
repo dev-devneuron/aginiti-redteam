@@ -20,7 +20,7 @@ from aginiti.operators.library import OperatorLibrary
 from aginiti.core.planner.aginiti_planner import AginitiPlanner
 from aginiti.core.policies.aginiti_policy import AginitiPolicy
 from aginiti.core.policies.static_policy import StaticPolicy
-from aginiti.target.technique_cluster_scenario_agent import TechniqueClusterScenarioAgent
+from benchmarks.agents.technique_cluster_scenario_agent import TechniqueClusterScenarioAgent
 
 _TIGHT_BUDGET = 5  # exactly the cluster's own size -- see technique_cluster_scenario_agent.py
 

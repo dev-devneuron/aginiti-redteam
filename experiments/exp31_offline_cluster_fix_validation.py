@@ -51,7 +51,7 @@ from aginiti.core.planner.aginiti_planner import AginitiPlanner
 from aginiti.core.policies.aginiti_policy import AginitiPolicy
 from aginiti.core.policies.random_policy import RandomPolicy
 from aginiti.core.policies.static_policy import StaticPolicy
-from aginiti.target.technique_cluster_scenario_agent import TechniqueClusterScenarioAgent
+from benchmarks.agents.technique_cluster_scenario_agent import TechniqueClusterScenarioAgent
 
 _ROOT = Path(__file__).parent.parent
 _RESULTS_DIR = _ROOT / "runs_exp31_offline_cluster_fix_validation"

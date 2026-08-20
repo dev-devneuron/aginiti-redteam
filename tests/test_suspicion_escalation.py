@@ -7,7 +7,7 @@ from aginiti.core.observation_adapter import ObservationAdapter
 from aginiti.core.graph.schema import ClaimStatus, RiskTier
 from aginiti.core.graph.ssg import SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
 from aginiti.operators.library import ClaimEffect, Operator
-from aginiti.target.demo_agent import DemoAgent
+from benchmarks.agents.demo_agent import DemoAgent
 
 
 def _blocked_operator() -> Operator:

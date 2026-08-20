@@ -27,7 +27,7 @@ from aginiti.operators.library import OperatorLibrary
 from aginiti.core.planner.aginiti_planner import AginitiPlanner
 from aginiti.core.policies.aginiti_policy import AginitiPolicy
 from aginiti.core.policies.static_policy import StaticPolicy
-from aginiti.target.family_coverage_scenario_agent import FamilyCoverageScenarioAgent
+from benchmarks.agents.family_coverage_scenario_agent import FamilyCoverageScenarioAgent
 
 _TIGHT_BUDGET = 10  # inside family_a's own 15-member size -- see module docstring
 

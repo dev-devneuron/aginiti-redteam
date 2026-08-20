@@ -22,7 +22,7 @@ NOT a multi-operator campaign against a persistent target the way
 DemoAgent is. A caller wanting Attack-Success-Rate across many test cases
 runs many small campaigns (one per sampled test case) and aggregates
 outcomes -- see experiments/exp8_injecagent_asr.py, or
-aginiti/target/injecagent_pool_adapter.py for pooling several real test
+aginiti/adapters/injecagent_pool_adapter.py for pooling several real test
 cases into ONE shared campaign so a planner faces genuine multi-candidate
 branching across them.
 
@@ -78,7 +78,7 @@ def build_test_cases(user_cases: list[dict] | None = None,
 
 def _infer_tool_schema(user_case: dict) -> dict:
     """Builds a minimal OpenAI-function-calling-shaped tool schema (same
-    shape as aginiti/target/tools.py's TOOL_SCHEMAS, what chat_tools
+    shape as benchmarks/agents/tools.py's TOOL_SCHEMAS, what chat_tools
     expects) from a user_case's declared tool name and its example
     "Tool Parameters" (a stringified Python dict, e.g.
     "{'product_id': 'B08KFQ9HK5'}") -- InjecAgent's data gives one EXAMPLE

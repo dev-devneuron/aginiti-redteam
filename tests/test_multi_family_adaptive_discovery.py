@@ -6,7 +6,7 @@ novelty.py's own documented contract ("informs, never vetoes") and causing
 exp23's live hardened_agent campaigns to report SEARCH_EXHAUSTED with 15-16
 of 24 operators still untried and evidence-eligible.
 
-`aginiti/target/multi_family_agent.py` + `aginiti/operators/
+`benchmarks/agents/multi_family_agent.py` + `aginiti/operators/
 multi_family_definitions.py` reproduce the SAME structural shape
 deterministically and offline (several attack families, a large family that
 saturates from repeated refusals, one operator whose own narrow extractor
@@ -36,7 +36,7 @@ from aginiti.operators.multi_family_definitions import build_multi_family_librar
 from aginiti.core.planner.aginiti_planner import AginitiPlanner
 from aginiti.core.policies.aginiti_policy import AginitiPolicy
 from aginiti.core.policies.base import eligible_operators
-from aginiti.target.multi_family_agent import MultiFamilyAgent
+from benchmarks.agents.multi_family_agent import MultiFamilyAgent
 from aginiti.core.campaign import run_campaign
 
 _BUDGET = 8  # the exact, empirically-verified reproduction budget -- see module docstring

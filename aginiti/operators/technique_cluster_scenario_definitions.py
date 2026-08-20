@@ -1,4 +1,4 @@
-"""Operator library for `aginiti/target/technique_cluster_scenario_agent.py`
+"""Operator library for `benchmarks/agents/technique_cluster_scenario_agent.py`
 -- see that module's own docstring for the full scenario. Deliberately
 single-family (every operator here is `direct_prompt_attack`) so nothing
 family_diversification_term contributes can differ between candidates --
@@ -11,7 +11,7 @@ from aginiti.core.graph.schema import ClaimStatus, RiskTier
 from aginiti.core.graph.security_boundary import BOUNDARY_L5
 from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
 from aginiti.operators.library import ClaimEffect, Operator
-from aginiti.target.technique_cluster_scenario_agent import (
+from benchmarks.agents.technique_cluster_scenario_agent import (
     CLUSTER_MARKER,
     CLUSTER_SIZE,
     CLUSTER_SUCCESS_INDEX,

@@ -1,6 +1,6 @@
 """exp22 -- controlled, fully offline (zero LLM calls, zero network) ablation
 of the 2026-08-14 adaptive-planning additions, against the deterministic
-`HiddenStateAgent` synthetic target (`aginiti/target/hidden_state_agent.py`)
+`HiddenStateAgent` synthetic target (`benchmarks/agents/hidden_state_agent.py`)
 purpose-built to require genuine multi-step, order-dependent discovery.
 
 Four configurations, each independently toggleable (per the explicit
@@ -42,7 +42,7 @@ from aginiti.operators.hidden_state_definitions import build_hidden_state_librar
 from aginiti.operators.library import OperatorLibrary
 from aginiti.core.planner.aginiti_planner import AginitiPlanner
 from aginiti.core.policies.aginiti_policy import AginitiPolicy
-from aginiti.target.hidden_state_agent import HiddenStateAgent
+from benchmarks.agents.hidden_state_agent import HiddenStateAgent
 
 _SUCCESS_CRITERIA = ("deep_secret_leaked",)
 _BUDGETS = (3, 4, 5, 6, 7, 8)

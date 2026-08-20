@@ -6,12 +6,12 @@ test_observation_adapter.py.
 """
 from types import SimpleNamespace
 
-import aginiti.target.injecagent_adapter as injecagent_adapter_module
+import aginiti.adapters.injecagent_adapter as injecagent_adapter_module
 from aginiti.core.observation_adapter import KEY_DESCRIPTIONS, ObservationAdapter
 from aginiti.core.graph.schema import ClaimStatus
 from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SecurityStateGraph
 from aginiti.operators.injecagent import injecagent_operator
-from aginiti.target.injecagent_adapter import (
+from aginiti.adapters.injecagent_adapter import (
     InjecAgentAdapter,
     build_test_cases,
     load_attacker_cases,

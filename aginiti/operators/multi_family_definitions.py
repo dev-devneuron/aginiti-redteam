@@ -1,4 +1,4 @@
-"""Operator library for `aginiti/target/multi_family_agent.py` -- see that
+"""Operator library for `benchmarks/agents/multi_family_agent.py` -- see that
 module's own docstring for the full scenario. Every operator here uses a
 deterministic extractor (no LLM judge, no network) matching a simple
 refusal-keyword pattern, so the whole scenario runs in milliseconds.
@@ -37,7 +37,7 @@ from aginiti.core.graph.schema import ClaimStatus, RiskTier
 from aginiti.core.graph.security_boundary import BOUNDARY_L0, BOUNDARY_L5
 from aginiti.core.graph.ssg import CATEGORY_CAPABILITY, CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET
 from aginiti.operators.library import ClaimEffect, Operator
-from aginiti.target.multi_family_agent import ENCODING_V3_MARKER, RECON_MARKER
+from benchmarks.agents.multi_family_agent import ENCODING_V3_MARKER, RECON_MARKER
 
 CONFIRMED = ClaimStatus.CONFIRMED
 

@@ -1,4 +1,4 @@
-"""Operator library for `aginiti/target/hidden_state_agent.py` -- see that
+"""Operator library for `benchmarks/agents/hidden_state_agent.py` -- see that
 module's own docstring for the full scenario. Every operator here uses a
 deterministic extractor (no LLM judge, no network) matching the target's
 own canned-response markers, so the whole scenario (target + library +
@@ -36,7 +36,7 @@ from aginiti.core.graph.ssg import (
 )
 from aginiti.core.graph.target_graph import START, category_hub
 from aginiti.operators.library import ClaimEffect, ClassPrecondition, Operator
-from aginiti.target.hidden_state_agent import DIRECT_MARKER, INDIRECT_MARKER, RECON_MARKER, TRUST_MARKER
+from benchmarks.agents.hidden_state_agent import DIRECT_MARKER, INDIRECT_MARKER, RECON_MARKER, TRUST_MARKER
 
 CONFIRMED = ClaimStatus.CONFIRMED
 

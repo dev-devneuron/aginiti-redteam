@@ -6,7 +6,7 @@ provenance/license). Pure regex, no network/LLM calls anywhere.
 from aginiti.core.graph.schema import ClaimStatus
 from aginiti.core.graph.ssg import CATEGORY_CAPABILITY, SecurityStateGraph
 from aginiti.static_analysis.prompt_defense import DEFENSE_RULES, record_prompt_defense_scan, scan
-from aginiti.target.demo_agent import SYSTEM_PROMPT
+from benchmarks.agents.demo_agent import SYSTEM_PROMPT
 
 
 def test_scan_flags_all_twelve_defenses_on_empty_content():

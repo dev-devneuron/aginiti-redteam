@@ -6,7 +6,7 @@ for the live follow-up this offline check exists to justify running).
 
 ============================================================================
 WHAT THIS PROVES, STATED PRECISELY -- no more, no less: using
-`aginiti/target/family_coverage_scenario_agent.py` (a synthetic target
+`benchmarks/agents/family_coverage_scenario_agent.py` (a synthetic target
 deliberately shaped to match exp28's real `hardened_agent` finding -- a
 15-member family whose first attempt already succeeds, sitting alongside
 a 26-member family that's never been touched), this script runs FOUR
@@ -67,7 +67,7 @@ from aginiti.core.planner.aginiti_planner import AginitiPlanner
 from aginiti.core.policies.aginiti_policy import AginitiPolicy
 from aginiti.core.policies.random_policy import RandomPolicy
 from aginiti.core.policies.static_policy import StaticPolicy
-from aginiti.target.family_coverage_scenario_agent import FamilyCoverageScenarioAgent
+from benchmarks.agents.family_coverage_scenario_agent import FamilyCoverageScenarioAgent
 
 _ROOT = Path(__file__).parent.parent
 _RESULTS_DIR = _ROOT / "runs_exp30_offline_planner_fix_validation"
