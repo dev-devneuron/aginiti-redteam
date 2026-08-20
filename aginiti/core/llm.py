@@ -29,9 +29,13 @@ policy chose the operators).
   `_ToolCallShim`/`_MessageShim`/`_to_gemini_tools` translation don't have
   an equivalent here at all -- they're simply not needed anymore.
 - Key rotation (`GROQ_API_KEY`, `GROQ_API_KEY_2`, `GROQ_API_KEY_3`, ...
-  pooled, rotate to the next key on a RateLimitError, sticky current
-  index) is unchanged in behavior, reimplemented against
-  `litellm.RateLimitError` instead of `groq.RateLimitError`.
+  pooled, sticky current index) reimplemented against litellm's exception
+  types instead of `groq`'s own. **2026-08-20 (integration Slice F):**
+  broadened from rotating on `litellm.RateLimitError` alone to also
+  rotating on `litellm.AuthenticationError`/`litellm.BadRequestError` --
+  see `_ROTATABLE_ERRORS` below for why (a real expired-key failure,
+  live-observed, was getting retried forever at the same key instead of
+  skipped).
 - `AGINITI_LLM_PROVIDER=gemini` still routes every call shape through
   Gemini instead of Groq -- unchanged.
 - Automatic Groq->Gemini fallback when the ENTIRE Groq key pool is
@@ -47,10 +51,37 @@ policy chose the operators).
 - `warn_if_parse_error` is copied verbatim -- pure post-processing logic,
   never touched the provider layer.
 
-Model strings: `GROQ_MODEL` env var (default `"llama-3.3-70b-versatile"`)
+Model strings: `GROQ_MODEL` env var (default `"openai/gpt-oss-20b"`)
 becomes LiteLLM model string `f"groq/{GROQ_MODEL}"`; `GEMINI_MODEL` (default
 `"gemini-2.5-flash"`) becomes `f"gemini/{GEMINI_MODEL}"`. Same env var
 names as before, so no .env changes needed for existing deployments.
+
+**2026-08-20 default-model fix (live-verified during integration Slice F,
+plans/PLAN.md):** the previous default, `llama-3.3-70b-versatile`, no
+longer exists on Groq at all (404, confirmed live) -- and the model this
+project's own docs had already suggested as its replacement,
+`llama-3.1-8b-instant`, is ALSO gone (also confirmed live, not assumed).
+Queried this project's Groq account's real current catalog directly
+(`GET /openai/v1/models`): no `llama-3.x` chat model exists on it
+anymore. Every remaining general-purpose chat-capable model on that
+catalog is a reasoning model (emits hidden `<think>`-style tokens before
+real content). `openai/gpt-oss-20b` was chosen over the other candidates
+tried live: `qwen/qwen3.6-27b` has substantially heavier reasoning
+overhead for the same trivial task (live-measured ~970 chars of hidden
+reasoning vs. gpt-oss-20b's leaner output), and `groq/compound-mini`
+(genuinely non-reasoning, token-efficient) turned out to flatly reject
+tool-calling ("`tool calling` is not supported with this model") --
+disqualifying for `chat_tools`, which every DemoAgent/InjecAgent call
+site needs. `_GROQ_MODEL` is one shared default across all three call
+shapes (`chat`/`chat_json`/`chat_tools`), so it has to work for all three
+-- `openai/gpt-oss-20b` is the one live-verified to. Real cost of this
+choice: reasoning overhead means `chat_json` callers passing a small
+`max_tokens` can genuinely hit `json_validate_failed` ("max completion
+tokens reached before generating a valid document") if their budget is
+too tight for the hidden reasoning tokens -- observed live in
+`observation_adapter._judge()` at its own default budget. Not resolved
+in this module; if it recurs, the fix is a larger `max_tokens` at the
+call site, not a change here.
 """
 from __future__ import annotations
 
@@ -66,7 +97,7 @@ from aginiti.core.observability import get_logger
 load_dotenv()
 _logger = get_logger("core.llm")
 
-_GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+_GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
 _GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 _PROVIDER = os.environ.get("AGINITI_LLM_PROVIDER", "groq").lower()
 
@@ -101,22 +132,41 @@ def _load_groq_keys() -> list[str]:
     return keys
 
 
+# Errors worth rotating past: a rate-limited key is the original case
+# (RateLimitError); an expired/revoked/invalid key -- confirmed live
+# during integration Slice F to surface as litellm.BadRequestError
+# ("expired_api_key"), not RateLimitError -- is just as much a reason to
+# try the NEXT key in the pool as a rate limit is, since the pool's whole
+# point is "don't let one bad key stall every caller." AuthenticationError
+# covers the same "this specific key is bad" family for providers/error
+# shapes that map to it instead of BadRequestError. Deliberately NOT
+# catching every litellm exception here -- a real model-not-found or
+# malformed-request error should still fail fast and loud, not be masked
+# behind N retries of the same broken request against different keys.
+_ROTATABLE_ERRORS = (litellm.RateLimitError, litellm.AuthenticationError, litellm.BadRequestError)
+
+
 def _call_with_rotation(model: str, messages: list[dict], **kwargs):
     """Tries the current Groq key first, then rotates through the rest of
-    the pool on litellm.RateLimitError. Sticks with whichever key last
-    worked, same as the retired llm_client.py's _call_with_rotation."""
+    the pool on a rotatable error (see _ROTATABLE_ERRORS above -- expanded
+    2026-08-20 from RateLimitError alone, live-verified during
+    integration Slice F: an expired key in the pool was getting retried
+    forever at the same _current_idx instead of being skipped, since
+    BadRequestError wasn't caught here yet). Sticks with whichever key
+    last worked, same as the retired llm_client.py's _call_with_rotation."""
     global _current_idx
     keys = _load_groq_keys()
-    last_err: litellm.RateLimitError | None = None
+    last_err: Exception | None = None
     for attempt in range(len(keys)):
         idx = (_current_idx + attempt) % len(keys)
         try:
             result = litellm.completion(model=model, messages=messages, api_key=keys[idx], **kwargs)
             _current_idx = idx
             return result
-        except litellm.RateLimitError as e:
+        except _ROTATABLE_ERRORS as e:
             last_err = e
             continue
+    assert last_err is not None  # unreachable with an empty pool: _load_groq_keys() already raises
     raise last_err
 
 
@@ -137,7 +187,7 @@ def chat(messages: list[dict], temperature: float = 0.4, max_tokens: int = 1024,
         resp = _call_with_rotation(f"groq/{_GROQ_MODEL}", messages, **kwargs)
         _last_fallback_reason = None
         return resp.choices[0].message.content or ""
-    except litellm.RateLimitError:
+    except _ROTATABLE_ERRORS:
         if not _gemini_available():
             raise
         _last_fallback_reason = "chat: groq pool exhausted, used gemini"
@@ -168,7 +218,7 @@ def chat_json(messages: list[dict], temperature: float = 0.0, max_tokens: int = 
         resp = _call_with_rotation(f"groq/{_GROQ_MODEL}", messages, **kwargs)
         _last_fallback_reason = None
         return _parse(resp)
-    except litellm.RateLimitError:
+    except _ROTATABLE_ERRORS:
         if not _gemini_available():
             raise
         _last_fallback_reason = "chat_json: groq pool exhausted, used gemini"
@@ -195,7 +245,7 @@ def chat_tools(messages: list[dict], tools: list[dict], temperature: float = 0.3
         resp = _call_with_rotation(f"groq/{_GROQ_MODEL}", messages, **kwargs)
         _last_fallback_reason = None
         return resp.choices[0].message
-    except litellm.RateLimitError:
+    except _ROTATABLE_ERRORS:
         if not _gemini_available():
             raise
         _last_fallback_reason = "chat_tools: groq pool exhausted, used gemini"

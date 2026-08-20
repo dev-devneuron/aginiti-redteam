@@ -95,6 +95,106 @@ def test_rotation_raises_when_every_key_is_rate_limited(monkeypatch):
         core_llm._call_with_rotation("groq/llama-3.3-70b-versatile", [{"role": "user", "content": "hi"}])
 
 
+# ---------------------------------------------------------------------------
+# 2026-08-20 fix (integration Slice F, plans/PLAN.md): rotation broadened
+# from litellm.RateLimitError alone to also cover AuthenticationError/
+# BadRequestError -- live-verified during a real smoke test that an
+# expired key raises BadRequestError, not RateLimitError, and the OLD
+# rotation logic retried that same dead key forever at the sticky
+# _current_idx instead of skipping to the next one in the pool.
+# ---------------------------------------------------------------------------
+
+def _bad_request_error() -> litellm.BadRequestError:
+    return litellm.BadRequestError(
+        'GroqException - {"error":{"message":"Invalid API Key","code":"expired_api_key"}}',
+        llm_provider="groq", model="openai/gpt-oss-20b",
+    )
+
+
+def _authentication_error() -> litellm.AuthenticationError:
+    return litellm.AuthenticationError("invalid api key", llm_provider="groq", model="openai/gpt-oss-20b")
+
+
+def test_rotation_falls_through_to_next_key_on_bad_request_error(monkeypatch):
+    # The exact live-observed bug: an expired key raises BadRequestError,
+    # not RateLimitError -- must rotate past it, not retry it forever.
+    monkeypatch.setenv("GROQ_API_KEY", "k0")
+    monkeypatch.setenv("GROQ_API_KEY_2", "k1")
+    calls = []
+
+    def fake_completion(model, messages, api_key, **kwargs):
+        calls.append(api_key)
+        if api_key == "k0":
+            raise _bad_request_error()
+        return _fake_response("ok-from-key1")
+
+    monkeypatch.setattr(litellm, "completion", fake_completion)
+    result = core_llm._call_with_rotation("groq/openai/gpt-oss-20b", [{"role": "user", "content": "hi"}])
+
+    assert result.choices[0].message.content == "ok-from-key1"
+    assert calls == ["k0", "k1"]
+
+
+def test_rotation_falls_through_to_next_key_on_authentication_error(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "k0")
+    monkeypatch.setenv("GROQ_API_KEY_2", "k1")
+    calls = []
+
+    def fake_completion(model, messages, api_key, **kwargs):
+        calls.append(api_key)
+        if api_key == "k0":
+            raise _authentication_error()
+        return _fake_response("ok-from-key1")
+
+    monkeypatch.setattr(litellm, "completion", fake_completion)
+    result = core_llm._call_with_rotation("groq/openai/gpt-oss-20b", [{"role": "user", "content": "hi"}])
+
+    assert result.choices[0].message.content == "ok-from-key1"
+    assert calls == ["k0", "k1"]
+
+
+def test_rotation_raises_when_every_key_is_a_bad_request(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "k0")
+    monkeypatch.setenv("GROQ_API_KEY_2", "k1")
+
+    def fake_completion(model, messages, api_key, **kwargs):
+        raise _bad_request_error()
+
+    monkeypatch.setattr(litellm, "completion", fake_completion)
+    with pytest.raises(litellm.BadRequestError):
+        core_llm._call_with_rotation("groq/openai/gpt-oss-20b", [{"role": "user", "content": "hi"}])
+
+
+def test_chat_falls_back_to_gemini_when_groq_pool_exhausted_by_bad_request_error(monkeypatch):
+    # The outer chat()/chat_json()/chat_tools() fallback-to-Gemini path
+    # must also trigger on the broadened exception set, not just
+    # RateLimitError -- otherwise a pool exhausted by expired keys (as
+    # opposed to rate limits) would crash instead of falling back.
+    monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
+    monkeypatch.setenv("GROQ_API_KEY", "k0")
+
+    def fake_completion(model, messages, **kwargs):
+        if model.startswith("groq/"):
+            raise _bad_request_error()
+        assert model.startswith("gemini/")
+        return _fake_response("gemini-said-hi")
+
+    monkeypatch.setattr(litellm, "completion", fake_completion)
+    result = core_llm.chat([{"role": "user", "content": "hi"}])
+
+    assert result == "gemini-said-hi"
+    assert core_llm.last_fallback_reason() == "chat: groq pool exhausted, used gemini"
+
+
+def test_groq_model_default_is_not_the_dead_llama_string():
+    # 2026-08-20: llama-3.3-70b-versatile no longer exists on Groq at all
+    # (confirmed live, 404), and the previously-suggested replacement
+    # (llama-3.1-8b-instant) is also gone (confirmed live). Locks in the
+    # new default so a future edit can't silently regress back to either
+    # dead string.
+    assert core_llm._GROQ_MODEL == "openai/gpt-oss-20b"
+
+
 def test_load_groq_keys_reads_numbered_env_vars(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "k0")
     monkeypatch.setenv("GROQ_API_KEY_2", "k1")
