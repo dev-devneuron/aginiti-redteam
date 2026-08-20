@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from aginiti.adapters.base import BaseAdapter, SendResult
 from aginiti.core.graph.schema import ClaimStatus, next_id
 from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
-from aginiti.llm_client import chat_json, warn_if_parse_error
+from aginiti.core.llm import chat_json, warn_if_parse_error
 from aginiti.core.observability import get_logger
 from aginiti.operators.library import ClaimEffect, Operator
 

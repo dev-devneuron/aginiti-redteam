@@ -18,21 +18,24 @@ not a new failure mode). Two concrete improvements this buys:
    than a stack trace -- so a partial run is always still a resumable,
    reported result, not a failure to clean up after.
 
-Provider-agnostic since `aginiti/gemini_client.py` was added: Groq raises
-`groq.RateLimitError`; Gemini's SDK raises `google.genai.errors.ClientError`
-for every 4xx, with the actual HTTP status on `.code` (429 specifically for
-rate limits, confirmed live -- `.status` reads "RESOURCE_EXHAUSTED"). Both
-are checked here so every experiment script's rate-limit handling works
-unmodified regardless of which provider `AGINITI_LLM_PROVIDER` selects.
+Provider-agnostic since 2026-08-20's LiteLLM migration (`aginiti/core/llm.py`,
+retiring the old provider-specific `aginiti/llm_client.py` +
+`aginiti/gemini_client.py` pair): `litellm.RateLimitError` is ALREADY a
+single, unified exception type across every provider LiteLLM routes to
+(Groq and Gemini alike -- confirmed directly, not assumed), so the two
+separate provider-specific exception checks this module used to need
+(`groq.RateLimitError`, `google.genai.errors.ClientError` with `.code==429`)
+collapse into one. Every experiment script's rate-limit handling still
+works unmodified regardless of which provider `AGINITI_LLM_PROVIDER`
+selects -- only this module's internals got simpler.
 """
 from __future__ import annotations
 
 import re
 
-from google.genai.errors import ClientError as GeminiClientError
-from groq import RateLimitError as GroqRateLimitError
+import litellm
 
-from aginiti.llm_client import chat_json
+from aginiti.core.llm import chat_json
 
 _RETRY_AFTER_RE = re.compile(r"try again in ([0-9.]+m)?([0-9.]+s)?", re.IGNORECASE)
 
@@ -47,11 +50,7 @@ def _parse_retry_after(message: str) -> str | None:
 
 
 def is_rate_limit_error(exc: BaseException) -> bool:
-    if isinstance(exc, GroqRateLimitError):
-        return True
-    if isinstance(exc, GeminiClientError) and getattr(exc, "code", None) == 429:
-        return True
-    return False
+    return isinstance(exc, litellm.RateLimitError)
 
 
 def preflight_check(max_tokens: int = 500) -> tuple[bool, str]:
@@ -70,9 +69,7 @@ def preflight_check(max_tokens: int = 500) -> tuple[bool, str]:
     try:
         chat_json([{"role": "user", "content": "Reply with JSON {\"ok\": true}"}], max_tokens=max_tokens)
         return True, "quota available"
-    except (GroqRateLimitError, GeminiClientError) as e:
-        if not is_rate_limit_error(e):
-            raise
+    except litellm.RateLimitError as e:
         retry_after = _parse_retry_after(str(e))
         eta = f" -- retry in ~{retry_after}" if retry_after else ""
         return False, f"Quota still exhausted{eta}. Raw: {e}"

@@ -42,7 +42,7 @@ from aginiti.core.observation_adapter import ExecutionResult, ObservationAdapter
 from aginiti.adapters.base import BaseAdapter
 from aginiti.core.graph.schema import ClaimStatus, RiskTier
 from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
-from aginiti.llm_client import chat
+from aginiti.core.llm import chat
 from aginiti.core.observability import get_logger
 from aginiti.operators.library import ClaimEffect, Operator
 

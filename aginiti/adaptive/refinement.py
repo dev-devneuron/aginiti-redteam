@@ -55,7 +55,7 @@ Design choices specific to Aginiti's architecture:
     refinement chain as a first-class candidate action with its own
     info-gain/cost accounting) is a real next step but a separate, bigger
     change than this module's scope.
-  - The rewrite step reuses `aginiti.llm_client.chat` (the same client
+  - The rewrite step reuses `aginiti.core.llm.chat` (the same client
     every other LLM-backed part of this project already uses, including
     the judge) rather than introducing a second LLM integration -- one
     fewer thing to keep in sync with key-rotation/Gemini-fallback fixes.
@@ -68,7 +68,7 @@ from dataclasses import dataclass, field
 from aginiti.core.observation_adapter import ExecutionResult, ObservationAdapter
 from aginiti.adapters.base import BaseAdapter
 from aginiti.core.graph.ssg import SecurityStateGraph
-from aginiti.llm_client import chat
+from aginiti.core.llm import chat
 from aginiti.core.observability import get_logger
 from aginiti.operators.library import Operator
 

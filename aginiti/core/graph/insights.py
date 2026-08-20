@@ -53,7 +53,7 @@ from aginiti.core.observation_adapter import KEY_DESCRIPTIONS
 from aginiti.core.graph.queries import latest_claims, unexplored_frontier
 from aginiti.core.graph.schema import Claim, ClaimStatus, Insight, InsightCategory
 from aginiti.core.graph.ssg import SecurityStateGraph
-from aginiti.llm_client import chat_json, warn_if_parse_error
+from aginiti.core.llm import chat_json, warn_if_parse_error
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary
 
 # Split into a base (the three-category instructions, unchanged) and a JSON-

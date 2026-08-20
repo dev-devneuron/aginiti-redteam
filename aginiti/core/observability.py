@@ -3,7 +3,7 @@ a real production-readiness gap found by direct audit: `aginiti/` used
 Python's `logging` module NOWHERE. Operational signal existed only as
 `print()` (appropriate in experiments/*.py scripts, which are run
 interactively -- left untouched) and a single `warnings.warn()` call
-(`llm_client.warn_if_parse_error`, kept exactly as-is; it serves a
+(`aginiti.core.llm.warn_if_parse_error`, kept exactly as-is; it serves a
 distinct, still-valid purpose -- see its own docstring). Neither gives a
 host application embedding Aginiti as a library any way to route,
 filter, or alert on what the library is actually doing.
@@ -29,9 +29,9 @@ e.g.:
     logging.getLogger("aginiti").setLevel(logging.INFO)
 
 Every logger this module hands out is a child of "aginiti" (e.g.
-"aginiti.llm_client", "aginiti.campaign"), so that one line attaches to
+"aginiti.core.llm", "aginiti.campaign"), so that one line attaches to
 everything -- or a caller can target just one subsystem
-(`logging.getLogger("aginiti.llm_client")`) if that's all they want.
+(`logging.getLogger("aginiti.core.llm")`) if that's all they want.
 
 Deliberately NOT a wholesale rewrite of this codebase's print()-based
 experiment scripts or its existing warnings.warn() mechanism -- this adds
@@ -48,7 +48,7 @@ logging.getLogger(_ROOT_NAME).addHandler(logging.NullHandler())
 
 def get_logger(name: str) -> logging.Logger:
     """Returns a logger namespaced under "aginiti" -- pass the calling
-    module's own short name (e.g. "llm_client", "campaign"); a name
+    module's own short name (e.g. "core.llm", "campaign"); a name
     already starting with "aginiti" (or exactly "aginiti") is returned
     as-is, so this is safe to call defensively without double-prefixing."""
     if name == _ROOT_NAME or name.startswith(f"{_ROOT_NAME}."):
