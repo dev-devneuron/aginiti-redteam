@@ -11,9 +11,13 @@ letting the SSG "see" ground truth would invalidate the whole exercise.
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass, field
 
 from aginiti.adapters.base import BaseAdapter, SendResult
+from aginiti.attacks.base import LeakFinding
+from aginiti.core.finding_translation import translate_findings_to_claims
 from aginiti.core.graph.schema import ClaimStatus, next_id
 from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
 from aginiti.core.llm import chat_json, warn_if_parse_error
@@ -430,6 +434,17 @@ class ObservationAdapter:
 
     def execute(self, operator: Operator, ssg: SecurityStateGraph, agent: BaseAdapter,
                 seed: int | None = None) -> ExecutionResult:
+        # Phase 2 Slice D (plans/phase2-operator-wrapping.md): a deep-attack
+        # operator (IKEA/SECRET/MIA/... wrapped as an Operator) runs an
+        # entirely different execution shape -- a whole BaseAttack subclass
+        # run, not one templated prompt -- so it gets its own method rather
+        # than being force-fit through render_prompt/_send/_judge below.
+        # kind="prompt" (the default, every operator defined before this
+        # slice) falls through to the original pipeline completely
+        # unchanged.
+        if operator.kind == "deep_attack":
+            return self._execute_deep_attack(operator, ssg, agent, seed)
+
         # render_prompt substitutes in specifics already learned about the
         # target (e.g. a name/salary pulled from an earlier confirmed claim)
         # instead of sending the same canned text regardless of context.
@@ -568,3 +583,189 @@ class ObservationAdapter:
             prompt_sent=rendered_prompt,
             tool_trace=send_result.tool_trace,
         )
+
+    def _execute_deep_attack(self, operator: Operator, ssg: SecurityStateGraph, agent: BaseAdapter,
+                              seed: int | None = None) -> ExecutionResult:
+        """Runs a deep attack (IKEA/SECRET/MIA/... — Phase 2 Slice D,
+        plans/phase2-operator-wrapping.md) wrapped as one Operator.
+        Deliberately calls `attack.execute_black_box(...)` directly, never
+        `execute()`/`execute_with_traces()` — deep-attack operators are
+        explicitly Tier-1/no-traces, matching the project-wide "no attack
+        requires OTel/traces for real Tier-1 findings" rule; there is no
+        ambiguity about which path runs.
+
+        Same graceful-degradation discipline as `_send()`'s own backstop
+        for prompt-type operators above: an incompatible adapter, a
+        factory error, an attack exception, or a timeout all become a
+        synthetic failed `ExecutionResult` via `_deep_attack_failure_result`,
+        never an unhandled exception that crashes the whole campaign.
+        `cost_prompts` is charged in every case, success or failure —
+        same "the campaign attempted this step" declared-cost accounting
+        every existing operator already uses (see `graduated_difficulty_
+        definitions.py`'s own `cost_prompts` precedent).
+
+        `seed` is accepted but genuinely unused here — kept only for
+        signature parity with `execute()`'s own call site
+        (`self._execute_deep_attack(operator, ssg, agent, seed)`); no
+        BaseAttack subclass takes an externally-supplied seed today."""
+        exec_id = next_id("exec")
+
+        # Agent-type guard (Open Question 6, approved: graceful runtime
+        # failure, not planner-visible via preconditions). A deep-attack
+        # operator needs the shared AgentEndpoint HTTPAgentAdapter exposes
+        # (aginiti/adapters/http_agent_adapter.py) to construct its
+        # BaseAttack subclass against — any other concrete adapter
+        # (AnythingLLM, HardenedAgentAdapter, ...) has no equivalent seam.
+        endpoint = getattr(agent, "endpoint", None)
+        if endpoint is None:
+            reasoning = (
+                f"deep_attack operator {operator.id!r} requires an adapter exposing "
+                f".endpoint (e.g. HTTPAgentAdapter) -- got {type(agent).__name__}, which "
+                f"has none. Runtime-guard failure, not a crash."
+            )
+            return self._deep_attack_failure_result(operator, exec_id, ssg, agent, reasoning)
+
+        try:
+            attack = operator.attack_factory(endpoint)
+        except Exception as e:  # noqa: BLE001 -- same deliberately broad backstop
+            # discipline as _send(): a caller-authored attack_factory failing is a
+            # target/config-side problem, not a reason to crash the campaign.
+            reasoning = f"attack_factory raised {type(e).__name__}: {e}"
+            return self._deep_attack_failure_result(operator, exec_id, ssg, agent, reasoning)
+
+        # Wall-clock timeout guard (design doc requirement — not the
+        # original 4-field Operator extension, added at implementation
+        # time; see attack_timeout_seconds' own docstring in
+        # aginiti/operators/library.py for why a real per-operator budget
+        # was needed rather than one hardcoded constant). Run in a
+        # background thread so a hung attack can't hang the whole
+        # campaign loop; the thread itself CANNOT be forcibly killed if it
+        # times out (a real, documented Python limitation, not an
+        # oversight) -- a timeout is reported as a failed step regardless,
+        # and the caller is warned the background thread may still be
+        # running and may still make real target/LLM calls.
+        try:
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(attack.execute_black_box, **operator.attack_kwargs)
+                try:
+                    findings: list[LeakFinding] = future.result(timeout=operator.attack_timeout_seconds)
+                except FuturesTimeoutError:
+                    _logger.warning(
+                        "deep_attack operator=%s timed out after %.0fs -- the background "
+                        "attack thread cannot be forcibly stopped and may still be running "
+                        "(and may still make real target/LLM calls); this step is reported "
+                        "as a failure regardless.",
+                        operator.id, operator.attack_timeout_seconds,
+                    )
+                    reasoning = (
+                        f"attack.execute_black_box timed out after "
+                        f"{operator.attack_timeout_seconds:.0f}s"
+                    )
+                    return self._deep_attack_failure_result(operator, exec_id, ssg, agent, reasoning)
+        except Exception as e:  # noqa: BLE001 -- same backstop discipline as _send()
+            reasoning = f"attack.execute_black_box raised {type(e).__name__}: {e}"
+            return self._deep_attack_failure_result(operator, exec_id, ssg, agent, reasoning)
+
+        summary = _deep_attack_summary(findings)
+        ssg.record_fact(exec_id, "response_text", {"text": summary})
+        # Supplementary structured Fact (additive, beyond the response_text
+        # Fact every operator kind records) -- real accumulated attack
+        # metadata (how many findings, how many confirmed) that's useful
+        # for later audit/debugging and has no equivalent in the
+        # prompt-operator pipeline, since there's no single prompt/response
+        # pair here.
+        ssg.record_fact(exec_id, "deep_attack_execution", {
+            "operator_id": operator.id,
+            "attack_kwargs": operator.attack_kwargs,
+            "finding_count": len(findings),
+            "confirmed_count": sum(1 for f in findings if f.confirmed),
+        })
+
+        status = translate_findings_to_claims(findings, claim_key=operator.claim_key)
+        confirmed_keys: list[str] = []
+        confirmed_effects_detail: list[dict] = []
+        if status is not None:
+            # A CONFIRMED deep-attack finding is, by construction, a genuine
+            # data-exposure/mission-outcome-shaped compromise -- the exact
+            # same characterization data_exposure_operators()'s own module
+            # docstring gives its own CATEGORY_MISSION_OUTCOME effects.
+            # HYPOTHESIZED intentionally leaves category unset (None) --
+            # assert_claim's own "sticky until overwritten" rule means an
+            # earlier CONFIRMED-category assertion for this same key (e.g.
+            # from data_exposure_operators()'s cheap probe having already
+            # run) is preserved, not clobbered.
+            category = CATEGORY_MISSION_OUTCOME if status == ClaimStatus.CONFIRMED else None
+            ssg.assert_claim(operator.claim_key, "true", status,
+                              subgraph=SUBGRAPH_TARGET, category=category)
+            confirmed_keys = [operator.claim_key]
+            confirmed_effects_detail = [{"key": operator.claim_key, "status": status.value}]
+            # Only REFUTED is negative-polarity — same rule _build_candidates/
+            # execute() apply above; translate_findings_to_claims never
+            # returns REFUTED (see its own docstring), so every non-None
+            # status here is a `supports`, never a `contradicts`.
+            ssg.record_observation(exec_id, summary, supports=(operator.claim_key,))
+            if status == ClaimStatus.CONFIRMED:
+                _logger.warning("finding confirmed (deep attack): operator=%s key=%s",
+                                 operator.id, operator.claim_key)
+        else:
+            ssg.record_observation(exec_id, summary)
+
+        overall_success = status == ClaimStatus.CONFIRMED
+        ssg.record_operator_execution(operator.id, success=overall_success)
+
+        return ExecutionResult(
+            operator_id=operator.id,
+            operator_execution_id=exec_id,
+            raw_signal=summary,
+            confirmed_keys=confirmed_keys,
+            confirmed_effects=confirmed_effects_detail,
+            overall_success=overall_success,
+            ground_truth_mission_achieved=agent.ground_truth_mission_achieved(),
+            cost_prompts=operator.cost_prompts,
+            reasoning=f"deep attack execution: {len(findings)} finding(s) "
+                      f"({sum(1 for f in findings if f.confirmed)} confirmed)",
+            prompt_sent=f"[deep_attack via {operator.id}]",
+            tool_trace=[],
+        )
+
+    @staticmethod
+    def _deep_attack_failure_result(operator: Operator, exec_id: str, ssg: SecurityStateGraph,
+                                     agent: BaseAdapter, reasoning: str) -> ExecutionResult:
+        """Shared failure path for `_execute_deep_attack` — same accounting
+        discipline as a normal operator's synthetic-response path: a Fact
+        is still recorded (this failure genuinely happened, worth an audit
+        trail), `operator_stats` still counts it (as a failure, so the
+        planner's one-shot-per-operator/failure-evidence machinery sees it
+        happened), and `cost_prompts` is still charged (the campaign
+        attempted this step)."""
+        raw_signal = f"[Aginiti: deep attack execution failed -- {reasoning}]"
+        ssg.record_fact(exec_id, "response_text", {"text": raw_signal})
+        ssg.record_operator_execution(operator.id, success=False)
+        _logger.warning("deep_attack operator=%s failed: %s", operator.id, reasoning)
+        return ExecutionResult(
+            operator_id=operator.id,
+            operator_execution_id=exec_id,
+            raw_signal=raw_signal,
+            confirmed_keys=[],
+            confirmed_effects=[],
+            overall_success=False,
+            ground_truth_mission_achieved=agent.ground_truth_mission_achieved(),
+            cost_prompts=operator.cost_prompts,
+            reasoning=reasoning,
+            prompt_sent=f"[deep_attack via {operator.id}]",
+            tool_trace=[],
+        )
+
+
+def _deep_attack_summary(findings: list[LeakFinding]) -> str:
+    """A short, honest summary string standing in for `raw_signal` on a
+    deep-attack ExecutionResult — there is no single target response text
+    the way a prompt-type operator has (a deep attack may have sent
+    anywhere from 1 to dozens of real queries), so recording one giant
+    concatenated blob as "the response" would misrepresent what actually
+    happened. Each individual LeakFinding's own leaked_content/
+    full_response is still fully available on the attack instance / the
+    findings list itself for a caller that wants the real detail — this
+    is only what gets recorded as this ONE ExecutionResult's raw_signal."""
+    confirmed = sum(1 for f in findings if f.confirmed)
+    return f"[deep_attack summary: {len(findings)} finding(s) returned, {confirmed} confirmed]"
