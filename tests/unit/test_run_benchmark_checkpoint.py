@@ -23,7 +23,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
 import run_benchmark  # noqa: E402
 
 from aginiti.attacks.base import LeakFinding  # noqa: E402

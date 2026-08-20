@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "experiments"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "experiments"))
 
 from exp12_branching_benchmark import (  # noqa: E402
     _mission_branching_automatic_rag,
