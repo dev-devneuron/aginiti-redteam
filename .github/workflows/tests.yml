@@ -34,8 +34,26 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
+        # 2026-08-20 fix (integration Slice E, plans/PLAN.md): this step
+        # used to install ONLY requirements.txt, which is the colleague's
+        # own incremental package list (groq, langchain, mcp, flask,
+        # psutil, ...) layered on top of an assumed prior `pip install -e
+        # .` that, in this merged repo, never actually happened here --
+        # this repo's OWN core dependencies (litellm, chromadb, numpy,
+        # opentelemetry, requests, pydantic, python-dotenv, openai, all
+        # declared in pyproject.toml) were never installed at all, which
+        # would have made every IKEA/SECRET/MIA test fail to even import
+        # in CI. Never actually caught before now because this workflow
+        # had no GitHub remote to run against yet (see the note above).
+        # `pip install -e ".[dev,benchmarks,adaptive]"` covers
+        # pyproject.toml's full dependency surface (core + every optional
+        # extra this test suite touches); `pip install -r requirements.txt`
+        # layers the colleague's exact-pin versions on top for the
+        # packages both files declare (see requirements.txt's own header
+        # on how the two reconcile).
         run: |
           python -m pip install --upgrade pip
+          pip install -e ".[dev,benchmarks,adaptive]"
           pip install -r requirements.txt
 
       - name: Run test suite

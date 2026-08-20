@@ -95,9 +95,9 @@ gated on `ClassPrecondition(category=CATEGORY_TRUST_EDGE)`, satisfied by whichev
 target) runs two campaigns: Run A with the forged-ticket path suppressed, Run B with the
 vendor-session path suppressed. **Both reach full L5 exfiltration through the identical stage 3–6
 operators**, proven by deleting either trust operator and confirming the chain still completes
-through the other with zero code changes downstream. `tests/test_discovery_chain.py` and
-`tests/test_class_precondition.py` (11 tests) cover the mechanism and the chain as pytest
-regressions; `tests/test_target_graph.py` gained 6 more for the hub-edge machinery itself.
+through the other with zero code changes downstream. `tests/integration/test_discovery_chain.py` and
+`tests/unit/test_class_precondition.py` (11 tests) cover the mechanism and the chain as pytest
+regressions; `tests/unit/test_target_graph.py` gained 6 more for the hub-edge machinery itself.
 
 **One honest caveat, not hidden:** in the dry run, the planner spends its first prompt on a
 plausible-looking decoy (`chain_decoy_known_defended`) before pivoting onto the real chain. This
@@ -182,7 +182,7 @@ how well a policy actually chose. Fixed: `mission_success` is now a strict boole
 the broader surface got touched" signal as its own, now genuinely distinct, factor. Locked in with
 a regression test (`test_any_mode_mission_success_is_a_strict_boolean_not_diluted_by_untried_criteria`).
 
-`tests/test_graduated_difficulty.py` (5 tests) locks in the structural properties: no candidate
+`tests/integration/test_graduated_difficulty.py` (5 tests) locks in the structural properties: no candidate
 dominates on every axis, no operator field leaks the true probability, AginitiPolicy's first pick
 is deterministic and severity-driven, StaticPolicy follows declaration order, and the budget never
 covers all 5. **All 803 tests pass** (797 after Issue 1/5 + 6 more from this fix and Issue 2),
@@ -222,7 +222,7 @@ mechanism the user asked for:
    comment already documented this exact ambiguity before the taxonomy existed to name it), and
    `data_exposure.py`'s `system_prompt_extraction` → `actively_refused`.
 
-10 tests (`tests/test_failure_diagnosis.py`) cover the taxonomy, the SSG threading, and — critically
+10 tests (`tests/unit/test_failure_diagnosis.py`) cover the taxonomy, the SSG threading, and — critically
 — an end-to-end test through `rank()` proving demotion actually changes ranking order between two
 otherwise-identical candidates sharing a confirmed block.
 
@@ -262,7 +262,7 @@ against. So this issue's scope was narrowed to what's honest to do without live 
    deferred is the *target-specific validation*, which this project has repeatedly shown matters
    (several previously-planned DVAA attacks turned out not to exist once actually checked).
 
-4 tests (`tests/test_agentic_primitives.py`) cover the no-exact-key-precondition property, full-chain
+4 tests (`tests/integration/test_agentic_primitives.py`) cover the no-exact-key-precondition property, full-chain
 success, the structured-diagnosis-on-failure path, and either-trust-operator interchangeability.
 
 ---

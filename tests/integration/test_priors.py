@@ -182,7 +182,7 @@ def test_seed_target_priors_max_tokens_scales_with_library_size():
 # -- run_campaign wiring ------------------------------------------------
 
 class _FakeAdapter:
-    """Same fake used throughout tests/test_campaign.py -- bypasses the
+    """Same fake used throughout tests/integration/test_campaign.py -- bypasses the
     real ObservationAdapter (and therefore any judge/target LLM call)
     entirely, so this test only ever exercises priors.py's own call."""
 

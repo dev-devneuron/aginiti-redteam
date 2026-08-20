@@ -1,6 +1,6 @@
 """Experiment 9 -- does composition discover a compromise neither operator
 finds alone, against a REAL DVAA instance (not the offline FakeAdapter
-used in tests/test_composition_chain.py, which already proves the
+used in tests/integration/test_composition_chain.py, which already proves the
 mechanism deterministically at zero cost)?
 
 NOT RUN THIS SESSION, deliberately, same discipline as exp8: this needs a
@@ -113,7 +113,7 @@ def main() -> None:
         "n_trials": N_TRIALS, "budget": BUDGET,
         "note": "isolated MUST show 0% success by construction (step 2 unreachable) -- this experiment "
                 "is measuring whether composed/full actually succeed against a REAL target, not "
-                "re-proving the mechanism (already proven offline in tests/test_composition_chain.py)",
+                "re-proving the mechanism (already proven offline in tests/integration/test_composition_chain.py)",
     })
     print(f"\nsaved summary to {path}")
 

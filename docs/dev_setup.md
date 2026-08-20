@@ -173,9 +173,9 @@ Tests mock all network and LLM calls — no API key required to run the suite.
 
 | Test file | Covers |
 |-----------|--------|
-| `tests/test_base.py` | `LeakFinding` construction, `BaseAttack.execute()` dispatch, `_init_llm` wiring |
-| `tests/test_endpoint.py` | `AgentEndpoint` happy path, custom keys, 4xx/5xx handling, context manager |
-| `tests/test_ikea.py` | All 14 `IKEAAttack` method classes — ERS, TRDM, anchor init, finding generation |
+| `tests/unit/test_base.py` | `LeakFinding` construction, `BaseAttack.execute()` dispatch, `_init_llm` wiring |
+| `tests/unit/test_endpoint.py` | `AgentEndpoint` happy path, custom keys, 4xx/5xx handling, context manager |
+| `tests/unit/test_ikea.py` | All 14 `IKEAAttack` method classes — ERS, TRDM, anchor init, finding generation |
 
 ## Full public-dataset benchmarking
 

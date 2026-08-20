@@ -88,7 +88,7 @@ own fetch_url call -- the operator's own prompt literally never contains
 a secret value, only the rendered, post-substitution request does. Step
 2 is also structurally unreachable (precondition unmet) until step 1 has
 actually succeeded -- there is no scripted "run 1 then 2"; both facts
-are provable independent of any judge call (see tests/test_dvaa_operators.py).
+are provable independent of any judge call (see tests/unit/test_dvaa_operators.py).
 
 CORRECTED 2026-08-08, after standing up a real local DVAA instance and
 reading its actual source (src/index.js, src/sandbox/init.js,

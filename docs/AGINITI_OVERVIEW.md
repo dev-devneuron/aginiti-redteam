@@ -372,13 +372,13 @@ mocked or deterministically stubbed; nothing in the suite costs tokens or
 requires a running server. Coverage spans: the SSG/evidence model in
 isolation, every operator library's structural invariants, the planner's
 utility math term-by-term (including the two new exploration terms from
-`docs/EXP29_RESULTS.md` — `tests/test_novelty.py` and `tests/test_
+`docs/EXP29_RESULTS.md` — `tests/unit/test_novelty.py` and `tests/test_
 technique_cluster_diversification.py`, each with a dedicated, deliberately-
 isolated synthetic scenario proving the fix causally changes the ranked
 sequence, not just that a number changed), the campaign loop's control
 flow, every adapter's deterministic-extractor paths, the taxonomy wiring
 end-to-end through a real `ObservationAdapter.execute()` call, a
-10-scenario deterministic end-to-end suite (`tests/test_e2e_scenarios.py`)
+10-scenario deterministic end-to-end suite (`tests/integration/test_e2e_scenarios.py`)
 covering success/failure/branching/chains/decoys/timeouts/malformed-
 responses/pivots/budget-exhaustion, `experiments/_target_lifecycle.py`'s
 process-discovery/start/stop/restart logic (`tests/test_target_

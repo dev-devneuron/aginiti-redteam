@@ -10,7 +10,7 @@ mocked — no real API keys required. Integration-level orchestration
 ``execute_black_box``/``optimize`` integration tests.
 
 Run:
-    pytest tests/test_secret.py -v
+    pytest tests/unit/test_secret.py -v
 """
 
 from datetime import datetime, timezone

@@ -1,7 +1,7 @@
 """Tests for aginiti/graph/novelty.py's technique_cluster_diversification_
 term() (2026-08-14) -- the second, WITHIN-family fix, separate from
 family_diversification_term. Two layers: pure-function unit tests (mirrors
-tests/test_novelty.py's own structure) plus a full-campaign regression
+tests/unit/test_novelty.py's own structure) plus a full-campaign regression
 test locking in exp31's own offline validation finding."""
 from __future__ import annotations
 

@@ -10,7 +10,7 @@ hit/miss) is tested by patching ``_run_algorithm1`` directly, same pattern
 orchestration, not re-derive full LLM output parsing at that layer).
 
 Run:
-    pytest tests/test_jailbreak_optimizer.py -v
+    pytest tests/unit/test_jailbreak_optimizer.py -v
 """
 
 import json

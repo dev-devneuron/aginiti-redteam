@@ -179,7 +179,7 @@ jailbreak-shaped operators that could hit the same upstream crash class.
 - Raised similarity threshold: live-verified this does NOT make the
   target untestable — a genuine, on-topic plant document still retrieves
   successfully at the new threshold.
-- 21 unit tests (`tests/test_target_hardening_policy.py`), covering every
+- 21 unit tests (`tests/unit/test_target_hardening_policy.py`), covering every
   policy function in isolation.
 
 ## What this target has since been used for

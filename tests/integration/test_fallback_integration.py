@@ -13,7 +13,7 @@ No live network calls: litellm.completion is mocked to raise
 litellm.RateLimitError for every groq/ model and return a controlled
 verdict for every gemini/ model, and the target/judge round trip is
 bypassed via the project's own established _FakeAdapter (same pattern as
-tests/test_campaign.py) -- this isolates the ONE thing actually under
+tests/integration/test_campaign.py) -- this isolates the ONE thing actually under
 test (does a full run_campaign() call, with cold-start priors AND the
 Reasoning Layer both enabled, correctly complete when every LLM call has
 to fall back) from target/judge concerns already covered elsewhere.
@@ -37,7 +37,7 @@ def _rate_limit_error() -> litellm.RateLimitError:
 
 class _FakeAdapter:
     """Bypasses the real target/judge round trip entirely (same pattern as
-    tests/test_campaign.py) -- this test is about the fallback+planner
+    tests/integration/test_campaign.py) -- this test is about the fallback+planner
     integration, not target/judge behavior, which is covered elsewhere."""
 
     def __init__(self):

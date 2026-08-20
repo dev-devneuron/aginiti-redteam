@@ -10,7 +10,7 @@ Verified directly against InjecAgent's own real upstream source
 fixing: the real methodology is
 `available_tool_names = [item['User Tool']] + item['Attacker Tools']`.
 No live LLM calls -- chat_tools is mocked/inspected, same discipline as
-the rest of tests/test_injecagent_adapter.py.
+the rest of tests/unit/test_injecagent_adapter.py.
 """
 from types import SimpleNamespace
 

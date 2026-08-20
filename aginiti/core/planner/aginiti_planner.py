@@ -261,7 +261,7 @@ class AginitiPlanner:
     generalizes first). "mean" divides by the number of still-unresolved
     effects instead of summing them -- crediting the AVERAGE informativeness
     of what this operator would teach, not a count bonus for teaching more
-    things. See tests/test_aginiti_planner.py's info_gain_normalization
+    things. See tests/unit/test_aginiti_planner.py's info_gain_normalization
     tests and experiments/info_gain_normalization_dry_run.py for the
     ablation test + cross-target regression this was evaluated against
     before any default was considered."""

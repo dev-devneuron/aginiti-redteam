@@ -135,7 +135,7 @@ method override, or exception-safety plumbing.
 - 17 targeted regression tests locking in the 5 fixes above, across
   `test_anythingllm_adapter.py`, `test_graph_persistence.py`,
   `test_planner_variants.py`, `test_observation_adapter.py`.
-- **`tests/test_e2e_scenarios.py`** — a single, deliberately consolidated
+- **`tests/integration/test_e2e_scenarios.py`** — a single, deliberately consolidated
   10-scenario deterministic end-to-end suite: single-step success, failed
   attack, branching mission (`success_mode="any"`), partial multi-step chain
   (budget cutoff before completion), full multi-step chain completion,

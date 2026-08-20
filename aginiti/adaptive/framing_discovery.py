@@ -57,7 +57,7 @@ def _framing_operator(goal: str, framing_name: str, template: str, claim_key: st
         effects_success=(
             # Per-effect description required (2026-08-12 architecture-review fix, same bug class
             # caught in encoding_variants.py/encoding_discovery.py by
-            # tests/test_key_descriptions_coverage.py): claim keys here are framing-name-generated,
+            # tests/unit/test_key_descriptions_coverage.py): claim keys here are framing-name-generated,
             # so they can't live in the static KEY_DESCRIPTIONS dict -- built from `goal` since this
             # module is goal-agnostic, unlike the encoding modules' fixed override text.
             ClaimEffect(f"{claim_key}_{framing_name}", CONFIRMED, SUBGRAPH_TARGET, weight=3,

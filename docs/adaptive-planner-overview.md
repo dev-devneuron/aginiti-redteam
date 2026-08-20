@@ -131,7 +131,7 @@ exists:
   broke recon in a data-dependent fraction of campaigns. It didn't show up
   in single manual runs by luck, but a 20-campaign benchmark batch hit 0%
   recon success and made the bug impossible to miss. Fixed: only REFUTED is
-  negative polarity now. Regression-tested in `tests/test_observation_adapter.py`.
+  negative polarity now. Regression-tested in `tests/integration/test_observation_adapter.py`.
 
 Runs `20260806T120423Z` and `20260806T121030Z` predate this second fix and
 should not be treated as clean data -- see their reports for what they

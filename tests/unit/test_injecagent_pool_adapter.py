@@ -5,7 +5,7 @@ multi-candidate branching across real InjecAgent test cases (see
 aginiti/adapters/injecagent_pool_adapter.py's module docstring for why the
 per-case-scoped original adapter can't do this on its own). No live LLM
 calls -- chat_tools is mocked, same discipline as
-tests/test_injecagent_adapter.py.
+tests/unit/test_injecagent_adapter.py.
 """
 from unittest.mock import patch
 

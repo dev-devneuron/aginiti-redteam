@@ -112,7 +112,7 @@ _INFO_GAIN_NUDGE_SCALE = 0.02
 # confirmed successes) roughly HALF the time -- silently reproducing, at a
 # smaller scale, the exact "info_gain swamps everything else" architectural flaw
 # this whole planner exists to fix. 0.02 was chosen by simulating the same
-# scenario tests/test_bayesian_planner.py locks in (Beta(16,1) vs Beta(1,1)+
+# scenario tests/unit/test_bayesian_planner.py locks in (Beta(16,1) vs Beta(1,1)+
 # info_gain-weight-4 rival) until the well-evidenced operator won a clear large
 # majority (~88%) rather than ~50% of draws -- a real, checked calibration
 # target, not a re-guessed magic number.

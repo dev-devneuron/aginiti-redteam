@@ -3,7 +3,7 @@ Offline unit tests for benchmarks/scaled_evals/agents/hardened_agent/.
 
 No ChromaDB, no LLM calls, no live agent — pure logic tests for chunking,
 redaction, the rate limiter, and persona resolution, same convention as
-tests/test_endpoint.py. HardenedAgent itself (which needs a live ChromaDB
+tests/unit/test_endpoint.py. HardenedAgent itself (which needs a live ChromaDB
 collection) is intentionally not instantiated here.
 """
 from unittest.mock import patch

@@ -138,7 +138,7 @@ def _pipeline_to_operator(pipeline: ConverterPipeline, override_instruction: str
             # keys are pipeline-name-generated (f-string), so they can never live in the global
             # KEY_DESCRIPTIONS dict a hand-authored operator's static key can -- without this, the
             # judge falls back to the bare key as the only signal for what "success" means (see
-            # tests/test_key_descriptions_coverage.py, which caught the identical bug in
+            # tests/unit/test_key_descriptions_coverage.py, which caught the identical bug in
             # encoding_variants.py). Explicitly distinguishes "acted on the hidden instruction"
             # from "merely transcoded the payload back to plain text" -- the exact ambiguity
             # exp19 found made garak's own encoding-probe comparison unfair.

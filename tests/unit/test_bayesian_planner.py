@@ -2,7 +2,7 @@
 planner built in direct response to this project's own audit of
 AginitiPlanner's ad hoc weighted-sum formula. No live LLM calls anywhere:
 every term this planner reuses (gap_priority, budget_feasible, etc.) is
-already independently tested in tests/test_aginiti_planner.py; these tests
+already independently tested in tests/unit/test_aginiti_planner.py; these tests
 cover the NEW combination logic only.
 """
 from aginiti.core.graph.schema import ClaimStatus, InsightCategory, RiskTier

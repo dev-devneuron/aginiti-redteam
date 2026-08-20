@@ -138,4 +138,23 @@ where = ["."]
 include = ["aginiti*"]
 
 [tool.pytest.ini_options]
+# Consolidated from the standalone pytest.ini on 2026-08-20 (integration
+# Slice E, plans/PLAN.md): both files declared the same testpaths, which
+# pytest silently resolved by giving pytest.ini priority whenever both
+# exist -- a real footgun (a future edit to this section alone would have
+# done nothing) rather than a live bug, since the two had never actually
+# diverged. One source of truth now; pytest.ini deleted.
+#
+# 2026-08-12 (original pytest.ini authorship): added when third-party
+# target applications (AnythingLLM, DVAA, damn-vulnerable-llm-agent, the
+# MCP filesystem test server, and an investigated-but-unused Onyx clone)
+# were relocated into targets/ as part of moving this project's
+# infrastructure off an ephemeral scratchpad path. Without this, pytest's
+# default rootdir-based discovery walks the WHOLE tree and picks up those
+# other projects' own test suites too (e.g. targets/onyx/backend/tests/,
+# targets/onyx/loadtest/tests/) -- real collection errors from missing
+# their own dependencies, and module-name collisions with this project's
+# own tests/ package. Aginiti's own tests all live under tests/; nothing
+# under targets/, archive/, infra/, or runs*/ is ever this project's own
+# test suite.
 testpaths = ["tests"]

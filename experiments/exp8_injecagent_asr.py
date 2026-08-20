@@ -8,7 +8,7 @@ process rules are explicit -- "no benchmark reruns until an architectural
 improvement is complete" and Gemini stays reserved for RQ1 testing, not
 spent here. This script exists so the plumbing (adapter, operator
 generator, sampling, per-trial JSON logging, ASR aggregation) is written,
-reviewable, and unit-testable NOW (tests/test_injecagent_adapter.py
+reviewable, and unit-testable NOW (tests/unit/test_injecagent_adapter.py
 covers the pipeline offline) -- running it live is a separate, explicit
 decision for later, not bundled into writing the harness itself.
 

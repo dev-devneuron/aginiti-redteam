@@ -5,7 +5,7 @@ All LLM and embedding calls are mocked — no real API keys required.
 HTTP calls to the target agent are mocked via unittest.mock.patch.object.
 
 Run:
-    pytest tests/test_ikea.py -v
+    pytest tests/unit/test_ikea.py -v
 """
 
 import json

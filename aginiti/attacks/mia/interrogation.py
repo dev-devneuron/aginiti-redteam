@@ -257,7 +257,7 @@ def _compose_query(s_star: str, probe_question: str) -> str:
     against the literal Table 4 fixture — single space, no delimiter, no
     newline. See plans/mia-interrogation-attack.md §6 for the exact
     PageRank-survey worked example this was validated against, reused as
-    the golden-path test fixture in tests/test_interrogation.py.
+    the golden-path test fixture in tests/unit/test_interrogation.py.
     """
     return f"{s_star} {probe_question}"
 

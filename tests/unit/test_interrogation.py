@@ -5,7 +5,7 @@ All LLM calls (attacker + shadow) and HTTP calls to the target agent are
 mocked — no real API keys required.
 
 Run:
-    pytest tests/test_interrogation.py -v
+    pytest tests/unit/test_interrogation.py -v
 """
 
 import json

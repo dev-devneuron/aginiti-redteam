@@ -286,7 +286,7 @@ MULTI_STEP_DISCOVERY_AND_SCORING.md`:**
   for "all"-mode missions — fixed to a strict boolean, locked in with a
   regression test.
 - **Structured failure-diagnosis end-to-end test**
-  (`tests/test_failure_diagnosis.py`): proves `failure_evidence_penalty`
+  (`tests/unit/test_failure_diagnosis.py`): proves `failure_evidence_penalty`
   actually changes ranking order between two otherwise-identical candidates
   sharing a confirmed, generalizable block — not just that the taxonomy
   tags exist.
@@ -604,7 +604,7 @@ Built — `ObservationAdapter._send()`'s exception backstop, found necessary
 by an independent, from-scratch engineering audit (`docs/
 ENGINEERING_HARDENING_PASS.md`) that explicitly did not trust "500+ tests
 pass" as proof of a sound architecture. Tested — 10-scenario deterministic
-end-to-end suite (`tests/test_e2e_scenarios.py`), 17 targeted regression
+end-to-end suite (`tests/integration/test_e2e_scenarios.py`), 17 targeted regression
 tests. **Live evidence:** a live smoke test against the real hardened
 AnythingLLM gateway post-fix — both the judge path and the deterministic-
 extractor path (including a real 2-step chain's precondition gate) ran
