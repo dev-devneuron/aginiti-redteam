@@ -73,7 +73,7 @@ class _BlackBoxOnlyAttack(BaseAttack):
         return [_make_finding(tier_used="otel", trace_span_id="span-001")]
 
 
-def _make_attack(otel_ingester=None) -> _BlackBoxOnlyAttack:
+def _make_attack(otel_ingester=None, endpoint=None) -> _BlackBoxOnlyAttack:
     # Patch litellm.completion so no real API call is made during __init__
     with patch("litellm.completion", return_value=MagicMock()):
         return _BlackBoxOnlyAttack(
@@ -81,6 +81,7 @@ def _make_attack(otel_ingester=None) -> _BlackBoxOnlyAttack:
             llm_provider="gemini/gemini-2.5-flash",
             api_key="fake-key",
             otel_ingester=otel_ingester,
+            endpoint=endpoint,
         )
 
 
@@ -129,6 +130,41 @@ def test_otel_ingester_stored():
     sentinel = object()
     attack = _make_attack(otel_ingester=sentinel)
     assert attack.otel is sentinel
+
+
+# ---------------------------------------------------------------------------
+# endpoint injection (Phase 2 Slice B, plans/phase2-operator-wrapping.md)
+# ---------------------------------------------------------------------------
+
+def test_endpoint_defaults_to_none_for_target_url_only_construction():
+    # Every existing caller (target_url-first, no endpoint=) must be
+    # completely unaffected by this additive kwarg.
+    attack = _make_attack()
+    assert attack.endpoint is None
+
+
+def test_endpoint_stored_by_identity_when_injected():
+    # The exact seam Slice A's HTTPAgentAdapter exists for: a caller hands
+    # BaseAttack the SAME AgentEndpoint instance the campaign/planner side
+    # is already using, and BaseAttack must store that OBJECT, not a copy
+    # or a re-derived equivalent -- identity is what makes session-sharing
+    # real (same requests.Session underneath).
+    fake_endpoint = object()  # BaseAttack never calls any AgentEndpoint
+                               # method itself, so a bare sentinel is
+                               # sufficient to prove identity is preserved
+    attack = _make_attack(endpoint=fake_endpoint)
+    assert attack.endpoint is fake_endpoint
+
+
+def test_target_url_still_required_and_unchanged_alongside_endpoint():
+    # endpoint is purely additive -- target_url stays required and stored
+    # exactly as before, even when endpoint is also supplied (a subclass
+    # decides for itself whether to honor endpoint over target_url; this
+    # base class enforces no such precedence).
+    fake_endpoint = object()
+    attack = _make_attack(endpoint=fake_endpoint)
+    assert attack.target_url == "http://localhost:8001"
+    assert attack.endpoint is fake_endpoint
 
 
 # ---------------------------------------------------------------------------

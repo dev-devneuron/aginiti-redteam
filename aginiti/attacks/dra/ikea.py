@@ -687,11 +687,13 @@ class IKEAAttack(BaseAttack):
         classifier_llm_provider: Optional[str] = None,
         classifier_api_key: Optional[str] = None,
         classifier_api_keys: Optional[list[str]] = None,
+        endpoint: Optional[AgentEndpoint] = None,
     ) -> None:
         super().__init__(
             target_url, llm_provider, api_key, otel_ingester,
             fallback_llm_provider=fallback_llm_provider,
             fallback_api_key=fallback_api_key,
+            endpoint=endpoint,
         )
         self._embed_model = embed_model
         # embed_api_key is None for local (chromadb) models — the api_key
@@ -748,6 +750,17 @@ class IKEAAttack(BaseAttack):
         # handed in as an opaque dict, same separation-of-concerns pattern
         # as leak_prefilter above.
         self._endpoint_kwargs = endpoint_kwargs or {}
+        # endpoint (added 2026-08-20, Phase 2 Slice B, plans/
+        # phase2-operator-wrapping.md): an ALREADY-CONSTRUCTED AgentEndpoint
+        # to reuse instead of building a fresh one — see execute_black_box's
+        # own comment at its construction site for the full reasoning
+        # (session-sharing when this attack is wrapped as a planner
+        # Operator). Distinct from endpoint_kwargs above: endpoint_kwargs
+        # configures a NEW AgentEndpoint this class builds itself;
+        # `endpoint` bypasses that construction entirely and hands over an
+        # existing one. Passed straight through to BaseAttack.__init__
+        # (self.endpoint), not stored again here. None (the default) means
+        # every existing caller is completely unaffected.
         # Per-instance embedding cache — avoids re-embedding identical strings
         # across repeated ERS iterations over the same history.
         self._embed_cache: dict[str, list[float]] = {}
@@ -1578,7 +1591,20 @@ class IKEAAttack(BaseAttack):
         self.prefilter_skips = 0
         self.refused_queries = []
 
-        endpoint = AgentEndpoint(base_url=self.target_url, **self._endpoint_kwargs)
+        # 2026-08-20 (Phase 2 Slice B, plans/phase2-operator-wrapping.md):
+        # reuse an injected endpoint (BaseAttack.__init__'s `endpoint=`
+        # kwarg) if one was supplied — e.g. when this attack is wrapped as
+        # a planner Operator and needs to share the SAME AgentEndpoint (and
+        # therefore the same requests.Session) as the rest of a campaign
+        # against a stateful target, rather than opening an independent
+        # connection here. `self._endpoint_kwargs` (headers/send_fn/...)
+        # deliberately does NOT get re-applied on top of an injected
+        # endpoint — those kwargs only make sense for constructing a FRESH
+        # AgentEndpoint; a caller injecting their own endpoint already
+        # configured it however they wanted. Every existing, un-wrapped
+        # caller (self.endpoint is None, the default) is completely
+        # unaffected — same fresh-construction-every-call behavior as before.
+        endpoint = self.endpoint or AgentEndpoint(base_url=self.target_url, **self._endpoint_kwargs)
         findings: list[LeakFinding] = []
 
         embed_provider = self._embed_model.split("/", 1)[0].lower()
