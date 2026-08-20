@@ -64,9 +64,10 @@ from aginiti.attacks.mia import InterrogationAttack
 AGENT_URL = os.getenv("HARDENED_AGENT_URL", "http://localhost:8004")
 INGESTED_PATH = "benchmarks/scaled_evals/datasets/hardened_dataset_ingested.json"
 HELD_OUT_PATH = "benchmarks/scaled_evals/datasets/hardened_dataset_held_out.json"
-LLM_PROVIDER = "gemini/gemini-3.5-flash"
-SHADOW_LLM_PROVIDER = "groq/llama-3.3-70b-versatile"  # deliberately different family, see
-                                                        # InterrogationAttack's shadow_llm_provider docstring
+DEFAULT_LLM_PROVIDER = "gemini/gemini-3.5-flash"
+DEFAULT_SHADOW_LLM_PROVIDER = "groq/llama-3.3-70b-versatile"  # deliberately different family,
+                                                                # see InterrogationAttack's
+                                                                # shadow_llm_provider docstring
 DEFAULT_QUERIES = 15  # paper default is 30; starting smaller for the first real run
                        # against this target -- see plans/mia-interrogation-attack.md
                        # and the methodology doc's own n-ablation ("n=5 already beats
@@ -282,6 +283,13 @@ def main() -> None:
                         help="Skip the out-of-scope RBAC-boundary candidate (legal/support only).")
     parser.add_argument("--force-recalibrate", action="store_true")
     parser.add_argument("--agent-url", default=AGENT_URL)
+    parser.add_argument("--provider", default=DEFAULT_LLM_PROVIDER,
+                        help=f"The attacker's own completion model (question generation). "
+                             f"Default: {DEFAULT_LLM_PROVIDER}")
+    parser.add_argument("--shadow-provider", default=DEFAULT_SHADOW_LLM_PROVIDER,
+                        help=f"Independent grading model — deliberately a DIFFERENT model "
+                             f"family from --provider (see InterrogationAttack's "
+                             f"shadow_llm_provider docstring). Default: {DEFAULT_SHADOW_LLM_PROVIDER}")
     args = parser.parse_args()
 
     api_key = _api_key_for(args.persona)
@@ -307,17 +315,17 @@ def main() -> None:
     print(f"  ({len(reference_docs)} calibration reference docs, not itemized above)")
     print()
 
-    shadow_keys = _shadow_api_keys(SHADOW_LLM_PROVIDER)
+    shadow_keys = _shadow_api_keys(args.shadow_provider)
     if shadow_keys:
         print(f"Shadow LLM: rotating across {len(shadow_keys)} GROQ_API_KEY_N keys.")
 
     attack = InterrogationAttack(
         target_url=args.agent_url,
-        llm_provider=LLM_PROVIDER,
-        api_key=_key_for_llm(LLM_PROVIDER),
+        llm_provider=args.provider,
+        api_key=_key_for_llm(args.provider),
         non_member_reference_docs=reference_docs,
-        shadow_llm_provider=SHADOW_LLM_PROVIDER,
-        shadow_llm_api_key=_key_for_llm(SHADOW_LLM_PROVIDER),
+        shadow_llm_provider=args.shadow_provider,
+        shadow_llm_api_key=_key_for_llm(args.shadow_provider),
         shadow_llm_api_keys=shadow_keys,
         n_probe_questions=args.queries,
         endpoint_kwargs=endpoint_kwargs,
@@ -351,8 +359,8 @@ def main() -> None:
             "finished_at": finished_at.isoformat(),
             "duration_seconds": duration_seconds,
             "target_url": args.agent_url,
-            "llm_provider": LLM_PROVIDER,
-            "shadow_llm_provider": SHADOW_LLM_PROVIDER,
+            "llm_provider": args.provider,
+            "shadow_llm_provider": args.shadow_provider,
             "n_probe_questions": args.queries,
             "lambda_unk": attack.lambda_unk,
             "fpr_target": attack.fpr_target,

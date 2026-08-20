@@ -81,7 +81,7 @@ from benchmarks.scaled_evals.agents.hardened_agent.personas import PERSONAS  # n
 ATTACK = "ikea"
 AGENT_URL = os.getenv("HARDENED_AGENT_URL", "http://localhost:8004")
 GROUND_TRUTH = "benchmarks/scaled_evals/datasets/hardened_dataset_ingested.json"
-LLM_PROVIDER = "gemini/gemini-3.5-flash"
+DEFAULT_LLM_PROVIDER = "gemini/gemini-3.5-flash"
 FALLBACK_LLM_PROVIDER = "groq/llama-3.3-70b-versatile"
 EMBED_MODEL = "chromadb/all-MiniLM-L6-v2"
 THETA_INTER = 0.6
@@ -157,6 +157,9 @@ def main() -> None:
                         help=f"Query budget (default: {DEFAULT_QUERIES} -- see module "
                              f"docstring's staged-verification recommendation).")
     parser.add_argument("--agent-url", default=AGENT_URL)
+    parser.add_argument("--provider", default=DEFAULT_LLM_PROVIDER,
+                        help=f"The attacker's own completion model (anchor/query "
+                             f"generation). Default: {DEFAULT_LLM_PROVIDER}")
     parser.add_argument(
         "--fresh", action="store_true",
         help="Delete any existing checkpoint for this exact persona/topic/queries "
@@ -231,7 +234,7 @@ def main() -> None:
         ground_truth=GROUND_TRUTH,
         topic=topic,
         queries=args.queries,
-        llm_provider=LLM_PROVIDER,
+        llm_provider=args.provider,
         output=output,
         embed_model=EMBED_MODEL,
         theta_inter=THETA_INTER,

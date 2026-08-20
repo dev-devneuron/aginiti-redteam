@@ -66,7 +66,7 @@ from aginiti.attacks.dra import SECRETAttack
 # Canonical attack-side parameters
 # ---------------------------------------------------------------------------
 AGENT_URL = os.getenv("HARDENED_AGENT_URL", "http://localhost:8004")
-LLM_PROVIDER = "gemini/gemini-3.5-flash"
+DEFAULT_LLM_PROVIDER = "gemini/gemini-3.5-flash"
 FALLBACK_LLM_PROVIDER = "groq/llama-3.3-70b-versatile"
 # Semantic-shift (Phase 2 LE trigger generation) routed to Groq (added
 # 2026-08-19) -- the paper's own design runs this step on a small/local
@@ -222,6 +222,9 @@ def main() -> None:
     )
     parser.add_argument("--force-refresh-phase1", action="store_true")
     parser.add_argument("--agent-url", default=AGENT_URL)
+    parser.add_argument("--provider", default=DEFAULT_LLM_PROVIDER,
+                         help=f"The attacker's own completion model (Phase 1 optimizer/"
+                              f"evaluator + Phase 2 classifier). Default: {DEFAULT_LLM_PROVIDER}")
     parser.add_argument("--fresh", action="store_true", help="Delete existing checkpoint and start fresh.")
     args = parser.parse_args()
 
@@ -258,8 +261,8 @@ def main() -> None:
 
     attack = SECRETAttack(
         target_url=args.agent_url,
-        llm_provider=LLM_PROVIDER,
-        api_key=_key_for_llm(LLM_PROVIDER),
+        llm_provider=args.provider,
+        api_key=_key_for_llm(args.provider),
         external_corpus=EXTERNAL_CORPUS,
         phase1_n_iter=args.phase1_n_iter,
         phase1_n_cand=args.phase1_n_cand,
@@ -313,7 +316,7 @@ def main() -> None:
             "finished_at": finished_at.isoformat(),
             "duration_seconds": duration_seconds,
             "target_url": args.agent_url,
-            "llm_provider": LLM_PROVIDER,
+            "llm_provider": args.provider,
             "domain": domain,
             "max_queries": args.queries,
             "queries_sent": attack.queries_sent,
