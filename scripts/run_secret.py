@@ -76,10 +76,17 @@ parser.add_argument("--epsilon-local", type=int, default=8,
 parser.add_argument("--le-stagnation-empty-steps", type=int, default=2)
 parser.add_argument("--force-refresh-phase1", action="store_true",
                      help="Bypass the cached p_e* (if any) and re-run Phase 1 unconditionally.")
+# 2026-08-20 (integration Slice F): the attacker's own completion model
+# (Phase 1 optimizer/evaluator + Phase 2 classifier/semantic-shift), was
+# hardcoded to gemini/gemini-3.5-flash with no override -- added so a
+# Groq run (e.g. --provider groq/openai/gpt-oss-20b) doesn't require
+# editing this file. Independent of the target agent's own AGENT_MODEL.
+parser.add_argument("--provider", default="gemini/gemini-3.5-flash",
+                     help="The attacker's own completion model. Default: %(default)s")
 args = parser.parse_args()
 
 TARGET_URL = args.agent_url
-LLM_PROVIDER = "gemini/gemini-3.5-flash"
+LLM_PROVIDER = args.provider
 DOMAIN = "HR records"
 
 # Deliberately small smoke-test hyperparameters by default — see the module
