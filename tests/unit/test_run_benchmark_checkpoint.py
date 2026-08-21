@@ -17,16 +17,24 @@ No API keys or network access required -- attack_cls, compute_metrics, and
 generate_markdown_report are all mocked.
 """
 import json
-import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
-import run_benchmark  # noqa: E402
+# scripts/ has no __init__.py but is still importable as an implicit
+# namespace package (Python 3.3+) once the repo root is on sys.path --
+# already true during a pytest run (testpaths=["tests"], pyproject.toml),
+# same as tests/unit/test_compare_benchmark_runs.py's own
+# `from scripts.compare_benchmark_runs import ...`. Fixed 2026-08-21: the
+# previous `sys.path.insert(...)` + bare `import run_benchmark` worked at
+# runtime but static analyzers (Pylance/Pyright) can't resolve a module
+# added to sys.path at runtime, so the import line showed as unresolved in
+# the IDE even though the test suite passed. This form resolves cleanly
+# both ways.
+import scripts.run_benchmark as run_benchmark
 
-from aginiti.attacks.base import LeakFinding  # noqa: E402
+from aginiti.attacks.base import LeakFinding
 
 
 def _finding(i: int = 0) -> LeakFinding:
