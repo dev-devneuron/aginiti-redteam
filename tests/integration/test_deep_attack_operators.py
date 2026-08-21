@@ -37,6 +37,22 @@ any attack -- that mechanism lives in
 ObservationAdapter._execute_deep_attack itself, is attack-implementation-
 agnostic, and is already covered by Slice D's own dedicated test against a
 stub attack.
+
+Real, live-caught bug in THIS file, fixed 2026-08-21 (found by GitHub
+Actions CI, not locally -- see the module-level `_fake_api_keys` fixture
+below for the full story): every IKEA/SECRET/MIA test here uses the REAL
+`deep_attack_operators()` Operators, whose `attack_factory` calls
+`aginiti.operators.deep_attack_operators._key_for()` to resolve a REAL
+API key from the environment (GEMINI_API_KEY / GROQ_API_KEY) BEFORE any
+of the mocked internals below (litellm.completion, _process_response,
+_run_stage_abc_for_document, ...) ever run -- mocking those deeper calls
+was never enough, since attack CONSTRUCTION itself needs a key. This
+passed locally (a real `.env` with real keys) but failed in CI (no
+`.env`, no secrets configured) with `ValueError: GEMINI_API_KEY is not
+set` -- the exact same class of environment-leakage bug as
+tests/unit/test_dvla_adapter.py's own real-key requirement, caught in
+that file earlier the same day and, ironically, not re-checked for here
+before this file was written.
 """
 import json
 import tempfile
@@ -45,6 +61,8 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from aginiti.adapters.http_agent_adapter import HTTPAgentAdapter
 from aginiti.attacks.base import LeakFinding
@@ -58,6 +76,25 @@ from aginiti.core.mission import Mission
 from aginiti.core.policies.static_policy import StaticPolicy
 from aginiti.operators.deep_attack_operators import deep_attack_operators
 from aginiti.operators.library import Operator, OperatorLibrary
+
+
+@pytest.fixture(autouse=True)
+def _fake_api_keys():
+    """No test in this file should ever require a real API key -- every
+    LLM/HTTP call an attack_factory-built attack instance would make is
+    already mocked elsewhere in each test (litellm.completion,
+    _process_response, _run_stage_abc_for_document, AgentEndpoint.chat).
+    The one thing that was NOT mocked, and the actual CI failure this
+    fixture fixes: `_key_for()` (aginiti/operators/deep_attack_operators.py)
+    resolves a real GEMINI_API_KEY/GROQ_API_KEY from the environment at
+    attack-CONSTRUCTION time, before any of those other mocks are even
+    reached. Patched here, autouse, so every test in this file (present and
+    future) is protected the same way, rather than repeating this patch
+    inline 6+ times. Return value is never actually used as a real key --
+    every attack's own outbound calls are mocked, so it only ever needs to
+    be a syntactically-plausible non-empty string."""
+    with patch("aginiti.operators.deep_attack_operators._key_for", return_value="test-fake-api-key"):
+        yield
 
 
 def _spy_on_endpoint_construction():
