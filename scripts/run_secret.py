@@ -83,10 +83,26 @@ parser.add_argument("--force-refresh-phase1", action="store_true",
 # editing this file. Independent of the target agent's own AGENT_MODEL.
 parser.add_argument("--provider", default="gemini/gemini-3.5-flash",
                      help="The attacker's own completion model. Default: %(default)s")
+# 2026-08-21 (Slice F live health sweep): SECRETAttack's own
+# semantic_shift_llm_provider default (gemini/gemini-3.5-flash,
+# independent of --provider above) was never overridden by this script,
+# so a --provider groq/... run still tried to call Gemini's API using the
+# GROQ_API_KEY looked up for --provider -- a real cross-provider key
+# mismatch, not a "key expired" problem (caught live: "API key not
+# valid" on a Gemini call while running with --provider groq/...). This
+# flag lets it be set explicitly; when omitted it now tracks --provider
+# instead of silently defaulting to a different provider than the rest
+# of the run, matching run_interrogation.py's --shadow-provider pattern.
+parser.add_argument("--semantic-shift-provider", default=None,
+                     help="LLM used for Phase 2's semantic-shift fusion calls. "
+                          "Default: tracks --provider (was hardcoded to "
+                          "gemini/gemini-3.5-flash independent of --provider "
+                          "-- fixed 2026-08-21, see comment above).")
 args = parser.parse_args()
 
 TARGET_URL = args.agent_url
 LLM_PROVIDER = args.provider
+SEMANTIC_SHIFT_LLM_PROVIDER = args.semantic_shift_provider or LLM_PROVIDER
 DOMAIN = "HR records"
 
 # Deliberately small smoke-test hyperparameters by default — see the module
@@ -134,6 +150,13 @@ attack = SECRETAttack(
     max_queries=MAX_QUERIES,
     epsilon_local=EPSILON_LOCAL,
     le_stagnation_empty_steps=LE_STAGNATION_EMPTY_STEPS,
+    # 2026-08-21: pass the correct key for whichever provider is actually
+    # used for semantic-shift calls, instead of relying on the base
+    # api_key= fallback (which is keyed to LLM_PROVIDER, not
+    # SEMANTIC_SHIFT_LLM_PROVIDER -- these can now differ if
+    # --semantic-shift-provider is passed explicitly).
+    semantic_shift_llm_provider=SEMANTIC_SHIFT_LLM_PROVIDER,
+    semantic_shift_api_key=_key_for(SEMANTIC_SHIFT_LLM_PROVIDER),
 )
 
 started_at = datetime.now(timezone.utc)
@@ -166,6 +189,7 @@ report = {
         "duration_seconds": duration_seconds,
         "target_url": TARGET_URL,
         "llm_provider": LLM_PROVIDER,
+        "semantic_shift_llm_provider": SEMANTIC_SHIFT_LLM_PROVIDER,
         "domain": DOMAIN,
         "max_queries": MAX_QUERIES,
         "queries_sent": attack.queries_sent,

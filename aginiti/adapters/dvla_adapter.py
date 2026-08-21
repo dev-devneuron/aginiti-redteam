@@ -59,7 +59,14 @@ class DVLAAdapter:
     operator here uses channel="direct"; sophistication lives in the
     crafted prompt content, not in a delivery mechanism."""
 
-    def __init__(self, seed: int | None = None, model: str = "llama-3.3-70b-versatile"):
+    # 2026-08-21: llama-3.3-70b-versatile no longer exists on Groq at all
+    # (confirmed live during a Phase 2 Slice F health sweep). Updated to
+    # the replacement already verified live and adopted as this project's
+    # shared _GROQ_MODEL default (aginiti/core/llm.py) -- bare model name
+    # here, not "groq/"-prefixed, since this class constructs a real
+    # langchain_groq.ChatGroq client directly (below), not routed through
+    # LiteLLM's provider-prefix convention.
+    def __init__(self, seed: int | None = None, model: str = "openai/gpt-oss-20b"):
         self.db = TransactionDb(":memory:")  # fresh, isolated, never touches disk
         self.seed = seed
         self.history: list = []

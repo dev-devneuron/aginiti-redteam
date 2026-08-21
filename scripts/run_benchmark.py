@@ -846,8 +846,13 @@ def main() -> None:
                              "for any run against a system you don't personally own.")
     parser.add_argument("--engagement-id", default=None,
                         help="Engagement/ticket ID this run belongs to (recorded in the report).")
-    parser.add_argument("--classifier-llm-provider", default="groq/llama-3.3-70b-versatile",
-                        help="LLM provider for classification. Defaults to Groq Llama 3.3 70B.")
+    parser.add_argument("--classifier-llm-provider", default="groq/openai/gpt-oss-20b",
+                        help="LLM provider for classification. Default was groq/"
+                             "llama-3.3-70b-versatile until 2026-08-21 -- confirmed live "
+                             "during a Phase 2 Slice F health sweep that model no longer "
+                             "exists on Groq at all; updated to the replacement already "
+                             "verified live and adopted as this project's shared "
+                             "_GROQ_MODEL default.")
     args = parser.parse_args()
 
     run_benchmark(

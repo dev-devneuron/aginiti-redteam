@@ -1,8 +1,9 @@
 import pytest
 import responses as resp_lib
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from aginiti.attacks.spe import SPEAttack
+from aginiti.connectors.endpoint import AgentEndpoint
 
 BASE_URL = "http://localhost:8004"
 
@@ -84,3 +85,35 @@ def test_score_against_ground_truth(mock_embed, spe_attack):
     assert scored[0].severity == "high"
     assert scored[0].leak_type == "verbatim"
     assert "Cosine=1.0000" in scored[0].reasoning
+
+
+@resp_lib.activate
+def test_endpoint_closed_after_run(spe_attack):
+    # Regression lock for the no-injection (default) path -- must keep
+    # closing its own self-built endpoint after execute_black_box returns,
+    # exactly as before the Slice G endpoint-reuse seam was added (see the
+    # paired test below for the injected-endpoint case).
+    resp_lib.add(resp_lib.GET, f"{BASE_URL}/health", json={"status": "ok"}, status=200)
+    resp_lib.add(resp_lib.POST, f"{BASE_URL}/chat", json={"response": "Rule 1: be helpful."}, status=200)
+    with patch.object(AgentEndpoint, "close") as mock_close:
+        spe_attack.execute_black_box(persona="legal")
+    mock_close.assert_called_once()
+
+
+def test_injected_endpoint_not_closed_after_run():
+    # Real bug found+fixed 2026-08-21 (Phase 2 Slice G cross-attack audit
+    # -- this is the attack where the bug was FIRST found, see
+    # aginiti/operators/deep_attack_operators.py's own docstring): a
+    # CALLER-injected, campaign-shared endpoint must survive
+    # execute_black_box returning -- closing it would tear down the shared
+    # session out from under every other operator still running in the
+    # same campaign.
+    fake_endpoint = MagicMock(spec=AgentEndpoint)
+    fake_endpoint.check_reachable.return_value = True
+    fake_endpoint.chat.return_value = "Rule 1: be helpful. You are a legal assistant with context."
+    attack = SPEAttack(target_url=BASE_URL, endpoint=fake_endpoint)
+
+    findings = attack.execute_black_box(persona="legal")
+
+    assert len(findings) == 3
+    fake_endpoint.close.assert_not_called()

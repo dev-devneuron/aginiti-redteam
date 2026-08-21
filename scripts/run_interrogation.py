@@ -64,11 +64,15 @@ parser.add_argument("--queries", type=int, default=4,
 parser.add_argument("--provider", default="gemini/gemini-3.5-flash",
                      help="The attacker's own completion model (question generation). "
                           "Default: %(default)s")
-parser.add_argument("--shadow-provider", default="groq/llama-3.3-70b-versatile",
+parser.add_argument("--shadow-provider", default="groq/openai/gpt-oss-20b",
                      help="Independent grading model — deliberately a DIFFERENT model "
                           "family from --provider, matching the paper's own design "
                           "(see InterrogationAttack's shadow_llm_provider docstring). "
-                          "Default: %(default)s")
+                          "Default was groq/llama-3.3-70b-versatile until 2026-08-21 -- "
+                          "confirmed live during a Phase 2 Slice F health sweep that model "
+                          "no longer exists on Groq at all; updated to the replacement "
+                          "already verified live and adopted as this project's shared "
+                          "_GROQ_MODEL default. Default: %(default)s")
 args = parser.parse_args()
 
 TARGET_URL = args.agent_url

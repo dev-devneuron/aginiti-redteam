@@ -11,7 +11,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Literal
 
+from aginiti.attacks.base import BaseAttack
+from aginiti.connectors.endpoint import AgentEndpoint
 from aginiti.core.graph.schema import ClaimStatus, RiskTier
 from aginiti.core.graph.ssg import (
     CATEGORY_CAPABILITY,
@@ -257,6 +260,66 @@ class Operator:
     # operators that don't actually share a mechanism would be worse than
     # leaving them untagged.
     technique_cluster: str | None = None
+    # -- Deep-attack fields (added 2026-08-20, Phase 2 Slice D, plans/
+    # phase2-operator-wrapping.md) -- extends Operator rather than forking
+    # a parallel type, so rank()/budget_feasible()/OperatorLibrary/every
+    # existing call site keeps typing `list[Operator]` uniformly; only
+    # ObservationAdapter.execute() needs to branch on `kind`. All five
+    # default to values that make an unmodified `Operator(...)` call
+    # behave exactly as before this addition -- kind="prompt" is what
+    # every operator defined before this slice implicitly was.
+    #
+    # kind: "prompt" (default, every existing operator) routes through
+    # ObservationAdapter's original render_prompt/send/judge pipeline
+    # unchanged. "deep_attack" routes through the new
+    # _execute_deep_attack branch instead -- prompt/channel/preconditions/
+    # effects_success/effects_failure above are still REQUIRED fields on
+    # this frozen dataclass for a deep_attack operator (no schema fork),
+    # but are not used for rendering/judging in that path; author them as
+    # honest documentation (e.g. prompt="[runs IKEAAttack.execute_black_box
+    # internally, not a single templated prompt]") rather than functional
+    # content.
+    kind: Literal["prompt", "deep_attack"] = "prompt"
+    # Builds the BaseAttack subclass instance for a deep_attack operator,
+    # given the shared AgentEndpoint (HTTPAgentAdapter's own `.endpoint`,
+    # see aginiti/adapters/http_agent_adapter.py) -- e.g.
+    # `lambda ep: IKEAAttack(target_url=..., llm_provider=..., api_key=...,
+    # endpoint=ep)`. Called fresh on every execution (an Operator instance
+    # is reused across an OperatorLibrary's lifetime, so this must not
+    # cache/mutate a single BaseAttack instance across calls). None for
+    # every "prompt" operator -- required (enforced at call time, not by
+    # this dataclass) for "deep_attack".
+    attack_factory: Callable[[AgentEndpoint], BaseAttack] | None = None
+    # Forwarded as **kwargs to attack.execute_black_box(...) -- e.g.
+    # {"max_queries": 20, "topic": "HR records"} for IKEAAttack. Never
+    # execute() or execute_with_traces(): deep-attack operators are
+    # explicitly Tier-1/black-box only, matching the "no attack requires
+    # OTel/traces for real Tier-1 findings" project-wide rule -- there is
+    # no ambiguity about which path runs.
+    attack_kwargs: dict = field(default_factory=dict)
+    # The single claim key a deep_attack operator's findings translate
+    # onto (aginiti/core/finding_translation.py's translate_findings_to_
+    # claims) -- a bare string, same open string-typed convention every
+    # other claim key in this codebase already uses (no enum/registry).
+    # Reuse an EXISTING key where one already means the same thing (e.g.
+    # "system_prompt_disclosed", already produced by
+    # data_exposure_operators()'s cheap single-shot probe) rather than
+    # inventing a synonym, so a lightweight probe and a deep attack
+    # confirming the SAME underlying fact converge on one claim, not two.
+    claim_key: str | None = None
+    # Wall-clock budget (seconds) for attack.execute_black_box(...) itself
+    # -- NOT part of the originally-approved 4-field design doc list,
+    # added during implementation because the design doc's own text calls
+    # for "a wall-clock timeout guard... inside _execute_deep_attack" and
+    # a guard needs a real, per-operator-configurable number to guard
+    # with (a single hardcoded constant can't be right for both a
+    # max_queries=2 smoke-test operator and a max_queries=20+ production
+    # one). Flagged here as an implementation-time addition to the
+    # approved design, not silently introduced. 300.0 (5 minutes) is a
+    # generous default sized for a real multi-query deep attack (each
+    # query involves several of its own LLM/embedding/HTTP calls); a
+    # cheaper attack's Operator definition should set this lower.
+    attack_timeout_seconds: float = 300.0
 
     def render_prompt(self, ssg: SecurityStateGraph) -> str:
         if not self.template_vars:

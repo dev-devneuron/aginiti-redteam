@@ -4,8 +4,10 @@ effects were framed as "evidence this is FALSE" instead of TRUE, which
 silently broke recon_capabilities (whose only effect is HYPOTHESIZED) in
 every single campaign until caught by a full benchmark run.
 """
+import time
 from unittest.mock import patch
 
+from aginiti.attacks.base import BaseAttack, LeakFinding
 from aginiti.core.observation_adapter import KEY_DESCRIPTIONS, ObservationAdapter, _build_candidates, _effect_id
 from aginiti.core.graph.schema import ClaimStatus, RiskTier
 from aginiti.core.graph.ssg import SecurityStateGraph
@@ -286,3 +288,252 @@ def test_agent_send_raising_still_charges_cost_and_continues_the_campaign():
     assert "flaky" in result.operators_executed  # attempted, charged its cost
     assert "backup" in result.operators_executed  # campaign continued past the crash
     assert result.prompts_used == 2
+
+
+# ---------------------------------------------------------------------------
+# _execute_deep_attack (Phase 2 Slice D, plans/phase2-operator-wrapping.md)
+# -- ObservationAdapter.execute() dispatching to a wrapped deep attack via
+# operator.kind == "deep_attack", zero network: attack.execute_black_box is
+# a stub returning canned LeakFinding objects, never a real BaseAttack
+# subclass or a real target.
+# ---------------------------------------------------------------------------
+
+class _StubDeepAttack(BaseAttack):
+    """A minimal BaseAttack subclass that never calls litellm/AgentEndpoint
+    -- deliberately skips super().__init__() (this stub needs none of
+    BaseAttack's own LLM/endpoint plumbing) while still satisfying the ABC
+    by implementing both abstract methods, same pattern as
+    tests/unit/test_base.py's own _BlackBoxOnlyAttack."""
+
+    def __init__(self, findings=None, raise_exc=None, sleep_seconds=0.0):
+        self._findings = findings if findings is not None else []
+        self._raise_exc = raise_exc
+        self._sleep_seconds = sleep_seconds
+        self.execute_black_box_call_count = 0
+
+    def execute_black_box(self, **kwargs):
+        self.execute_black_box_call_count += 1
+        if self._sleep_seconds:
+            time.sleep(self._sleep_seconds)
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return self._findings
+
+    def execute_with_traces(self, **kwargs):
+        raise NotImplementedError("deep_attack operators only ever call execute_black_box")
+
+
+def _leak_finding(confirmed: bool) -> LeakFinding:
+    return LeakFinding(
+        attack_type="DRA", tier_used="black_box",
+        confidence=0.9 if confirmed else 0.2, confirmed=confirmed,
+        leaked_content="evidence" if confirmed else "", probe_used="a probe",
+        trace_span_id="", recommendation="", severity="high" if confirmed else "low",
+    )
+
+
+class _StubEndpoint:
+    """Stands in for a real AgentEndpoint -- the deep-attack bridge never
+    calls anything on it directly (attack_factory owns that), it only
+    needs to exist and be passed through by identity."""
+
+
+class _AgentWithEndpoint:
+    """A BaseAdapter-shaped agent exposing .endpoint, like HTTPAgentAdapter."""
+
+    def __init__(self, endpoint=None):
+        self.endpoint = endpoint if endpoint is not None else _StubEndpoint()
+
+    def send(self, channel, prompt):
+        raise AssertionError("a deep_attack operator must never call agent.send() directly")
+
+    def ground_truth_mission_achieved(self):
+        return False
+
+
+class _AgentWithoutEndpoint:
+    """A BaseAdapter-shaped agent with no .endpoint -- every concrete
+    adapter other than HTTPAgentAdapter today (AnythingLLM,
+    HardenedAgentAdapter, ...)."""
+
+    def send(self, channel, prompt):
+        raise AssertionError("a deep_attack operator must never call agent.send() directly")
+
+    def ground_truth_mission_achieved(self):
+        return False
+
+
+def _deep_attack_operator(attack_factory, claim_key="test_deep_attack_claim",
+                           cost_prompts=5, attack_timeout_seconds=300.0, **overrides):
+    defaults = dict(
+        id="test_deep_attack_op", description="a wrapped deep attack",
+        prompt="[runs a stub attack's execute_black_box, not a single templated prompt]",
+        channel="direct", preconditions=(), effects_success=(), effects_failure=(),
+        cost_prompts=cost_prompts, risk_tier=RiskTier.LOW,
+        kind="deep_attack", attack_factory=attack_factory, attack_kwargs={},
+        claim_key=claim_key, attack_timeout_seconds=attack_timeout_seconds,
+    )
+    defaults.update(overrides)
+    return Operator(**defaults)
+
+
+def test_deep_attack_kind_dispatches_away_from_the_prompt_pipeline():
+    # The dispatch itself: kind="deep_attack" must never reach render_prompt/
+    # _send/_judge -- confirmed by using an agent whose send() raises if
+    # ever called at all (see _AgentWithEndpoint above).
+    stub = _StubDeepAttack(findings=[_leak_finding(confirmed=True)])
+    op = _deep_attack_operator(attack_factory=lambda ep: stub)
+    ssg = SecurityStateGraph()
+
+    result = ObservationAdapter().execute(op, ssg, _AgentWithEndpoint())
+
+    assert stub.execute_black_box_call_count == 1
+    assert result.overall_success is True
+
+
+def test_agent_without_endpoint_fails_gracefully_without_calling_the_factory():
+    factory_calls = []
+    op = _deep_attack_operator(attack_factory=lambda ep: factory_calls.append(ep) or _StubDeepAttack())
+    ssg = SecurityStateGraph()
+
+    result = ObservationAdapter().execute(op, ssg, _AgentWithoutEndpoint())
+
+    assert factory_calls == []  # never reached -- the guard fires first
+    assert result.overall_success is False
+    assert result.confirmed_keys == []
+    assert "requires an adapter exposing .endpoint" in result.reasoning
+    assert result.cost_prompts == 5  # still charged -- the campaign attempted this step
+    assert ssg.current_claim("test_deep_attack_claim") is None
+
+
+def test_attack_factory_exception_fails_gracefully():
+    def _raising_factory(ep):
+        raise ValueError("bad target_url configuration")
+
+    op = _deep_attack_operator(attack_factory=_raising_factory)
+    ssg = SecurityStateGraph()
+
+    result = ObservationAdapter().execute(op, ssg, _AgentWithEndpoint())
+
+    assert result.overall_success is False
+    assert "ValueError" in result.reasoning
+    assert result.cost_prompts == 5
+
+
+def test_execute_black_box_exception_fails_gracefully_not_a_crash():
+    stub = _StubDeepAttack(raise_exc=ConnectionError("target down mid-run"))
+    op = _deep_attack_operator(attack_factory=lambda ep: stub)
+    ssg = SecurityStateGraph()
+
+    result = ObservationAdapter().execute(op, ssg, _AgentWithEndpoint())  # must not raise
+
+    assert result.overall_success is False
+    assert "ConnectionError" in result.reasoning
+    assert "ConnectionError" in result.raw_signal
+    assert result.cost_prompts == 5
+    assert ssg.current_claim("test_deep_attack_claim") is None
+    # The failure is still an audited event, same as a crashing prompt-type
+    # adapter's own Fact-recording discipline.
+    assert any(f.kind == "response_text" for f in ssg.facts)
+
+
+def test_execute_black_box_timeout_fails_gracefully_not_a_hang():
+    stub = _StubDeepAttack(findings=[_leak_finding(confirmed=True)], sleep_seconds=0.3)
+    op = _deep_attack_operator(attack_factory=lambda ep: stub, attack_timeout_seconds=0.05)
+    ssg = SecurityStateGraph()
+
+    result = ObservationAdapter().execute(op, ssg, _AgentWithEndpoint())  # must not raise or hang
+
+    assert result.overall_success is False
+    assert "timed out" in result.reasoning
+    assert result.cost_prompts == 5
+    assert ssg.current_claim("test_deep_attack_claim") is None
+
+
+def test_confirmed_finding_asserts_confirmed_claim():
+    op = _deep_attack_operator(
+        attack_factory=lambda ep: _StubDeepAttack(findings=[_leak_finding(confirmed=True)])
+    )
+    ssg = SecurityStateGraph()
+
+    result = ObservationAdapter().execute(op, ssg, _AgentWithEndpoint())
+
+    assert result.overall_success is True
+    assert result.confirmed_keys == ["test_deep_attack_claim"]
+    claim = ssg.current_claim("test_deep_attack_claim")
+    assert claim is not None
+    assert claim.status == ClaimStatus.CONFIRMED
+    assert result.cost_prompts == 5
+    assert result.ground_truth_mission_achieved is False  # from _AgentWithEndpoint's own stub
+
+
+def test_unconfirmed_finding_asserts_hypothesized_claim_not_nothing():
+    op = _deep_attack_operator(
+        attack_factory=lambda ep: _StubDeepAttack(findings=[_leak_finding(confirmed=False)])
+    )
+    ssg = SecurityStateGraph()
+
+    result = ObservationAdapter().execute(op, ssg, _AgentWithEndpoint())
+
+    # A non-refused-but-unconfirmed finding is real, if provisional, evidence
+    # -- overall_success is specifically about CONFIRMED for a deep attack
+    # (unlike a lightweight recon operator, where HYPOTHESIZED can itself be
+    # the declared success effect).
+    assert result.overall_success is False
+    claim = ssg.current_claim("test_deep_attack_claim")
+    assert claim is not None
+    assert claim.status == ClaimStatus.HYPOTHESIZED
+
+
+def test_empty_findings_asserts_no_claim_at_all():
+    op = _deep_attack_operator(attack_factory=lambda ep: _StubDeepAttack(findings=[]))
+    ssg = SecurityStateGraph()
+
+    result = ObservationAdapter().execute(op, ssg, _AgentWithEndpoint())
+
+    assert result.overall_success is False
+    assert result.confirmed_keys == []
+    assert ssg.current_claim("test_deep_attack_claim") is None
+    # Distinct from the guard/exception/timeout failure paths: this is a
+    # real, completed execution that legitimately found nothing -- the
+    # supplementary structured Fact still gets recorded (unlike a genuine
+    # crash), and cost is still charged.
+    assert any(f.kind == "deep_attack_execution" for f in ssg.facts)
+    assert result.cost_prompts == 5
+
+
+def test_attack_kwargs_are_forwarded_to_execute_black_box():
+    captured_kwargs = {}
+
+    class _CapturingAttack(_StubDeepAttack):
+        def execute_black_box(self, **kwargs):
+            captured_kwargs.update(kwargs)
+            return super().execute_black_box(**kwargs)
+
+    op = _deep_attack_operator(
+        attack_factory=lambda ep: _CapturingAttack(findings=[]),
+        attack_kwargs={"max_queries": 20, "topic": "HR records"},
+    )
+    ssg = SecurityStateGraph()
+
+    ObservationAdapter().execute(op, ssg, _AgentWithEndpoint())
+
+    assert captured_kwargs == {"max_queries": 20, "topic": "HR records"}
+
+
+def test_endpoint_is_passed_to_attack_factory_by_identity():
+    # The whole point of Slice A/B/D together: the SAME AgentEndpoint the
+    # campaign/planner side is using must reach the wrapped attack.
+    received_endpoints = []
+    fake_endpoint = _StubEndpoint()
+
+    def factory(ep):
+        received_endpoints.append(ep)
+        return _StubDeepAttack(findings=[])
+
+    op = _deep_attack_operator(attack_factory=factory)
+    ssg = SecurityStateGraph()
+
+    ObservationAdapter().execute(op, ssg, _AgentWithEndpoint(endpoint=fake_endpoint))
+
+    assert received_endpoints == [fake_endpoint]

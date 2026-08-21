@@ -1425,6 +1425,25 @@ class TestExecuteBlackBox:
             self.attack.execute_black_box(topic="HR records", max_queries=2)
         mock_close.assert_called_once()
 
+    def test_injected_endpoint_not_closed_after_run(self):
+        # Real bug found+fixed 2026-08-21 (Phase 2 Slice G health audit,
+        # cross-checked against every attack): the no-injection path above
+        # must keep closing its own self-built endpoint (regression-locked
+        # by test_endpoint_closed_after_run), but a CALLER-injected,
+        # campaign-shared endpoint must survive execute_black_box returning
+        # -- closing it would tear down the shared session out from under
+        # every other operator still running in the same campaign. This is
+        # exactly the injected-endpoint counterpart to that test.
+        self._stub_attack()
+        fake_endpoint = MagicMock(spec=AgentEndpoint)
+        fake_endpoint.check_reachable.return_value = True
+        fake_endpoint.chat.return_value = "some response"
+        self.attack.endpoint = fake_endpoint
+
+        self.attack.execute_black_box(topic="HR records", max_queries=2)
+
+        fake_endpoint.close.assert_not_called()
+
     def test_max_llm_calls_stops_loop_early(self, caplog):
         # Every chain in this stub ends after 1 probe anyway (the combined
         # mutate+query call always fails -> "not json" fallback), so without
@@ -1676,6 +1695,84 @@ class TestEndpointKwargsPassthrough:
         # config), but no extra kwargs sneak in when the caller didn't ask
         # for any via endpoint_kwargs.
         assert captured_kwargs == {"base_url": "http://localhost:8001"}
+
+
+# ---------------------------------------------------------------------------
+# endpoint injection (Phase 2 Slice B, plans/phase2-operator-wrapping.md) —
+# a caller sharing an ALREADY-CONSTRUCTED AgentEndpoint via
+# BaseAttack.__init__'s `endpoint=` kwarg, rather than IKEAAttack building
+# its own fresh one from target_url/endpoint_kwargs (the case
+# TestEndpointKwargsPassthrough above covers).
+# ---------------------------------------------------------------------------
+
+class TestEndpointInjection:
+    def setup_method(self):
+        self._cache_patcher = patch(
+            "aginiti.attacks.dra.ikea._anchor_cache_path",
+            side_effect=lambda topic: Path(tempfile.gettempdir())
+            / f"ikea_test_cache_{uuid.uuid4().hex}.json",
+        )
+        self._cache_patcher.start()
+
+    def teardown_method(self):
+        self._cache_patcher.stop()
+
+    def test_injected_endpoint_is_reused_without_constructing_a_new_one(self):
+        # The core Slice B guarantee: when a caller injects an endpoint (the
+        # exact seam HTTPAgentAdapter's own `.endpoint` attribute exists
+        # for), IKEAAttack must NOT build a second, independent AgentEndpoint
+        # -- that would defeat the entire point of session sharing.
+        fake_endpoint = MagicMock(spec=AgentEndpoint)
+        fake_endpoint.check_reachable.return_value = False  # short-circuits
+        # via RuntimeError before any real attack logic runs — same minimal-
+        # cost pattern as TestExecuteBlackBox's own preflight-check test.
+
+        attack = _make_attack(topic="HR records", endpoint=fake_endpoint)
+        with patch("aginiti.attacks.dra.ikea.AgentEndpoint") as mock_endpoint_cls:
+            with pytest.raises(RuntimeError):
+                attack.execute_black_box(topic="HR records", max_queries=1)
+
+        mock_endpoint_cls.assert_not_called()
+        fake_endpoint.check_reachable.assert_called_once()
+
+    def test_no_injected_endpoint_still_constructs_a_fresh_one(self):
+        # Regression lock for every existing, un-wrapped caller: omitting
+        # endpoint= entirely must behave EXACTLY as before this slice —
+        # IKEAAttack builds its own AgentEndpoint from target_url.
+        attack = _make_attack(topic="HR records")  # no endpoint= at all
+        assert attack.endpoint is None
+
+        with patch.object(AgentEndpoint, "check_reachable", return_value=False):
+            with pytest.raises(RuntimeError):
+                attack.execute_black_box(topic="HR records", max_queries=1)
+        # No assertion beyond "reaches the same RuntimeError the same way" —
+        # TestEndpointKwargsPassthrough.test_no_endpoint_kwargs_matches_old_
+        # default_behavior already locks down the EXACT constructor kwargs
+        # for the no-injection path; this test's job is only to confirm
+        # endpoint=None doesn't change that path at all.
+
+    def test_injected_endpoint_takes_priority_over_endpoint_kwargs(self):
+        # endpoint_kwargs (configures a FRESH AgentEndpoint) and endpoint
+        # (reuses an EXISTING one) both being set at once is not a realistic
+        # call pattern, but the documented, deliberate behavior (see
+        # execute_black_box's own comment at the endpoint-selection line) is
+        # that an injected endpoint wins outright — endpoint_kwargs is
+        # silently ignored rather than raising, since re-applying
+        # construction kwargs onto an object that's already built makes no
+        # sense.
+        fake_endpoint = MagicMock(spec=AgentEndpoint)
+        fake_endpoint.check_reachable.return_value = False
+
+        attack = _make_attack(
+            topic="HR records",
+            endpoint=fake_endpoint,
+            endpoint_kwargs={"headers": {"Authorization": "Bearer secret"}},
+        )
+        with patch("aginiti.attacks.dra.ikea.AgentEndpoint") as mock_endpoint_cls:
+            with pytest.raises(RuntimeError):
+                attack.execute_black_box(topic="HR records", max_queries=1)
+
+        mock_endpoint_cls.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

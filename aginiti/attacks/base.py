@@ -7,6 +7,8 @@ from typing import Optional
 
 import litellm
 
+from aginiti.connectors.endpoint import AgentEndpoint
+
 logger = logging.getLogger(__name__)
 
 # Silences litellm's own "Give Feedback / Get Help" boilerplate print block,
@@ -132,7 +134,8 @@ class BaseAttack(ABC):
     def __init__(self, target_url: str, llm_provider: str,
                  api_key: str, otel_ingester=None,
                  fallback_llm_provider: Optional[str] = None,
-                 fallback_api_key: Optional[str] = None):
+                 fallback_api_key: Optional[str] = None,
+                 endpoint: Optional[AgentEndpoint] = None):
         # fallback_llm_provider/fallback_api_key added 2026-07-13 (additive,
         # both default None — every existing call site keeps working
         # unchanged). See _init_llm's docstring for when the fallback is used.
@@ -141,6 +144,21 @@ class BaseAttack(ABC):
             llm_provider, api_key, fallback_llm_provider, fallback_api_key
         )
         self.otel = otel_ingester
+        # endpoint added 2026-08-20 (Phase 2 Slice B, plans/
+        # phase2-operator-wrapping.md — additive, defaults to None, every
+        # existing call site keeps working unchanged). Lets a caller inject
+        # an EXISTING AgentEndpoint (e.g. the one HTTPAgentAdapter is
+        # already wrapping for the campaign/planner side of a run) so a
+        # deep attack wrapped as an Operator shares ONE real HTTP session
+        # with the rest of the campaign against a stateful target, instead
+        # of each side independently constructing its own connection.
+        # `target_url` stays required and is still used verbatim by every
+        # subclass that ignores this parameter — this is purely additive,
+        # not a replacement for target_url-based construction. A subclass
+        # decides for itself whether/how to honor `self.endpoint` (see
+        # IKEAAttack.execute_black_box for the first real caller); nothing
+        # in this base class enforces or assumes it's used.
+        self.endpoint = endpoint
 
     @abstractmethod
     def execute_black_box(self, **kwargs) -> list[LeakFinding]:
