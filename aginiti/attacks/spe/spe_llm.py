@@ -48,11 +48,12 @@ class SPEAttack(BaseAttack):
         llm_provider: str = "",
         api_key: str = "",
         endpoint_kwargs: Optional[dict] = None,
+        endpoint: Optional[AgentEndpoint] = None,
         **kwargs: Any
     ):
         """
         Initialize the SPEAttack instance.
-        
+
         Parameters
         ----------
         target_url : str
@@ -63,8 +64,17 @@ class SPEAttack(BaseAttack):
             API key for the LLM provider (dummy default used).
         endpoint_kwargs : dict, optional
             Custom HTTP client configurations (e.g. auth headers) routed to AgentEndpoint.
+        endpoint : AgentEndpoint, optional
+            An EXISTING AgentEndpoint to reuse instead of building a fresh one
+            in execute_black_box -- added 2026-08-21 (Phase 2 Slice G, plans/
+            phase2-operator-wrapping.md), same seam as IKEAAttack/SECRETAttack/
+            InterrogationAttack. Made an explicit named parameter here (not
+            left as an implicit **kwargs passthrough to BaseAttack, even
+            though that already worked) for discoverability/consistency with
+            the other three attacks.
         """
-        super().__init__(target_url, llm_provider or "dummy/none", api_key or "dummy", **kwargs)
+        super().__init__(target_url, llm_provider or "dummy/none", api_key or "dummy",
+                          endpoint=endpoint, **kwargs)
         self._endpoint_kwargs = endpoint_kwargs or {}
 
     def _is_refusal(self, text: str) -> bool:
@@ -118,7 +128,11 @@ class SPEAttack(BaseAttack):
             "Few-Shot": _FEW_SHOT_PROMPT
         }
 
-        endpoint = AgentEndpoint(base_url=self.target_url, **self._endpoint_kwargs)
+        # 2026-08-21 (Slice G): reuse an injected endpoint (shared campaign
+        # session) when supplied, matching IKEAAttack's own precedent
+        # (Slice B) -- falls back to today's fresh-construction behavior
+        # otherwise.
+        endpoint = self.endpoint or AgentEndpoint(base_url=self.target_url, **self._endpoint_kwargs)
         logger.info("=== SPE attack starting ===")
         logger.info("  target agent          : %s", self.target_url)
 
@@ -161,7 +175,15 @@ class SPEAttack(BaseAttack):
                 findings.append(finding)
                 logger.info(f"[{strategy_name}] Result: Confirmed={confirmed} (len={len(response_clean)})")
         finally:
-            endpoint.close()
+            # 2026-08-21 (Slice G): a real bug caught while adding the
+            # endpoint-reuse seam above -- this used to close() the
+            # endpoint unconditionally, which is correct for a fresh
+            # self-built endpoint (the original behavior) but would tear
+            # down a CALLER-injected, campaign-shared session out from
+            # under every other operator still running against it. Only
+            # close an endpoint this method itself constructed.
+            if self.endpoint is None:
+                endpoint.close()
 
         logger.info("=== SPE attack finished ===")
         return findings

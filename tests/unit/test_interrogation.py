@@ -773,6 +773,63 @@ class TestExecuteBlackBox:
             assert len(attack.non_member_results) == 1  # reset, not accumulated
             assert attack.non_member_results[0]["id"] == "b"
 
+    def test_endpoint_closed_after_run(self, monkeypatch, tmp_path):
+        # Regression lock for the no-injection (default) path -- must keep
+        # closing its own self-built endpoint after execute_black_box
+        # returns, exactly as before the Slice G endpoint-reuse seam was
+        # added (see the paired test below for the injected-endpoint case).
+        attack = _make_attack(non_member_reference_docs=[{"id": "nm_1", "text": "unrelated"}])
+        _redirect_cache(monkeypatch, tmp_path)
+        attack._run_stage_abc_for_document = lambda endpoint, doc_text, doc_title="": (
+            0.5, "s*", [{"probe_question": "Q?", "composed_query": "s* Q?", "shadow_answer": "yes",
+                          "target_response": "Yes.", "target_answer": "yes", "match": True}]
+        )
+        with patch.object(AgentEndpoint, "check_reachable", return_value=True), \
+             patch.object(AgentEndpoint, "close") as mock_close:
+            attack.execute_black_box(documents=[{"id": "a", "text": "text a"}])
+        mock_close.assert_called_once()
+
+    def test_injected_endpoint_is_reused_without_constructing_a_new_one(self, monkeypatch, tmp_path):
+        # The core Slice B/G guarantee (mirrors test_ikea.py's own
+        # TestEndpointInjection test exactly): when a caller injects an
+        # endpoint, InterrogationAttack must NOT build a second,
+        # independent AgentEndpoint inside execute_black_box.
+        attack = _make_attack(non_member_reference_docs=[{"id": "nm_1", "text": "unrelated"}])
+        _redirect_cache(monkeypatch, tmp_path)
+        attack._run_stage_abc_for_document = lambda endpoint, doc_text, doc_title="": (
+            0.5, "s*", [{"probe_question": "Q?", "composed_query": "s* Q?", "shadow_answer": "yes",
+                          "target_response": "Yes.", "target_answer": "yes", "match": True}]
+        )
+        fake_endpoint = MagicMock(spec=AgentEndpoint)
+        fake_endpoint.check_reachable.return_value = True
+        attack.endpoint = fake_endpoint
+
+        with patch("aginiti.attacks.mia.interrogation.AgentEndpoint") as mock_endpoint_cls:
+            attack.execute_black_box(documents=[{"id": "a", "text": "text a"}])
+
+        mock_endpoint_cls.assert_not_called()
+
+    def test_injected_endpoint_not_closed_after_run(self, monkeypatch, tmp_path):
+        # Real bug found+fixed 2026-08-21 (Phase 2 Slice G cross-attack
+        # audit -- same class of bug as IKEAAttack's own equivalent test in
+        # test_ikea.py): a CALLER-injected, campaign-shared endpoint must
+        # survive execute_black_box returning -- closing it would tear
+        # down the shared session out from under every other operator
+        # still running in the same campaign.
+        attack = _make_attack(non_member_reference_docs=[{"id": "nm_1", "text": "unrelated"}])
+        _redirect_cache(monkeypatch, tmp_path)
+        attack._run_stage_abc_for_document = lambda endpoint, doc_text, doc_title="": (
+            0.5, "s*", [{"probe_question": "Q?", "composed_query": "s* Q?", "shadow_answer": "yes",
+                          "target_response": "Yes.", "target_answer": "yes", "match": True}]
+        )
+        fake_endpoint = MagicMock(spec=AgentEndpoint)
+        fake_endpoint.check_reachable.return_value = True
+        attack.endpoint = fake_endpoint
+
+        attack.execute_black_box(documents=[{"id": "a", "text": "text a"}])
+
+        fake_endpoint.close.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # score_documents (added 2026-08-12) -- threshold-free raw scoring, for

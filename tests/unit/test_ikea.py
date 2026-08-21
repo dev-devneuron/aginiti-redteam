@@ -1425,6 +1425,25 @@ class TestExecuteBlackBox:
             self.attack.execute_black_box(topic="HR records", max_queries=2)
         mock_close.assert_called_once()
 
+    def test_injected_endpoint_not_closed_after_run(self):
+        # Real bug found+fixed 2026-08-21 (Phase 2 Slice G health audit,
+        # cross-checked against every attack): the no-injection path above
+        # must keep closing its own self-built endpoint (regression-locked
+        # by test_endpoint_closed_after_run), but a CALLER-injected,
+        # campaign-shared endpoint must survive execute_black_box returning
+        # -- closing it would tear down the shared session out from under
+        # every other operator still running in the same campaign. This is
+        # exactly the injected-endpoint counterpart to that test.
+        self._stub_attack()
+        fake_endpoint = MagicMock(spec=AgentEndpoint)
+        fake_endpoint.check_reachable.return_value = True
+        fake_endpoint.chat.return_value = "some response"
+        self.attack.endpoint = fake_endpoint
+
+        self.attack.execute_black_box(topic="HR records", max_queries=2)
+
+        fake_endpoint.close.assert_not_called()
+
     def test_max_llm_calls_stops_loop_early(self, caplog):
         # Every chain in this stub ends after 1 probe anyway (the combined
         # mutate+query call always fails -> "not json" fallback), so without

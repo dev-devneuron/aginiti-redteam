@@ -584,11 +584,20 @@ class SECRETAttack(BaseAttack):
         fallback_llm_provider: Optional[str] = None,
         fallback_api_key: Optional[str] = None,
         endpoint_kwargs: Optional[dict] = None,
+        endpoint: Optional[AgentEndpoint] = None,
     ) -> None:
+        # endpoint added 2026-08-21 (Phase 2 Slice G, plans/
+        # phase2-operator-wrapping.md) -- same additive seam Slice B added
+        # to IKEAAttack: lets a caller inject an EXISTING AgentEndpoint so
+        # a wrapped deep-attack Operator shares ONE real HTTP session with
+        # the rest of a campaign, instead of execute_black_box building its
+        # own. See execute_black_box's own endpoint-selection line below
+        # for where this is actually honored.
         super().__init__(
             target_url, llm_provider, api_key, otel_ingester,
             fallback_llm_provider=fallback_llm_provider,
             fallback_api_key=fallback_api_key,
+            endpoint=endpoint,
         )
         if not external_corpus:
             raise ValueError(
@@ -1026,7 +1035,11 @@ class SECRETAttack(BaseAttack):
             except Exception as e:
                 logger.warning("Failed to load checkpoint file (starting fresh): %s", e)
 
-        endpoint = AgentEndpoint(base_url=self.target_url, **self._endpoint_kwargs)
+        # 2026-08-21 (Slice G): reuse an injected endpoint (shared campaign
+        # session) when supplied, matching IKEAAttack's own precedent
+        # (Slice B) -- falls back to today's fresh-construction behavior
+        # otherwise.
+        endpoint = self.endpoint or AgentEndpoint(base_url=self.target_url, **self._endpoint_kwargs)
 
         logger.info("=== SECRET attack starting ===")
         logger.info("  target agent          : %s", self.target_url)
@@ -1168,7 +1181,13 @@ class SECRETAttack(BaseAttack):
                     len(findings), len(self._extracted_segments), self._llm_call_count,
                 )
         finally:
-            endpoint.close()
+            # 2026-08-21 (Slice G): only close an endpoint this method
+            # itself constructed -- never a caller-injected, campaign-
+            # shared session (see the identical fix + full rationale in
+            # ikea.py's own execute_black_box, found during the same
+            # cross-attack audit).
+            if self.endpoint is None:
+                endpoint.close()
 
         logger.info("=== SECRET attack finished ===")
         logger.info("  Findings          : %d", len(findings))

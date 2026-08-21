@@ -1832,7 +1832,24 @@ class IKEAAttack(BaseAttack):
                     logger.info("[TRDM] Continuing chain with new anchor=%r", w)
 
         finally:
-            endpoint.close()
+            # 2026-08-21 (Phase 2 Slice G health check): a real, previously
+            # undetected bug -- this unconditionally closed the endpoint,
+            # which is correct for a fresh self-built one (the original
+            # behavior, still the common case) but would tear down a
+            # CALLER-injected, campaign-shared session (Slice B's own
+            # endpoint= seam) out from under every other operator still
+            # running against it in the same campaign. Session-reuse was
+            # verified in Slice F only by counting AgentEndpoint
+            # constructions (correctly zero) -- that check never caught
+            # this, because requests.Session.close() doesn't raise or even
+            # visibly break a subsequent request on the same Session object
+            # in practice (it just silently reopens connections), so Slice
+            # F's live campaign happened to keep working despite this bug.
+            # Found only while auditing every attack for the same class of
+            # issue during Slice G. Only close an endpoint this method
+            # itself constructed.
+            if self.endpoint is None:
+                endpoint.close()
 
         logger.info("=== IKEA attack finished ===")
         logger.info(

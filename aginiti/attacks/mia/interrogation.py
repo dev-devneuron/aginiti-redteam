@@ -440,11 +440,20 @@ class InterrogationAttack(BaseAttack):
         fallback_llm_provider: Optional[str] = None,
         fallback_api_key: Optional[str] = None,
         endpoint_kwargs: Optional[dict] = None,
+        endpoint: Optional[AgentEndpoint] = None,
     ) -> None:
+        # endpoint added 2026-08-21 (Phase 2 Slice G, plans/
+        # phase2-operator-wrapping.md) -- same additive seam Slice B added
+        # to IKEAAttack: lets a caller inject an EXISTING AgentEndpoint so
+        # a wrapped deep-attack Operator shares ONE real HTTP session with
+        # the rest of a campaign, instead of execute_black_box building its
+        # own. See execute_black_box's own endpoint-selection line below
+        # for where this is actually honored.
         super().__init__(
             target_url, llm_provider, api_key, otel_ingester,
             fallback_llm_provider=fallback_llm_provider,
             fallback_api_key=fallback_api_key,
+            endpoint=endpoint,
         )
         if not non_member_reference_docs:
             raise ValueError(
@@ -947,7 +956,14 @@ class InterrogationAttack(BaseAttack):
         logger.info("  shadow LLM          : %s", self._shadow_llm_provider)
         logger.info("  target agent        : %s", self.target_url)
 
-        endpoint = AgentEndpoint(base_url=self.target_url, **self._endpoint_kwargs)
+        # 2026-08-21 (Slice G): reuse an injected endpoint (shared campaign
+        # session) when supplied, matching IKEAAttack's own precedent
+        # (Slice B) -- falls back to today's fresh-construction behavior
+        # otherwise. NOTE this is deliberately scoped to execute_black_box
+        # only, not score_documents() above (a separate public entry point
+        # never called by ObservationAdapter._execute_deep_attack) -- that
+        # method still always builds its own fresh AgentEndpoint.
+        endpoint = self.endpoint or AgentEndpoint(base_url=self.target_url, **self._endpoint_kwargs)
         try:
             if not endpoint.check_reachable():
                 raise RuntimeError(
@@ -1008,7 +1024,13 @@ class InterrogationAttack(BaseAttack):
                         doc_id, score, threshold,
                     )
         finally:
-            endpoint.close()
+            # 2026-08-21 (Slice G): only close an endpoint this method
+            # itself constructed -- never a caller-injected, campaign-
+            # shared session (see the identical fix + full rationale in
+            # ikea.py's own execute_black_box, found during the same
+            # cross-attack audit).
+            if self.endpoint is None:
+                endpoint.close()
 
         logger.info(
             "=== Interrogation Attack complete: %d/%d documents confirmed as members "

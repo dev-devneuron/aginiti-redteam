@@ -578,6 +578,59 @@ class TestExecuteBlackBoxOrchestration:
         assert findings == []
         assert attack.queries_sent == 2  # failure still counts against budget
 
+    def test_endpoint_closed_after_run(self, monkeypatch):
+        # Regression lock for the no-injection (default) path -- must keep
+        # closing its own self-built endpoint after execute_black_box
+        # returns, exactly as before the Slice G endpoint-reuse seam was
+        # added (see the paired test below for the injected-endpoint case).
+        attack = _make_attack(max_queries=1)
+        monkeypatch.setattr(attack, "_ensure_jailbreak_artifact", MagicMock(return_value=_artifact()))
+        monkeypatch.setattr(attack, "_process_response", MagicMock(return_value=([], None)))
+        with patch.object(AgentEndpoint, "check_reachable", return_value=True), \
+             patch.object(AgentEndpoint, "chat", return_value="some response"), \
+             patch.object(AgentEndpoint, "close") as mock_close:
+            attack.execute_black_box()
+        mock_close.assert_called_once()
+
+    def test_injected_endpoint_is_reused_without_constructing_a_new_one(self, monkeypatch):
+        # The core Slice B/G guarantee (mirrors test_ikea.py's own
+        # TestEndpointInjection test exactly): when a caller injects an
+        # endpoint, SECRETAttack must NOT build a second, independent
+        # AgentEndpoint inside execute_black_box.
+        attack = _make_attack(max_queries=1)
+        monkeypatch.setattr(attack, "_ensure_jailbreak_artifact", MagicMock(return_value=_artifact()))
+        monkeypatch.setattr(attack, "_process_response", MagicMock(return_value=([], None)))
+        fake_endpoint = MagicMock(spec=AgentEndpoint)
+        fake_endpoint.check_reachable.return_value = True
+        fake_endpoint.chat.return_value = "some response"
+        attack.endpoint = fake_endpoint
+
+        with patch("aginiti.attacks.dra.secret.AgentEndpoint") as mock_endpoint_cls:
+            attack.execute_black_box()
+
+        mock_endpoint_cls.assert_not_called()
+        fake_endpoint.chat.assert_called_once()
+
+    def test_injected_endpoint_not_closed_after_run(self, monkeypatch):
+        # Real bug found+fixed 2026-08-21 (Phase 2 Slice G cross-attack
+        # audit -- same class of bug as IKEAAttack's own
+        # test_injected_endpoint_not_closed_after_run in test_ikea.py): a
+        # CALLER-injected, campaign-shared endpoint must survive
+        # execute_black_box returning -- closing it would tear down the
+        # shared session out from under every other operator still running
+        # in the same campaign.
+        attack = _make_attack(max_queries=1)
+        monkeypatch.setattr(attack, "_ensure_jailbreak_artifact", MagicMock(return_value=_artifact()))
+        monkeypatch.setattr(attack, "_process_response", MagicMock(return_value=([], None)))
+        fake_endpoint = MagicMock(spec=AgentEndpoint)
+        fake_endpoint.check_reachable.return_value = True
+        fake_endpoint.chat.return_value = "some response"
+        attack.endpoint = fake_endpoint
+
+        attack.execute_black_box()
+
+        fake_endpoint.close.assert_not_called()
+
     def test_execute_with_traces_upgrades_matched_findings(self, monkeypatch):
         attack = _make_attack()
         attack.otel = MagicMock()
