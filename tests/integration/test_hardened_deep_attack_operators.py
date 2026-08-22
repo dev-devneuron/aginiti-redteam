@@ -319,7 +319,27 @@ class TestFullCampaignWithHardenedAgentAdapterEndpoint:
         agent = HardenedAgentAdapter(persona="legal", api_key="legal-test-key",
                                        disclosure_index=index)
 
-        deep_ops = hardened_deep_attack_operators("legal")
+        # Second real CI-only gap, found the same way as _fake_api_keys
+        # above (reproduced CI's exact environment locally after the first
+        # push still failed): hardened_deep_attack_operators() calls
+        # _select_mia_documents() at LIBRARY-CONSTRUCTION time (not lazily
+        # at execution time, unlike the attack_factory/_key_for() pattern
+        # above) -- unconditionally reading the real hardened_dataset_
+        # {ingested,held_out}.json files, which don't exist on a fresh
+        # checkout (prepare_hardened_dataset.py's own generated output,
+        # gitignored). TestHardenedDeepAttackOperators and
+        # TestCombinedLibraryPlannerRanking above both guard every call
+        # to this function with a `_require_dataset` skip fixture; this
+        # class predates that pattern and never got one. This test is
+        # about SPE specifically (it never touches the MIA candidates/
+        # reference this call also builds), so -- matching this file's own
+        # "zero real network/LLM/file calls" module docstring -- the
+        # right fix is mocking the document selection away entirely
+        # rather than skipping the whole test when the dataset is absent.
+        with patch("aginiti.operators.hardened_deep_attack_operators._select_mia_documents",
+                    return_value=([{"id": "fake_cuad_0001", "text": "synthetic candidate document"}],
+                                  [{"id": "fake_cuad_0002", "text": "synthetic reference document"}])):
+            deep_ops = hardened_deep_attack_operators("legal")
         spe_op = next(op for op in deep_ops if op.id == "hardened_spe_extraction")
         # cost_prompts=3 already (SPE always fires exactly 3 static probes,
         # non-configurable) -- no cheap-variant override needed, unlike
