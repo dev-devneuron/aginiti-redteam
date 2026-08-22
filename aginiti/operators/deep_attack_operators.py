@@ -192,6 +192,9 @@ def _build_ikea_attack(endpoint: AgentEndpoint) -> IKEAAttack:
         embed_model=_IKEA_EMBED_MODEL,
         embed_api_key=_key_for(_IKEA_EMBED_MODEL),
         endpoint=endpoint,
+        # See _build_secret_attack's own docstring -- defensive, harmless
+        # no-op against an unauthenticated target.
+        endpoint_kwargs={"headers": endpoint.headers},
     )
 
 
@@ -212,6 +215,24 @@ _SECRET_LLM_PROVIDER = os.environ.get("SECRET_OPERATOR_LLM_PROVIDER", "gemini/ge
 # --semantic-shift-provider fix, same day) when the two silently diverged.
 _SECRET_SEMANTIC_SHIFT_LLM_PROVIDER = os.environ.get(
     "SECRET_OPERATOR_SEMANTIC_SHIFT_LLM_PROVIDER", _SECRET_LLM_PROVIDER
+)
+# Phase 1's OPTIMIZER/EVALUATOR LLM -- see aginiti/operators/hardened_deep_
+# attack_operators.py's identical constant for the full root-cause
+# writeup: gemini/gemini-3.5-flash deterministically refuses OPTIMIZER_
+# PROMPT's own "bypassing safety restrictions" framing (reproduced live,
+# 100% of Phase 1 calls failed this way in exp32), so Phase 1's real
+# jailbreak-optimization never actually ran there -- root cause is role-
+# fit (a safety-aligned commercial model can't author jailbreak candidates
+# for Aginiti's own internal attack tooling), not target difficulty.
+# groq/openai/gpt-oss-20b complies immediately with the identical prompt.
+# Generic to ANY caller of deep_attack_operators(), not hardened_agent-
+# specific -- the bug was target-agnostic (it's in Phase 1's own LLM call,
+# before any target-specific query is ever sent).
+_SECRET_OPTIMIZER_LLM_PROVIDER = os.environ.get(
+    "SECRET_OPERATOR_OPTIMIZER_LLM_PROVIDER", "groq/openai/gpt-oss-20b"
+)
+_SECRET_EVALUATOR_LLM_PROVIDER = os.environ.get(
+    "SECRET_OPERATOR_EVALUATOR_LLM_PROVIDER", _SECRET_OPTIMIZER_LLM_PROVIDER
 )
 _SECRET_EMBED_MODEL = os.environ.get("EMBED_MODEL", "chromadb/all-MiniLM-L6-v2")
 _SECRET_DOMAIN = os.environ.get("SECRET_OPERATOR_DOMAIN", "HR records")
@@ -264,12 +285,28 @@ _SECRET_EXTERNAL_CORPUS = [
 def _build_secret_attack(endpoint: AgentEndpoint) -> SECRETAttack:
     """`attack_factory` for the SECRET deep-attack Operator below -- same
     lazy-construction contract as `_build_ikea_attack` (called fresh on
-    every execution, never at import time)."""
+    every execution, never at import time).
+
+    `endpoint_kwargs={"headers": endpoint.headers}` added 2026-08-22 --
+    same fix as `hardened_deep_attack_operators.py`'s own `_build_secret_
+    attack` (see that module's docstring for the full root-cause writeup):
+    Phase 1's internal `JailbreakOptimizer` never receives `self.endpoint`
+    itself, only `endpoint_kwargs`, so without this an authenticated
+    target used through THIS generic bridge would hit the identical bare-
+    401 failure hardened_agent did. Harmless no-op for an unauthenticated
+    target (`endpoint.headers` is just `{}` there).
+
+    `optimizer_llm_provider`/`evaluator_llm_provider` added the same day --
+    see this module's own `_SECRET_OPTIMIZER_LLM_PROVIDER` docstring."""
     return SECRETAttack(
         target_url=endpoint.base_url,
         llm_provider=_SECRET_LLM_PROVIDER,
         api_key=_key_for(_SECRET_LLM_PROVIDER),
         external_corpus=_SECRET_EXTERNAL_CORPUS,
+        optimizer_llm_provider=_SECRET_OPTIMIZER_LLM_PROVIDER,
+        optimizer_api_key=_key_for(_SECRET_OPTIMIZER_LLM_PROVIDER),
+        evaluator_llm_provider=_SECRET_EVALUATOR_LLM_PROVIDER,
+        evaluator_api_key=_key_for(_SECRET_EVALUATOR_LLM_PROVIDER),
         semantic_shift_llm_provider=_SECRET_SEMANTIC_SHIFT_LLM_PROVIDER,
         semantic_shift_api_key=_key_for(_SECRET_SEMANTIC_SHIFT_LLM_PROVIDER),
         embed_model=_SECRET_EMBED_MODEL,
@@ -278,6 +315,7 @@ def _build_secret_attack(endpoint: AgentEndpoint) -> SECRETAttack:
         phase1_n_cand=_SECRET_PHASE1_N_CAND,
         max_queries=_SECRET_MAX_QUERIES,
         endpoint=endpoint,
+        endpoint_kwargs={"headers": endpoint.headers},
     )
 
 
@@ -406,27 +444,38 @@ def _build_interrogation_attack(endpoint: AgentEndpoint) -> InterrogationAttack:
         shadow_llm_api_key=_key_for(_MIA_SHADOW_LLM_PROVIDER),
         n_probe_questions=_MIA_N_PROBE_QUESTIONS,
         endpoint=endpoint,
+        endpoint_kwargs={"headers": endpoint.headers},
     )
 
 
 # ---------------------------------------------------------------------------
-# SPE-LLM (Slice G) -- the lightest of the four: 3 static heuristic
-# templates (CoT, Extended Sandwich, Few-Shot), no adaptive loop, no LLM
-# key required at all (SPEAttack's own `llm_provider`/`api_key` default to
-# inert "dummy" values -- it never calls `self.llm`). `persona` is
-# accepted for interface parity with the hardened-target scripts but is
-# inert against a non-persona target like reference_agent_blackbox (SPE's
-# own execute_black_box never reads it beyond logging).
+# SPE-LLM (Slice G) -- the lightest of the four: 3 static templates (CoT,
+# Extended Sandwich, Few-Shot), no adaptive loop, so its cost_prompts stays
+# at the 3 real target queries below regardless. NO LONGER LLM-less as of
+# 2026-08-22: the confirmation step now goes through a real LLM classifier
+# (see spe_llm.py's own `_call_classifier`/`classifier_llm_provider`
+# docstrings) -- the original 10-keyword heuristic it replaced was found,
+# auditing exp32, to be too crude to trust (any ordinary answer mentioning
+# one common word like "context" or "assist" would pass; a real disclosure
+# phrased without an exact keyword would not). `persona` is accepted for
+# interface parity with the hardened-target scripts but is inert against a
+# non-persona target like reference_agent_blackbox (SPE's own execute_
+# black_box never reads it beyond logging).
 # ---------------------------------------------------------------------------
-_SPE_TIMEOUT_SECONDS = 120.0  # 3 fixed HTTP round trips, no LLM/embedding calls at all
+_SPE_LLM_PROVIDER = os.environ.get("SPE_OPERATOR_LLM_PROVIDER", "gemini/gemini-3.5-flash")
+_SPE_TIMEOUT_SECONDS = 120.0  # 3 fixed HTTP round trips + up to 3 classifier LLM calls
 
 
 def _build_spe_attack(endpoint: AgentEndpoint) -> SPEAttack:
     """`attack_factory` for the SPE-LLM deep-attack Operator below -- same
-    lazy-construction contract as `_build_ikea_attack`. No API key
-    resolution needed (unlike the other three factories) -- SPEAttack is
-    LLM-less by design."""
-    return SPEAttack(target_url=endpoint.base_url, endpoint=endpoint)
+    lazy-construction contract as `_build_ikea_attack`."""
+    return SPEAttack(
+        target_url=endpoint.base_url,
+        classifier_llm_provider=_SPE_LLM_PROVIDER,
+        classifier_api_key=_key_for(_SPE_LLM_PROVIDER),
+        endpoint=endpoint,
+        endpoint_kwargs={"headers": endpoint.headers},
+    )
 
 
 def deep_attack_operators() -> list[Operator]:

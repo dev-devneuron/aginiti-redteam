@@ -198,7 +198,28 @@ def chat(messages: list[dict], temperature: float = 0.4, max_tokens: int = 1024,
 
 def chat_json(messages: list[dict], temperature: float = 0.0, max_tokens: int = 400,
               seed: int | None = None) -> dict:
-    """Chat call constrained to return a single JSON object."""
+    """Chat call constrained to return a single JSON object.
+
+    Truncation retry (added 2026-08-22, found auditing exp32): a caller-
+    supplied `max_tokens` is a guess, and callers with an unbounded free-
+    form field in their own prompt (e.g. observation_adapter._judge's
+    `reasoning` field, deliberately left unconstrained so prompt-wording
+    changes don't risk judge accuracy -- see that call site's own
+    docstring) can genuinely blow past it, especially on a Groq-exhausted
+    fallback to a DIFFERENT model with different verbosity tendencies than
+    what the budget was tuned against (exactly what happened live: a
+    `_judge` call truncated right after "groq pool exhausted, used
+    gemini"). Previously this silently returned `{"_parse_error": True,
+    "_raw": raw}`, which every downstream `.get(key, default)` read as
+    "nothing confirmed" -- a real, silent false-negative source, not just
+    a logged warning. Now: if the response was cut off because of the
+    token ceiling specifically (`finish_reason == "length"`, NOT a genuine
+    "the model emitted invalid JSON" failure, which retrying the same
+    budget would just repeat) and JSON parsing failed, retry ONCE with
+    `max_tokens` doubled, on the SAME provider path that produced the
+    truncation. Raising the doubled call's own possible truncation isn't
+    retried again (bounded to one extra attempt, same one-retry discipline
+    as every other rate-limit/failover path in this module)."""
     global _last_fallback_reason
     kwargs = dict(temperature=temperature, max_tokens=max_tokens, num_retries=0, timeout=60,
                   response_format={"type": "json_object"}, **_seed_kwargs(seed))
@@ -210,21 +231,48 @@ def chat_json(messages: list[dict], temperature: float = 0.0, max_tokens: int = 
         except json.JSONDecodeError:
             return {"_parse_error": True, "_raw": raw}
 
+    def _truncated(resp) -> bool:
+        try:
+            return resp.choices[0].finish_reason == "length"
+        except (AttributeError, IndexError):
+            return False
+
     if _PROVIDER == "gemini":
         _last_fallback_reason = None
         resp = litellm.completion(model=f"gemini/{_GEMINI_MODEL}", messages=messages, **kwargs)
-        return _parse(resp)
+        result = _parse(resp)
+        if "_parse_error" in result and _truncated(resp):
+            _logger.warning("chat_json: response truncated at max_tokens=%d -- retrying "
+                             "once with max_tokens=%d", max_tokens, max_tokens * 2)
+            resp = litellm.completion(model=f"gemini/{_GEMINI_MODEL}", messages=messages,
+                                       **{**kwargs, "max_tokens": max_tokens * 2})
+            result = _parse(resp)
+        return result
     try:
         resp = _call_with_rotation(f"groq/{_GROQ_MODEL}", messages, **kwargs)
         _last_fallback_reason = None
-        return _parse(resp)
+        result = _parse(resp)
+        if "_parse_error" in result and _truncated(resp):
+            _logger.warning("chat_json: response truncated at max_tokens=%d -- retrying "
+                             "once with max_tokens=%d", max_tokens, max_tokens * 2)
+            resp = _call_with_rotation(f"groq/{_GROQ_MODEL}", messages,
+                                        **{**kwargs, "max_tokens": max_tokens * 2})
+            result = _parse(resp)
+        return result
     except _ROTATABLE_ERRORS:
         if not _gemini_available():
             raise
         _last_fallback_reason = "chat_json: groq pool exhausted, used gemini"
         _logger.warning(_last_fallback_reason)
         resp = litellm.completion(model=f"gemini/{_GEMINI_MODEL}", messages=messages, **kwargs)
-        return _parse(resp)
+        result = _parse(resp)
+        if "_parse_error" in result and _truncated(resp):
+            _logger.warning("chat_json: response truncated at max_tokens=%d -- retrying "
+                             "once with max_tokens=%d", max_tokens, max_tokens * 2)
+            resp = litellm.completion(model=f"gemini/{_GEMINI_MODEL}", messages=messages,
+                                       **{**kwargs, "max_tokens": max_tokens * 2})
+            result = _parse(resp)
+        return result
 
 
 def chat_tools(messages: list[dict], tools: list[dict], temperature: float = 0.3,

@@ -1,11 +1,11 @@
 # Quickstart — Running a Full Aginiti Experiment Against `hardened_agent`
 
-_Written 2026-08-14. Every command below was actually run, in this order,
-in this environment, this session — not assumed or copied from a stale
-doc. Where an existing docstring's instructions turned out not to work
-(`prepare_hardened_dataset.py`'s own `pip install -e ".[benchmarks]"` line
-— this repo has no `pyproject.toml`, so that command fails), this guide
-uses what's actually verified instead of repeating it._
+_Originally written 2026-08-14, every command verified in-session at the time.
+Updated 2026-08-22 for the two-developer merge and this session's `hardened_agent`
+hardening pass (5→8 defense layers, RBAC-scoped tool-calling, canary secrets) — see
+`docs/QUICKSTART_HARDENED_AGENT.md`'s own diff history for exactly what changed.
+Step 2's old workaround ("this repo has no `pyproject.toml`") is no longer true — a
+`pyproject.toml` with `dev`/`benchmarks` extras exists now; step 2 below reflects that._
 
 This walks through: installing what's needed, starting `hardened_agent`
 (the real RBAC'd RAG target), and running Aginiti against it end-to-end —
@@ -41,7 +41,7 @@ before you point Aginiti at it.
   2. **`GROQ_API_KEY`** — Aginiti's own reasoning (the judge, the
      adaptive-discovery LLM calls, membership-inference probe generation)
      runs on Groq. Falls back to Gemini automatically if the Groq pool is
-     exhausted (`aginiti/llm_client.py`), but you need at least one of the
+     exhausted (`aginiti/core/llm.py`), but you need at least one of the
      two working.
   3. Three bearer keys of your own choosing (any string — these
      authenticate CALLERS to `hardened_agent`, not a third-party service):
@@ -50,20 +50,16 @@ before you point Aginiti at it.
 
 ## 2. Install dependencies
 
-The core Aginiti dependencies:
+One command covers everything this guide needs — `dev` brings in
+chromadb/fastapi/uvicorn/litellm (the target server + core engine), and
+`benchmarks` brings in `datasets`/`rouge-score` for the corpus-prep scripts:
 
 ```bash
-.venv/Scripts/python.exe -m pip install -r requirements.txt
+.venv/Scripts/python.exe -m pip install -e ".[dev,benchmarks]"
 ```
 
-`hardened_agent` itself needs a second set NOT currently tracked in
-`requirements.txt` (a real, honest gap — this guide works around it rather
-than hiding it). These exact versions are the ones actually verified
-working together in this session:
-
-```bash
-.venv/Scripts/python.exe -m pip install chromadb==1.5.9 fastapi==0.141.1 uvicorn==0.52.1 litellm==1.96.2 datasets==3.6.0 onnxruntime==1.28.0 tokenizers==0.22.2 numpy==2.5.1
-```
+(If you already ran the root README's Quickstart, `.[dev]` is installed —
+you only need to add `pip install -e ".[benchmarks]"` on top.)
 
 ## 3. Configure `.env`
 
@@ -122,8 +118,19 @@ curl http://localhost:8004/health
 curl http://localhost:8004/config
 ```
 
-The second should return all five defenses `true`:
-`{"rbac_enabled":true,"rate_limit_enabled":true,"redaction_enabled":true,"memory_enabled":true,"guardrail_enabled":true}`
+The second should return all eight defenses `true` (2026-08-22: grew from
+five to eight — a dedicated pre-flight input-filter classifier, session/auth
+expiry, and RBAC-scoped tool-calling were added on top of the original
+five below):
+`{"rbac_enabled":true,"rate_limit_enabled":true,"redaction_enabled":true,"memory_enabled":true,"guardrail_enabled":true,"input_filter_enabled":true,"audit_log_enabled":false,"session_ttl_seconds":900,"tools_enabled":true,"tool_rbac_enabled":true}`
+
+A handful of synthetic "canary" secrets (fake API key, webhook URL, case
+PIN, ops credential — see `benchmarks/scaled_evals/datasets/
+hardened_dataset_canaries.json`) are seeded alongside the real CUAD/CFPB
+documents in step 4 above. They give 100%-precision ground truth for a
+genuine cross-boundary disclosure: if a legal-persona session ever
+receives the ops-only failover credential back verbatim, that is
+unambiguous, not a fuzzy-match judgment call.
 
 **A real gotcha worth knowing before you hit it**: `hardened_agent`'s
 conversation memory is scoped per PERSONA for the life of the SERVER
@@ -162,6 +169,21 @@ final planner campaign) vs. membership inference — across all 3 personas.
 ```bash
 .venv/Scripts/python.exe experiments/exp26_full_assessment_v2_live.py
 ```
+
+**More current alternatives (2026-08-22), covering the now-8-layer defense
+stack this guide sets up above:** `experiments/
+exp32_rq1_hardened_agent_with_deep_attacks.py` (adds the IKEA/SECRET/MIA/
+SPE deep-attack library into the same Aginiti-vs-Random-vs-Static
+comparison) and `experiments/exp33_rq1_hardened_agent_full_defenses.py`
+(the full 8-defense-layer run, including the input filter and
+tool-calling added this session). Both follow the exact same "read the
+module docstring first, then run it" discipline as exp26 above; their
+results are checked into `experiments/results/runs_exp32_.../` and
+`experiments/results/runs_exp33_.../` respectively if you want to see
+expected output before spending your own budget. exp26/exp27 below are
+kept as still-valid, smaller examples of the same pattern against the
+original 5-layer stack — not re-verified against the 8-layer stack this
+pass.
 
 This makes real, live LLM calls against both `hardened_agent` and Groq/
 Gemini (Aginiti's own reasoning) — real cost, real time (roughly 1-2 hours
@@ -219,7 +241,7 @@ the run this guide walks you through setting up.
   any of `HARDENED_AGENT_{LEGAL,SUPPORT,OPS}_API_KEY` in `.env` exactly.
 - **A live experiment script hangs or is unexpectedly slow** — Groq rate
   limits (`429 Too Many Requests`) are common and self-recovering
-  (`aginiti/llm_client.py` retries and falls back to Gemini automatically)
+  (`aginiti/core/llm.py` retries and falls back to Gemini automatically)
   — check the console output for `HTTP/1.1 429` lines before assuming
   something's actually stuck.
 - **Membership-inference scores look flat/uninformative** (both member and

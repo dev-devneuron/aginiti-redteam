@@ -37,6 +37,10 @@ benchmarks/scaled_evals/agents/healthcare_agent/.chroma/
 # Scaled benchmark layer (benchmarks/scaled_evals/) — downloaded dataset, local vector
 # store, and per-run results are all generated locally, never committed.
 benchmarks/scaled_evals/datasets/*.json
+# Exception: hardened_dataset_canaries.json is NOT a downloaded dataset — it's a small,
+# hand-authored, entirely-synthetic fixture (fake API keys/webhooks/PINs) that seed.py
+# needs to reproduce the RBAC-boundary canary findings documented in the reports. Track it.
+!benchmarks/scaled_evals/datasets/hardened_dataset_canaries.json
 benchmarks/scaled_evals/agents/healthcare_agent/vector_store.json
 benchmarks/scaled_evals/agents/hardened_agent/.chroma/
 benchmarks/scaled_evals/results/

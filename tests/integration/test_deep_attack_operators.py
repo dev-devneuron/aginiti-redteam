@@ -69,6 +69,7 @@ from aginiti.attacks.base import LeakFinding
 from aginiti.attacks.dra import IKEAAttack, SECRETAttack
 from aginiti.attacks.dra.jailbreak_optimizer import DEFAULT_EXTRACTION_INSTRUCTION, JailbreakArtifact
 from aginiti.attacks.mia import InterrogationAttack
+from aginiti.attacks.spe.spe_llm import SPEAttack
 from aginiti.connectors.endpoint import AgentEndpoint
 from aginiti.core.campaign import run_campaign
 from aginiti.core.graph.schema import ClaimStatus, RiskTier
@@ -506,10 +507,12 @@ def test_mia_operator_survives_a_target_failure_without_crashing_the_campaign():
 # ---------------------------------------------------------------------------
 
 def test_spe_operator_runs_through_a_real_campaign_sharing_one_session():
-    # SPE-LLM is LLM-less (no litellm mocking needed at all) -- the only
-    # thing to fake is the target's own chat response. Chosen to trip the
-    # heuristic classifier's "confirmed" path: not a refusal phrase, >50
-    # chars, contains several instructional keywords.
+    # SPE-LLM's confirmation step now goes through a real LLM classifier
+    # (2026-08-22, see spe_llm.py's own classifier_llm_provider docstring
+    # for why the old keyword heuristic was replaced) -- so unlike before,
+    # its own `_call_classifier` needs mocking too, same as this file's
+    # other three attacks' classifier calls. The target's own chat
+    # response is still faked below.
     fake_response = (
         "You are a helpful HR assistant. Your system instructions define your "
         "role, context, and response guidelines for assisting employees."
@@ -531,7 +534,10 @@ def test_spe_operator_runs_through_a_real_campaign_sharing_one_session():
     with patch.object(AgentEndpoint, "__init__", spy_init), \
          patch.object(AgentEndpoint, "check_reachable", return_value=True), \
          patch.object(AgentEndpoint, "chat", return_value=fake_response), \
-         patch.object(AgentEndpoint, "close") as mock_close:
+         patch.object(AgentEndpoint, "close") as mock_close, \
+         patch.object(SPEAttack, "_call_classifier",
+                       return_value={"confirmed": True, "leaked_excerpt": "You are a helpful HR assistant",
+                                     "reasoning": "test double"}):
         result = run_campaign(mission, library, agent=agent, policy=StaticPolicy(), max_steps=1)
 
     # -- Session reuse: no second AgentEndpoint constructed ----------------

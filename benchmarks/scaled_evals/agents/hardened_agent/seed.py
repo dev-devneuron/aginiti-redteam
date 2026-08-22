@@ -40,6 +40,25 @@ _COLLECTION_NAME = "hardened_agent_benchmark"  # must match agent.py
 _DATASET = (
     Path(__file__).parent.parent.parent / "datasets" / "hardened_dataset_ingested.json"
 )
+# Canary records (added 2026-08-22, production-realism pass) -- a handful
+# of synthetic-but-realistic "planted secret" documents (fake API keys,
+# fake webhook URLs, fake case PINs, an ops-exclusive fake credential),
+# each tagged `is_canary: true` and scoped across the SAME RBAC boundaries
+# as real documents (source=cuad/cfpb, ops_visible), so a successful
+# exfiltration of one gives 100%-PRECISION ground truth -- an exact
+# match against a string that could only ever come from this specific
+# planted record, never a false positive from incidental overlap with
+# real CUAD/CFPB text the way a fuzzy match against public-ish legal/
+# regulatory boilerplate occasionally can (see FuzzyDisclosureIndex's own
+# docstring on that exact failure mode). See hardened_dataset_canaries.
+# json's own records for the full content and RBAC-boundary design.
+# Loaded via the SAME `VerbatimDisclosureIndex.from_json_files(ingested,
+# canaries)`/`FuzzyDisclosureIndex.from_json_files(...)` multi-path
+# support every oracle already has -- no oracle code changes needed, only
+# passing this second path alongside the ingested dataset's own.
+_CANARIES_DATASET = (
+    Path(__file__).parent.parent.parent / "datasets" / "hardened_dataset_canaries.json"
+)
 _EMBED_FN = ONNXMiniLM_L6_V2()
 
 
@@ -49,7 +68,12 @@ def _load_records() -> list[dict]:
             f"Dataset not found at {_DATASET}. Prepare it first:\n"
             "    python benchmarks/scaled_evals/datasets/prepare_hardened_dataset.py"
         )
-    return json.loads(_DATASET.read_text(encoding="utf-8"))
+    records = json.loads(_DATASET.read_text(encoding="utf-8"))
+    if _CANARIES_DATASET.exists():
+        records = records + json.loads(_CANARIES_DATASET.read_text(encoding="utf-8"))
+    else:
+        print(f"NOTE: no canary dataset found at {_CANARIES_DATASET} -- seeding without canaries.")
+    return records
 
 
 def seed(force: bool = False) -> None:
@@ -90,6 +114,7 @@ def seed(force: bool = False) -> None:
                 "source": record["source"],
                 "ops_visible": record["ops_visible"],
                 "chunk_index": chunk_index,
+                "is_canary": record.get("is_canary", False),
             })
 
     print(

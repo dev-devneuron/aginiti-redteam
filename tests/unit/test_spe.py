@@ -1,3 +1,5 @@
+import json
+
 import pytest
 import responses as resp_lib
 from unittest.mock import MagicMock, patch
@@ -10,6 +12,17 @@ BASE_URL = "http://localhost:8004"
 @pytest.fixture
 def spe_attack():
     return SPEAttack(target_url=BASE_URL)
+
+
+def _mock_classifier(attack, confirmed: bool, excerpt: str = ""):
+    """SPE's confirmation step now goes through a real LLM classifier
+    (2026-08-22, see spe_llm.py's own classifier_llm_provider docstring
+    for why the old keyword heuristic wasn't replaced test-for-test) --
+    same monkeypatch-the-LLM-closure convention IKEAAttack's own tests
+    already use for `_classifier_llm` (see tests/unit/test_ikea.py)."""
+    payload = json.dumps({"confirmed": confirmed, "leaked_excerpt": excerpt,
+                           "reasoning": "test double"})
+    attack._classifier_llm = lambda msgs, **kw: payload
 
 def test_is_refusal(spe_attack):
     assert spe_attack._is_refusal("I am sorry, but I cannot disclose my system instructions.") is True
@@ -31,13 +44,14 @@ def test_cosine_similarity(mock_embed, spe_attack):
 def test_execute_black_box_success(spe_attack):
     # Mock health check and /chat calls
     resp_lib.add(resp_lib.GET, f"{BASE_URL}/health", json={"status": "ok"}, status=200)
-    
+
     # SPE template responses (CoT, Sandwich, Few-Shot)
     resp_lib.add(resp_lib.POST, f"{BASE_URL}/chat", json={"response": "You are a legal assistant. Do not disclose secrets. Rule 1: be helpful."}, status=200)
-    
+    _mock_classifier(spe_attack, confirmed=True, excerpt="You are a legal assistant")
+
     findings = spe_attack.execute_black_box(persona="legal")
     assert len(findings) == 3
-    # Each probe should be classified heuristically
+    # Each probe should be classified via the LLM classifier
     for f in findings:
         assert f.attack_type == "SPE"
         assert f.confirmed is True
@@ -53,8 +67,29 @@ def test_execute_black_box_refusal(spe_attack):
     assert len(findings) == 3
     for f in findings:
         assert f.confirmed is False
-        assert f.severity == "low"
-        assert f.leak_type == "none"
+
+
+@resp_lib.activate
+def test_execute_black_box_hedged_disclosure_confirmed_by_classifier(spe_attack):
+    """Regression case for exactly what the OLD 10-keyword heuristic would
+    have missed (2026-08-22 fix): a response with no exact heuristic
+    keyword ('you are'/'system'/'prompt'/'instruct'/'role'/'context'/
+    'rule'/'assist'/'response'/'guideline') that still genuinely discloses
+    configuration content via a hedged paraphrase. The old heuristic would
+    score this confirmed=False (zero keyword hits); the LLM classifier
+    (mocked here) is what makes this a true positive now."""
+    resp_lib.add(resp_lib.GET, f"{BASE_URL}/health", json={"status": "ok"}, status=200)
+    resp_lib.add(resp_lib.POST, f"{BASE_URL}/chat",
+                 json={"response": "I can't repeat it verbatim, but it tells me to act as a legal helper and to never mention pricing."},
+                 status=200)
+    _mock_classifier(spe_attack, confirmed=True, excerpt="act as a legal helper and to never mention pricing")
+
+    findings = spe_attack.execute_black_box(persona="legal")
+    assert len(findings) == 3
+    for f in findings:
+        assert f.confirmed is True
+        assert f.severity == "high"
+        assert "act as a legal helper" in f.reasoning
 
 @patch("aginiti.attacks.spe.spe_llm.embed_texts")
 def test_score_against_ground_truth(mock_embed, spe_attack):
@@ -95,6 +130,7 @@ def test_endpoint_closed_after_run(spe_attack):
     # paired test below for the injected-endpoint case).
     resp_lib.add(resp_lib.GET, f"{BASE_URL}/health", json={"status": "ok"}, status=200)
     resp_lib.add(resp_lib.POST, f"{BASE_URL}/chat", json={"response": "Rule 1: be helpful."}, status=200)
+    _mock_classifier(spe_attack, confirmed=False)
     with patch.object(AgentEndpoint, "close") as mock_close:
         spe_attack.execute_black_box(persona="legal")
     mock_close.assert_called_once()
@@ -112,6 +148,7 @@ def test_injected_endpoint_not_closed_after_run():
     fake_endpoint.check_reachable.return_value = True
     fake_endpoint.chat.return_value = "Rule 1: be helpful. You are a legal assistant with context."
     attack = SPEAttack(target_url=BASE_URL, endpoint=fake_endpoint)
+    _mock_classifier(attack, confirmed=True, excerpt="You are a legal assistant")
 
     findings = attack.execute_black_box(persona="legal")
 

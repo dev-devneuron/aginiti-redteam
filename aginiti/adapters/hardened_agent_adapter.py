@@ -55,6 +55,7 @@ from aginiti.adapters.scaled_evals_ground_truth import (
     VerbatimDisclosureIndex,
     is_out_of_scope_for_persona,
 )
+from aginiti.connectors.endpoint import AgentEndpoint
 from aginiti.core.graph.independent_evidence import IndependentFinding
 from aginiti.core.graph.security_boundary import BOUNDARY_L0, BOUNDARY_L3, BOUNDARY_L5
 
@@ -103,9 +104,58 @@ class HardenedAgentAdapter:
         # original exact-match-only behavior unchanged.
         self._fuzzy_disclosure_index = fuzzy_disclosure_index
         self._last_config: dict | None = None
+        self._endpoint: AgentEndpoint | None = None
 
     def _headers(self) -> dict:
         return {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+
+    @property
+    def endpoint(self) -> AgentEndpoint:
+        """Lazily-constructed `AgentEndpoint` sharing this adapter's own
+        persona/bearer auth and, critically, its `_raw_responses` list --
+        added specifically so `ObservationAdapter._execute_deep_attack`
+        (`getattr(agent, "endpoint", None)`, aginiti/operators/deep_attack_
+        operators.py's own agent-type guard) can run IKEA/SECRET/MIA/SPE
+        against `hardened_agent` in the SAME campaign as this adapter's own
+        RBAC-aware operators, through the SAME authenticated session,
+        rather than needing a second, disconnected `HTTPAgentAdapter`
+        instance that would lose this adapter's `ground_truth_mission_
+        achieved()`/`independent_evidence_check()` oracle entirely (see
+        `HTTPAgentAdapter.ground_truth_mission_achieved`'s own docstring
+        for why that stub always returns False -- a real, accepted
+        limitation THAT adapter has, and THIS property's whole reason for
+        existing instead of just reusing it here).
+
+        `send_fn` deliberately does nothing beyond AgentEndpoint's own
+        default flat-JSON `{"message": ...} -> {"response": ...}` contract
+        (which already matches `_send_chat`'s exact shape) PLUS one thing:
+        appending the response text into `self._raw_responses`, the SAME
+        list `_matches()`/`_fuzzy_matches()`/`ground_truth_mission_
+        achieved()` already scan. This means a deep attack's OWN raw HTTP
+        traffic becomes visible to this adapter's independent verbatim/
+        fuzzy oracle too -- cross-validating IKEA/SECRET/MIA's own judge/
+        classifier against the SAME real-corpus evidence check every
+        ordinary hardened_agent operator's finding already gets held to,
+        exactly the "never trust a single judge alone" discipline `docs/
+        EXP29_RESULTS.md`'s findings audit was built on. AgentEndpoint's
+        own retry/backoff loop (including its hardened_agent-specific 429
+        handling, see that class's own docstring) still wraps this
+        `send_fn` unchanged -- it only replaces HOW one attempt is made,
+        never the retry policy around it."""
+        if self._endpoint is None:
+            def _send_fn(session, url, message, timeout):
+                resp = session.post(url, json={"message": message}, timeout=timeout)
+                resp.raise_for_status()
+                data = resp.json()
+                text = data.get("response") or ""
+                self._raw_responses.append(text)
+                return text
+
+            self._endpoint = AgentEndpoint(
+                base_url=self.base_url, headers=self._headers(),
+                timeout=int(self.timeout), send_fn=_send_fn,
+            )
+        return self._endpoint
 
     def send(self, channel: str, prompt: str) -> SendResult:
         try:

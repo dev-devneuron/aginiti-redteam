@@ -614,9 +614,17 @@ class JailbreakOptimizer:
             candidates = _parse_candidates(raw)
             if candidates:
                 return candidates
+            # raw[:200] added 2026-08-22 -- exp32's audit found EVERY Phase 1
+            # call failing this way with no raw text ever logged, so root-
+            # causing it (the optimizer LLM refusing OPTIMIZER_PROMPT's own
+            # "bypassing safety restrictions" framing, not a parser bug)
+            # required a live, out-of-band reproduction instead of just
+            # reading the log. Same truncated-raw-on-failure discipline
+            # _parse_score already had a few lines above this.
             logger.warning(
                 "[OPTIMIZER] No <answer>...</answer> candidates parsed "
-                "(attempt %d/3) — retrying", attempt + 1,
+                "(attempt %d/3) — retrying. Raw (truncated): %r",
+                attempt + 1, raw[:200],
             )
         logger.warning(
             "[OPTIMIZER] Still no candidates after 3 attempts — this "
@@ -831,8 +839,32 @@ class JailbreakOptimizer:
             curriculum_iterations_used=curriculum_iterations_used,
         )
 
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        cache_path.write_text(json.dumps(asdict(artifact)), encoding="utf-8")
+        # Don't cache a total failure (score=0.0, i.e. even the unoptimized
+        # seed prompt never beat a flat refusal AND no candidate ever
+        # scored above it either) -- found 2026-08-22 auditing exp32: a
+        # score=0.0 artifact (caused by the optimizer LLM refusing
+        # OPTIMIZER_PROMPT outright, see this module's own provider-choice
+        # docstrings in aginiti/operators/{deep_attack_operators,hardened_
+        # deep_attack_operators}.py) got cached and SILENTLY REUSED by the
+        # next SECRETAttack invocation for the full 7-day TTL, meaning a
+        # transient optimizer failure (wrong model, provider outage, rate
+        # limit) would poison every subsequent SECRET run against that
+        # target for a week even after the underlying cause was fixed,
+        # with no visible symptom beyond "SECRET keeps finding nothing."
+        # The cache key is provider-scoped (see _jailbreak_cache_key) so
+        # switching providers alone naturally avoids reusing an old
+        # provider's bad entry -- this guard covers the OTHER way to get
+        # a persistent score=0.0 poison: same provider, one bad run.
+        if s_best > 0.0:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(json.dumps(asdict(artifact)), encoding="utf-8")
+        else:
+            logger.warning(
+                "[JAILBREAK] score=0.0 (total failure) -- NOT caching this "
+                "artifact, so the next optimize() call retries fresh "
+                "instead of reusing a known-dead result for %d more days.",
+                self.cache_ttl_seconds // 86400,
+            )
 
         logger.info(
             "=== SECRET Phase 1 complete: score=%.4f after %d iteration(s) "

@@ -1,5 +1,19 @@
 # Aginiti — Phase 0
 
+> **Historical document, added 2026-08-22**: this describes the project's
+> ORIGINAL Phase 0 state (6-operator mock-target MVP) and its paths are
+> stale after the 2026-08-20 package reorg (`aginiti/graph/`, `aginiti/
+> planner/`, `aginiti/policies/`, `aginiti/campaign.py` all moved under
+> `aginiti/core/` -- see `docs/ARCHITECTURE.md` §4 and its own Glossary).
+> Every command below still runs (paths fixed in place, not left broken),
+> but the project has grown far past Phase 0 since this was written:
+> real targets (`hardened_agent`/`healthcare_agent`/AnythingLLM/DVAA),
+> `technique_cluster`/family-level diversification, the IKEA/SECRET/MIA/
+> SPE deep-attack library, and a 1700+-test suite. For the CURRENT
+> architecture, start with `docs/AGINITI_OVERVIEW.md` and `docs/
+> ARCHITECTURE.md` instead -- this file is kept as an accurate record of
+> where the project started, not the current state.
+
 An adaptive Security State Graph planner for autonomous red-teaming of
 agentic AI systems. Phase 0's job (design doc Section 5.1/RQ1) is to test
 one thing: does SSG-driven adaptive planning beat Random / Static-enumeration
@@ -148,10 +162,17 @@ over more than one day, or upgrade the key's tier.
 
 ## Layout
 
+Paths below are pre-2026-08-20-reorg (see this file's own banner at the
+top) -- everywhere `aginiti/X/` appears, read it as `aginiti/core/X/`
+against the CURRENT tree (e.g. `aginiti/graph/` is now `aginiti/core/
+graph/`); `aginiti/adapter/` (a package) is now a single `aginiti/core/
+observation_adapter.py` file.
+
 ```
 aginiti/
   graph/        Security State Graph: Claim/Observation schema + append-only store
-  operators/    Operator framework + the 6-operator vertical-slice library
+  operators/    Operator framework + the 6-operator vertical-slice library (now 115+ across
+                7 real targets, see docs/AGINITI_OVERVIEW.md §12)
   target/       Reference demo target (mock tools + Groq-backed tool-calling agent)
   adapter/      Observation Adapter: operator execution -> judged Observation
   planner/      Aginiti's constrained-utility planner (info gain / business impact / risk+budget)
