@@ -710,8 +710,37 @@ class ObservationAdapter:
             # from data_exposure_operators()'s cheap probe having already
             # run) is preserved, not clobbered.
             category = CATEGORY_MISSION_OUTCOME if status == ClaimStatus.CONFIRMED else None
+            # security_boundary lookup added 2026-08-22, found missing
+            # during exp32's first live run (legal/aginiti trial:
+            # hardened_ikea_exfiltration CONFIRMED 3/8 findings and
+            # ground_truth_mission_achieved()==True, yet exp32's own
+            # _distinct_findings() -- which counts claims with a
+            # ssg.claim_boundary entry, same convention every ordinary
+            # operator's claim already gets via the `effect.security_
+            # boundary` branch a few lines above this one -- read 0). Root
+            # cause: this call never passed security_boundary at all, so
+            # ssg.claim_boundary[operator.claim_key] was silently never
+            # populated for ANY deep-attack claim, confirmed or not.
+            # Operator itself has no top-level `security_boundary` attr
+            # (that field lives on ClaimEffect, one level down) -- pull it
+            # from the effects_success entry matching this operator's own
+            # claim_key, same tag every deep_attack Operator definition
+            # already declares (e.g. hardened_deep_attack_operators.py's
+            # BOUNDARY_L5 on hardened_ikea_exfiltration) purely for
+            # planner-precondition/documentation purposes until now; never
+            # actually reaching the SSG. Beyond exp32's own display metric,
+            # ssg.claim_boundary also feeds AginitiPlanner's own candidate-
+            # scoring/diversification (aginiti_planner.py ~line 901/910)
+            # and target_graph.py/target_profile.py's boundary-coverage
+            # exports -- all silently blind to every deep-attack finding
+            # before this fix, generic to ANY caller of deep_attack_
+            # operators()/_execute_deep_attack, not hardened_agent-specific.
+            matching_effect = next(
+                (e for e in operator.effects_success if e.key == operator.claim_key), None
+            )
             ssg.assert_claim(operator.claim_key, "true", status,
-                              subgraph=SUBGRAPH_TARGET, category=category)
+                              subgraph=SUBGRAPH_TARGET, category=category,
+                              security_boundary=matching_effect.security_boundary if matching_effect else None)
             confirmed_keys = [operator.claim_key]
             confirmed_effects_detail = [{"key": operator.claim_key, "status": status.value}]
             # Only REFUTED is negative-polarity — same rule _build_candidates/

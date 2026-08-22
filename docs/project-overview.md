@@ -1,5 +1,21 @@
 # aginiti-redteam — Project Overview
 
+> **Scope note, added 2026-08-22 after the two-developer merge**: this
+> document covers the attack-library half of the project in real depth
+> (IKEA/SECRET/MIA/SPE, the Tier 1/2 architecture, `BaseAttack`/
+> `LeakFinding`) but predates (dated to 2026-08-09) and never mentions the
+> OTHER half: the Security State Graph, `AginitiPlanner`, and the
+> `hardened_agent`/`healthcare_agent`/AnythingLLM/DVAA targets -- see
+> `docs/AGINITI_OVERVIEW.md` and `docs/ARCHITECTURE.md` for those, and
+> `docs/EXP29_RESULTS.md` for how the two halves now connect. As of
+> 2026-08-22, all four attacks below ARE wired as real, planner-selectable
+> `Operator`s (`aginiti/operators/deep_attack_operators.py`, target-
+> agnostic; `aginiti/operators/hardened_deep_attack_operators.py`,
+> `hardened_agent`-specific with real per-persona topic/document wiring) --
+> not just the standalone `scripts/run_*.py` entry points this document
+> describes below, which still exist and remain the right tool for a
+> single-technique, single-target, budget-tracked run.
+
 This document explains the full project: what it is, every directory and file,
 how everything connects, how the test suite works, and how benchmarking works.
 It is aimed at someone (including future-you) who needs to re-orient quickly

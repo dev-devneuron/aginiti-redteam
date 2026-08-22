@@ -591,6 +591,33 @@ None of this is dead code — all four paths are reachable, tested, and used
 to produce real, cited results (§12 has the honest list of what each path
 can and can't currently claim).
 
+**A fifth characteristic, added by the two-developer merge (2026-08-20)
+rather than by this project's own execution-path work: standalone
+single-attack scripts alongside a planner-integrated Operator bridge.**
+`scripts/run_ikea.py`/`run_secret.py`/`run_interrogation.py` (and their
+`_hardened` variants targeting `hardened_agent` specifically) call a
+`BaseAttack` subclass's `execute_black_box()` DIRECTLY — no SSG, no
+planner, no `run_campaign()` at all. This is not the same gap the four
+paths above describe (those all reach the SAME evidence graph through
+different loops); these scripts never touch the graph. **When to use
+which, stated plainly rather than left to guess:**
+- **A standalone script** — running ONE specific technique against ONE
+  target, with tight per-run budget/cost control and output comparable to
+  the technique's own paper (`docs/benchmarking.md`'s whole reason for
+  being). The right tool for "how effective is IKEA specifically, at N
+  queries, against this corpus."
+- **`deep_attack_operators()` / `hardened_deep_attack_operators()` via a
+  campaign** — letting `AginitiPlanner` decide WHETHER and WHEN an
+  expensive, slow, multi-query deep attack is worth its budget relative to
+  every other operator available, using the same evidence-driven ranking
+  (including `family_diversification`/`technique_cluster_diversification`)
+  every other operator is subject to. The right tool for "what's the best
+  use of an N-prompt budget against this target, when IKEA/SECRET/MIA/SPE
+  are options alongside 40+ cheaper probes." This is the ONLY execution
+  path where a deep attack competes for budget against ordinary operators
+  rather than running in isolation — see `docs/EXP29_RESULTS.md`'s
+  successor experiment for the first live run of this combination.
+
 ### 4.5 Report generation
 
 `build_target_profile()` (`aginiti/graph/target_profile.py`) reads a

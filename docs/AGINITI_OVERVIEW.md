@@ -456,39 +456,54 @@ open, specified-but-unbuilt attack proposal).
 
 ## 12. Operator inventory — audited, tiered, exact
 
-Verified by actually importing and instantiating all 26 `aginiti/
-operators/*.py` library-builder functions — not grepped or estimated: 142
-`Operator()` instantiations produce 140 distinct `.id` values. The 2-count
-gap is two real, harmless naming collisions across libraries that are
-never combined into one `OperatorLibrary` in practice (`recon_capabilities`
-exists in both `dvla_definitions.py` and the mock target; `recon_probe`
-exists in both synthetic regression targets) — harmless today only because
-`OperatorLibrary.__init__` silently drops on collision with no error, a
-real, if currently inert, risk worth a defensive rename if either pair is
-ever merged.
+_Re-audited 2026-08-22 (previous count below was from 2026-08-13, before
+the two-developer merge and this session's `hardened_deep_attack_
+operators.py`/tool-calling additions — kept as a dated footnote rather
+than silently overwritten)._
 
-**The exact total, reported in tiers rather than collapsed to one number**,
-because "how many real attack operators does Aginiti have" admits more
-than one honest answer depending on what counts as a genuine attack
-against a real target:
+Verified the same way as before — actually importing and calling every
+operator-library builder function across `aginiti/operators/*.py` (now 31
+modules, up from 26) and deduplicating by `.id`, not grepped or estimated:
+377 `Operator()` instantiations produce **198 distinct `.id` values**.
 
 | Tier | Count | Excludes |
 |---|---|---|
-| All distinct operator IDs in the codebase | 140 | — |
-| minus 4 decoys (`attack_category="decoy"`) | 136 | decoys |
-| minus 21 mock-reference-target ops (`definitions.py`, an explicit CI/dry-run fixture per its own docstring) | **115** | + mock target |
-| minus 18 synthetic-regression-target ops (`multi_family_definitions.py` + `hidden_state_definitions.py` — built to reproduce planner bugs deterministically) | 97 | + regression fixtures |
-| minus 20 framework-demonstration-pack ops (`discovery_chain_definitions.py`, `graduated_difficulty`, `agentic_primitives` — built to validate mechanisms like `ClassPrecondition`, not as target-specific findings) | 77 | + demo packs |
+| All distinct operator IDs in the codebase | 198 | — |
+| Recommended: appears in ≥1 non-fixture library (real/demo *target*-facing, non-decoy) | **92** | mock target, regression fixtures, planner-mechanism demo/scenario packs |
+| Fixture-only (mock target / regression / demo-pack exclusively) | 106 | — |
 
-**115 is the recommended number** — it excludes only what's unambiguously
-a test fixture or non-attack, while every one of the 115 is a real,
-independently-executable `Operator` with real security semantics, none of
-them a helper/converter/utility. 77 is the maximally-conservative reading
-for a briefing that wants only operators built specifically against a
-real, named target. The two intermediate tiers aren't wrong readings,
-just different scopes — all four categories excluded along the way (mock
-target, regression fixtures, demo packs) are equally real code, they just
-don't represent a finding against something currently live.
+**92 is the recommended number** for "how many real attack operators does
+Aginiti have" — every one of the 92 is independently executable against a
+real or realistically-modeled target (`hardened_agent`, `healthcare_agent`,
+AnythingLLM, DVLA, DVAA, the MCP filesystem server) and none is a
+helper/converter/utility. The excluded 106 are equally real code — the
+mock reference target, the synthetic regression fixtures that reproduce
+specific planner bugs deterministically, and the `ClassPrecondition`/
+family-diversification/technique-cluster demonstration packs — they're
+excluded because they don't represent a finding against something
+currently live, not because they're lower quality.
+
+**2026-08-13 figures, superseded above, kept for trend context**: 140
+distinct IDs total, 115 at the equivalent "recommended" tier. The growth
+from 140→198 total / 115→92-recommended reflects the two-developer merge
+(a second contributor's own operator libraries — DVAA, DVAA-consensus,
+the MCP filesystem server, InjecAgent — were merged into `main` on
+2026-08-20) plus this session's `hardened_deep_attack_operators.py` (IKEA/
+SECRET/MIA/SPE wrapped specifically for `hardened_agent`) and one new
+tool-result-injection probe. The recommended-tier count went *down*
+relative to the total because several of the merged libraries (DVAA,
+DVAA-consensus) are demonstration/vertical-slice targets by their own
+module docstrings, not yet a "real" tier the way `hardened_agent` is —
+the tiering rule didn't change, more fixture-tier code was added than
+recommended-tier code.
+
+**Not re-verified this pass, flagged rather than silently kept**: the
+2026-08-13 per-`attack_category` breakdown table and the RBAC-cross-cut
+list further down this section describe the 115-operator tier as it stood
+before the merge. They have not been individually re-run against the
+current 92-operator tier — treat the specific per-category counts below as
+historical/approximate until someone re-audits them the same way the
+top-line number above was just re-audited.
 
 **Breakdown by `attack_category`** (the codebase's own tag, at the
 115-operator tier — decoys and mock target already removed):

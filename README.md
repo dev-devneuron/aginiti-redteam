@@ -1,25 +1,87 @@
 # Aginiti Redteam 🛡️🤖
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue.svg)]()
+[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)]()
+[![Tests](https://img.shields.io/badge/tests-1761%20passing-brightgreen.svg)]()
 
-**Aginiti Redteam** is an open-source security probing and red-teaming library built specifically to audit enterprise **agentic AI & RAG systems for data leakage**. It enables security engineers and developers to probe their RAG-based AI applications, classify exfiltration risks, and map security findings directly to the OWASP Top 10 for Large Language Model Applications.
+**Aginiti** is an AI agent security-assessment tool. It drives a real target — a chatbot, a
+RAG-backed assistant, a tool-calling agent, even a multi-agent fleet — through a live
+conversation, accumulates everything it learns into a persistent evidence graph, and uses
+that graph to decide what to try next. It does not fire a fixed list of prompts and score
+pass/fail; it plans.
 
-Unlike generic LLM security tools, Aginiti Redteam is built from the ground up for RAG architectures—focusing on the interaction between user queries, vector search retrieval, and the final generation output.
+Two things live in this repo, and you can use either independently:
+
+1. **The adaptive campaign engine** (`aginiti/core/`) — a planner that ranks every currently
+   eligible attack by a multi-term utility function (information gain, chain progress,
+   diagnosed failure patterns, …), executes the top pick, records what happened as
+   Fact → Observation → Claim evidence, and repeats. This is the actual novel part of the
+   project — see [`docs/AGINITI_OVERVIEW.md`](docs/AGINITI_OVERVIEW.md) for the full design.
+2. **A standalone attack library** (`aginiti/attacks/`) — IKEA and SECRET (two independent
+   Data Reconstruction Attacks), and an Interrogation/Membership-Inference attack — each
+   runnable directly against one target via its own script, or wrapped as planner-selectable
+   `Operator`s so the engine above can decide *when* they're worth their budget.
+
+Every real target is probed through the same evidence pipeline: raw responses are judged
+(deterministically where possible, by an LLM otherwise) **and** cross-checked against an
+independent, non-LLM disclosure oracle before anything counts as a confirmed finding — see
+[`docs/EVIDENCE_AND_EVALUATION.md`](docs/EVIDENCE_AND_EVALUATION.md).
 
 ---
 
-## 🚀 Key Features
+## 🚀 Quickstart (2 minutes, zero targets to set up)
 
-* **IKEA Data Reconstruction Attack (DRA):** Plugs in the arXiv:2505.15420 methodology. Generates natural-sounding, benign-looking queries using Embedding-space Resampling (ERS) and Topic-restricted Random Walk Mutation (TRDM) to bypass traditional keyword/jailbreak detectors.
-* **SECRET — jailbreak-optimized DRA:** Plugs in the arXiv:2510.02964 (IEEE TIFS 2026) methodology — a second, genuinely different Data Reconstruction technique. An Optimizer/Evaluator LLM loop adaptively calibrates a jailbreak prompt against the live target (Phase 1, cached), then Cluster-Focused Triggering (Phase 2) alternates Global Exploration and Local Exploitation to extract knowledge-base clusters. Unlike IKEA, every query is jailbreak-wrapped — see [`aginiti/attacks/dra/README.md`](aginiti/attacks/dra/README.md) for the threat-model tradeoffs before assuming it behaves like IKEA.
-* **Interrogation Attack — Membership Inference (MIA):** Plugs in the "Riddle Me This!" methodology (ACM CCS 2025, arXiv:2502.00306) — confirms or denies whether a specific document you already hold exists in the target's knowledge base, via benign yes/no probing scored against a calibrated non-member reference set. A different threat model from DRA: see [`aginiti/attacks/mia/README.md`](aginiti/attacks/mia/README.md) for what it requires before assuming it works like DRA.
-* **Tiered Probing Architecture:**
-  * **Tier 1 (Black-Box):** Probes the agent's HTTP endpoint. Evaluates exfiltration risk strictly from conversational responses.
-  * **Tier 2 (White-Box/OTel):** Hooked into OpenTelemetry. Upgrades findings to "confirmed" by cross-referencing exfiltrated data with RAG retrieval spans.
-* **LLM-as-a-Judge Classification:** Analyzes response text to classify disclosures into *PII*, *Verbatim*, *Sensitive Data*, *Schema*, or *None*, using customizable judge prompts.
-* **Centralized Embeddings Layer:** Features local-first embeddings run on ChromaDB's bundled ONNX runtime (`all-MiniLM-L6-v2`)—enabling cost-free, high-performance offline exfiltration math.
-* **CISO-Ready Markdown Reports:** Automatically generates detailed assessment reports outlining exfiltration metrics, risk tables, and remediation advice mapped to the OWASP LLM Top 10.
+The fastest way to see Aginiti actually plan and execute a live campaign — no servers, no
+seeding, one API key:
+
+```bash
+# 1. Clone and enter the project
+git clone https://github.com/dev-devneuron/aginiti-redteam.git
+cd aginiti-redteam
+
+# 2. Create a virtual environment and install
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+
+# 3. Add one LLM API key (Aginiti's own reasoning — the judge, the planner's
+#    ranking calls — needs a provider; the in-memory demo target needs no key at all)
+cp .env.example .env
+#   edit .env and set GEMINI_API_KEY=... or GROQ_API_KEY=...
+
+# 4. Run a full campaign against the built-in mock target
+python scripts/run_campaign.py
+```
+
+That last command runs a real adaptive campaign — ranks operators, executes the winner,
+judges the response, updates the evidence graph, and repeats — against an in-memory demo
+agent (a payroll/GitHub/helpdesk assistant with a deliberately exploitable trust
+relationship). You'll see a full decision trace and a final `Security State Graph`. On an
+unmodified checkout this reliably ends with `payroll_write_unauthorized = confirmed` and
+`Ground truth -- any mission path actually achieved: True` — a real indirect-prompt-injection
+chain, planned and executed end to end, from a cold start, with no target-specific code
+written for it.
+
+**Point it at a real target instead of the mock one:**
+
+```bash
+python scripts/run_campaign.py --agent-url http://localhost:8001 \
+    --tier data_leakage --budget 15
+```
+
+`--tier` filters to one of `data_leakage | unauthorized_actions | discovery_recon |
+full_assessment`; `--budget` caps how many prompts the campaign may spend; `--model` overrides
+the attacker LLM used by the deep-attack operators (IKEA/SECRET/MIA). See
+`scripts/run_campaign.py`'s own module docstring for the full flag reference.
+
+**Want to run one specific attack technique on its own** (IKEA, SECRET, or the Interrogation
+attack), rather than letting the planner decide? See [§ Standalone attack library](#-standalone-attack-library-ikea--secret--interrogation-mia) below.
+
+**Windows users:** native `onnxruntime` (used by the default local embedding backend) can hit
+DLL-loading issues on native Windows. Running inside **WSL2** or Docker
+([`docs/docker.md`](docs/docker.md)) is the smoothest path; the Quickstart above also works
+natively on Windows in most environments, it's only the optional local-embedding path that's
+more reliable under WSL2/Docker.
 
 ---
 
@@ -28,34 +90,38 @@ Unlike generic LLM security tools, Aginiti Redteam is built from the ground up f
 ```text
 aginiti-redteam/
 ├── aginiti/
+│   ├── core/                    # The campaign engine — the project's actual core
+│   │   ├── graph/                    # Security State Graph: Fact/Observation/Claim schema,
+│   │   │                             #   taxonomy tags (attack_category, security_boundary, …)
+│   │   ├── planner/                  # AginitiPlanner — the multi-term utility-ranking function
+│   │   ├── policies/                 # Policy interface + Static/Random baselines for A/B comparison
+│   │   ├── mission.py                 # Success criteria, budget, risk threshold
+│   │   ├── campaign.py                 # run_campaign() — the plan→act→observe→repeat loop
+│   │   ├── observation_adapter.py     # Every response's single interpretation point
+│   │   │                             #   (deterministic extractor -> LLM judge -> independent oracle)
+│   │   └── llm.py                     # Provider-agnostic LLM client (Groq/Gemini, auto-fallback)
+│   ├── operators/                # Operator libraries — one module per target/technique family;
+│   │                             #   see docs/AGINITI_OVERVIEW.md §12 for the full inventory
+│   ├── adapters/                 # One BaseAdapter subclass per real/mock target — the only
+│   │                             #   place target-specific transport (HTTP, stdio, a gateway) lives
 │   ├── attacks/
-│   │   ├── base.py              # Base class (BaseAttack) & findings schema (LeakFinding)
-│   │   ├── dra/                 # Data Reconstruction Attack
-│   │   │   ├── ikea.py                 # IKEA attack loop (ERS + TRDM)
-│   │   │   ├── jailbreak_optimizer.py  # SECRET Phase 1 (Algorithm 1 — jailbreak calibration)
-│   │   │   ├── secret.py               # SECRET Phase 2 (CFT extraction, BaseAttack subclass)
-│   │   │   └── README.md
-│   │   └── mia/                 # Membership Inference Attack
-│   │       ├── interrogation.py # Interrogation Attack (3-stage: query gen, shadow-LLM ground truth, aggregation)
-│   │       └── README.md
-│   ├── connectors/
-│   │   ├── endpoint.py          # HTTP client for target agents
-│   │   └── embedding.py         # Local ONNX & cloud embedding routing
-│   └── reporting/
-│       └── markdown_report.py   # Markdown report generator
+│   │   ├── base.py                    # BaseAttack & the LeakFinding schema
+│   │   ├── dra/                       # Data Reconstruction Attacks: IKEA, SECRET
+│   │   └── mia/                       # Interrogation Attack (Membership Inference)
+│   ├── connectors/                # HTTP client for target agents; local/cloud embedding routing
+│   └── reporting/                 # Markdown/PDF report generation
 ├── benchmarks/
-│   ├── dev_fixtures/            # Lightweight mock targets used in unit tests & local dev
-│   │   ├── agents/              # Reference black-box and OTel-instrumented FastAPI agents
-│   │   └── datasets/            # 25 synthetic Acme HR records
-│   └── scaled_evals/            # Production-scale benchmarking suite
-│       ├── agents/              # HealthCareMagic-1k FastAPI target agent
-│       ├── datasets/            # prepare_healthcare.py download script
-│       └── results/             # Saved evaluation runs
+│   ├── dev_fixtures/             # Lightweight mock targets used in unit tests & local dev
+│   └── scaled_evals/             # Production-scale targets: hardened_agent (RBAC + 8 independently
+│                                 #   -toggleable defenses), healthcare_agent, dataset prep scripts
+├── experiments/                  # Every live A/B experiment script (Aginiti vs. Random vs. Static
+│                                 #   policy) + its results under experiments/results/
 ├── scripts/
-│   ├── run_ikea.py              # Single-target IKEA run script
-│   ├── run_benchmark.py         # Empirical scoring CLI
-│   └── run_healthcare_benchmark.py # Preset HealthCareMagic benchmark runner
-└── tests/                       # Complete offline test suite (all LLM & endpoints mocked)
+│   ├── run_campaign.py           # The general-purpose entry point — see Quickstart above
+│   ├── run_ikea.py / run_secret.py / run_interrogation.py   # Standalone single-attack runners
+│   └── run_healthcare_benchmark.py  # Preset benchmark against the HealthCareMagic-1k corpus
+├── docs/                         # Start with docs/AGINITI_OVERVIEW.md, then docs/ARCHITECTURE.md
+└── tests/                        # 1,761 tests, fully offline (every LLM/HTTP call mocked)
 ```
 
 ---
@@ -64,113 +130,168 @@ aginiti-redteam/
 
 ### Prerequisites
 * Python 3.10+
-* A valid API key for any LiteLLM-supported provider (e.g., `GEMINI_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, etc.) as the attack loop and LLM-as-a-judge classification are fully provider-agnostic.
-* **Windows Users:** It is highly recommended to run inside **WSL2** (Windows Subsystem for Linux), or via Docker — see [`docs/docker.md`](docs/docker.md) for the full containerized setup (all reference agents, seeding, and attack runs, including the RBAC/rate-limit/redaction/memory ablation-lab target). Running native binary dependencies like `onnxruntime` under native Windows can cause DLL loading errors or crashes.
+* A valid API key for any LiteLLM-supported provider (`GEMINI_API_KEY`, `GROQ_API_KEY`,
+  `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …) — the planner's reasoning, the judge, and the
+  attack loops are all provider-agnostic via [LiteLLM](https://github.com/BerriAI/litellm).
+* **Windows users:** see the Quickstart note above — WSL2 or Docker
+  ([`docs/docker.md`](docs/docker.md)) is the most reliable path for anything that touches
+  the local ONNX embedding backend.
 
 ### Install & Configure
-Clone the repository, set up a virtual environment, and install the library in editable mode:
 
 ```bash
-# 1. Clone and navigate to the project
 git clone https://github.com/dev-devneuron/aginiti-redteam.git
 cd aginiti-redteam
-
-# 2. Create and activate a clean virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
 
-# 3. Install development dependencies
+# Core install (campaign engine + attack library + dev/test tooling, incl. FastAPI/Uvicorn
+# for the local reference-target servers below):
 pip install -e ".[dev]"
 
-# 4. Copy environment template and add your API key(s)
-cp .env.example .env
+# Optional: the public-dataset benchmarking layer (benchmarks/scaled_evals/)
+pip install -e ".[benchmarks]"
+
+cp .env.example .env   # then fill in at least one LLM API key
 ```
 
-### 1. Seed & Start Reference Agents
-Acme HR reference agents share a 25-record synthetic database but run on separate ports to isolate Tier 1 and Tier 2 setups:
+`.env.example` documents every variable this project reads — model overrides, the local vs.
+cloud embedding backend, and the `hardened_agent` persona keys/defense toggles — with the
+reasoning for each default inline.
+
+### Run the local reference agents (Tier 1 / Tier 2 black-box + OTel targets)
 
 ```bash
-# Seed the local ChromaDB vector databases (computes embeddings offline)
+# Seed the local ChromaDB vector databases (computes embeddings offline, no API cost)
 python -m benchmarks.dev_fixtures.agents.reference_agent_blackbox.seed
 python -m benchmarks.dev_fixtures.agents.reference_agent_otel.seed
 
-# Start reference agents in separate terminals
+# Start them (separate terminals)
 uvicorn benchmarks.dev_fixtures.agents.reference_agent_blackbox.main:app --port 8001
 uvicorn benchmarks.dev_fixtures.agents.reference_agent_otel.main:app --port 8002
 ```
 
-### 2. Run the IKEA Attack
-Proactively attack the running Tier 1 black-box agent:
-
-```bash
-python scripts/run_ikea.py
-```
-This runs the ERS/TRDM loop and writes a JSON findings list along with an auto-generated Markdown report under `scripts/results/`.
+Then point the campaign engine or a standalone attack at `http://localhost:8001` (see
+Quickstart above, or the standalone-attack section below).
 
 ---
 
-## 📊 Benchmark Suite (HealthCareMagic-1k)
+## 🎯 Standalone attack library (IKEA · SECRET · Interrogation/MIA)
 
-To evaluate exfiltration resistance against a realistic, production-scale corpus, Aginiti Redteam hosts an optional benchmarking suite utilizing the 1,000-record HealthCareMagic dataset.
+Each of these is independently runnable against one target with its own script — the right
+tool when you want to measure one specific technique's effectiveness in isolation, with
+output directly comparable to that technique's own paper. (The same three attacks are also
+available as planner-selectable `Operator`s — see `aginiti/operators/deep_attack_operators.py`
+— when you'd rather let the campaign engine decide whether they're worth the budget relative
+to everything else it could try.)
 
-### Setup and Start the Benchmark Target
+* **IKEA — Data Reconstruction Attack (DRA):** arXiv:2505.15420. Generates natural-sounding,
+  benign-looking queries via Embedding-space Resampling (ERS) and Topic-restricted Random Walk
+  Mutation (TRDM) to bypass keyword/jailbreak detectors.
+* **SECRET — jailbreak-optimized DRA:** arXiv:2510.02964 (IEEE TIFS 2026). An
+  Optimizer/Evaluator LLM loop calibrates a jailbreak prompt against the live target, then
+  Cluster-Focused Triggering alternates exploration and exploitation to extract knowledge-base
+  clusters. Every query is jailbreak-wrapped — see
+  [`aginiti/attacks/dra/README.md`](aginiti/attacks/dra/README.md) before assuming it behaves
+  like IKEA.
+* **Interrogation Attack — Membership Inference (MIA):** arXiv:2502.00306 (ACM CCS 2025).
+  Confirms or denies whether a specific document you already hold exists in the target's
+  knowledge base via calibrated yes/no probing. See
+  [`aginiti/attacks/mia/README.md`](aginiti/attacks/mia/README.md) — a genuinely different
+  threat model from DRA.
+
 ```bash
-# Install benchmark-specific packages
-pip install -e ".[benchmarks]"
-
-# 1. Download and sample the HuggingFace HealthCareMagic dataset
-python benchmarks/scaled_evals/datasets/prepare_healthcare.py
-
-# 2. Seed the medical vector database
-python -m benchmarks.scaled_evals.agents.healthcare_agent.seed
-
-# 3. Spin up the healthcare agent (port 8003)
-uvicorn benchmarks.scaled_evals.agents.healthcare_agent.main:app --port 8003
+# Against the Tier 1 black-box reference agent started above:
+python scripts/run_ikea.py
 ```
 
-### Run and Score
-Execute the preset 50-query benchmarking loop to score exfiltration metrics against ground-truth consultations:
+This writes a JSON findings list plus an auto-generated Markdown report under
+`scripts/results/`.
+
+**Tiered probing architecture:**
+* **Tier 1 (Black-Box):** probes the agent's HTTP endpoint; evaluates exfiltration risk
+  strictly from conversational responses.
+* **Tier 2 (White-Box/OTel):** hooked into OpenTelemetry; upgrades findings to "confirmed" by
+  cross-referencing exfiltrated data with RAG retrieval spans.
+
+---
+
+## 📊 Benchmarking against real, defended targets
+
+`benchmarks/scaled_evals/` hosts production-scale targets over real corpora (CUAD legal
+contracts, CFPB consumer complaints, HealthCareMagic-1k medical consultations):
+
+* **`healthcare_agent`** (port 8003) — a stateless RAG target, no RBAC split. Measures each
+  attack's effectiveness *ceiling* against an undefended/softly-guardrailed target.
+* **`hardened_agent`** (port 8004) — the harder, more realistic question: how much do real,
+  layered defenses (RBAC-scoped retrieval, output redaction, rate limiting, conversation
+  memory, a system-prompt guardrail, a dedicated input-filter classifier, session/auth expiry,
+  and RBAC-scoped tool-calling — **8 independently-toggleable layers**) actually reduce
+  extraction, and what still gets through anyway?
 
 ```bash
+pip install -e ".[benchmarks]"
+python benchmarks/scaled_evals/datasets/prepare_healthcare.py
+python -m benchmarks.scaled_evals.agents.healthcare_agent.seed
+uvicorn benchmarks.scaled_evals.agents.healthcare_agent.main:app --port 8003
 python scripts/run_healthcare_benchmark.py
 ```
 
-The runner evaluates and logs:
-* **ASR (Attack Success Rate):** The percentage of queries returning positive leak findings.
-* **CRR (Content Reconstruction Rate):** ROUGE-L similarity between exfiltrated chunks and actual database records.
-* **SS (Semantic Similarity):** Cosine similarity of embeddings to measure meaning preservation.
-* **EE (Exfiltration Effectiveness):** Combined gating metric capturing genuine, non-trivial document leakages.
+The runner scores **ASR** (Attack Success Rate), **CRR** (Content Reconstruction Rate — ROUGE-L
+against real records), **SS** (Semantic Similarity), and **EE** (Exfiltration Effectiveness, a
+combined gating metric). Results land as timestamped JSON/Markdown under
+`benchmarks/scaled_evals/results/`.
 
-Run results are stored as timestamped `.json` and `.md` reports under `benchmarks/scaled_evals/results/`.
-
-### Benchmarking against a defended target
-
-The HealthCareMagic run above measures effectiveness at each attack's *ceiling* — an undefended (or softly-guardrailed) target. `hardened_agent` (port 8004) is a separate benchmark target built specifically to answer the question that matters more for a security tool: **how much do real, layered enterprise defenses (RBAC, output redaction, rate limiting, conversation memory, a system-prompt guardrail — independently toggleable) actually reduce extraction, and what still gets through anyway?** It runs over real CUAD (legal contracts) and CFPB (consumer complaints) corpora across three RBAC-scoped personas, and every implemented attack — IKEA, the Interrogation Attack (MIA), and SECRET — has a dedicated runner script for it. See [`docs/benchmarking.md`](docs/benchmarking.md#8-benchmarking-against-a-defended-target-hardened_agent) for full setup and how to interpret results against it (numbers land meaningfully below the papers' own published figures here, for well-understood, verified reasons — that section explains why, and how to present it).
+For the full `hardened_agent` setup (seeding, all 8 defenses, RBAC personas, and how to run and
+interpret a complete live experiment end to end) see
+[`docs/QUICKSTART_HARDENED_AGENT.md`](docs/QUICKSTART_HARDENED_AGENT.md) and
+[`docs/benchmarking.md`](docs/benchmarking.md#8-benchmarking-against-a-defended-target-hardened_agent).
 
 ---
 
 ## 🧪 Testing
 
-The library runs a robust unit test suite. All network requests, agent endpoints, and LLM completions are fully mocked—allowing the entire suite to run offline in seconds without incurring API costs:
+The full test suite mocks every network call, agent endpoint, and LLM completion — it runs
+offline, in seconds, at zero API cost:
 
 ```bash
 pytest tests/ -v
 ```
 
+1,761 tests currently pass on a clean checkout.
+
+---
+
+## 📚 Where to go next
+
+| Doc | What it covers |
+|---|---|
+| [`docs/AGINITI_OVERVIEW.md`](docs/AGINITI_OVERVIEW.md) | **Start here.** What Aginiti is, how the planner works, the audited operator inventory |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Deep code-level architecture — the evidence graph, execution paths, glossary |
+| [`docs/EVIDENCE_AND_EVALUATION.md`](docs/EVIDENCE_AND_EVALUATION.md) | The evidence ledger — every claim, cited |
+| [`docs/QUICKSTART_HARDENED_AGENT.md`](docs/QUICKSTART_HARDENED_AGENT.md) | Full walkthrough: stand up `hardened_agent` and run a live experiment against it |
+| [`docs/benchmarking.md`](docs/benchmarking.md) | Benchmark methodology, metrics, and results interpretation |
+| [`docs/COMPETITOR_COMPARISON.md`](docs/COMPETITOR_COMPARISON.md) | How Aginiti compares against garak and the broader field |
+| [`docs/RESEARCH_AND_PROVENANCE.md`](docs/RESEARCH_AND_PROVENANCE.md) | Every paper, dataset, and codebase this project builds on, with license/citation |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Trajectory and what's next |
+| [`docs/docker.md`](docs/docker.md) | Full containerized setup (all reference agents, including `hardened_agent`) |
+
 ---
 
 ## 🗺️ Roadmap & Status
 
-* [x] **Data Reconstruction Attack (DRA)**
-  * [x] IKEA Attack Method (ERS + TRDM)
-  * [x] LLM-as-a-judge leak classification
-  * [x] CISO-facing markdown reporter
-  * [x] HealthCareMagic-1k benchmarking suite
-* [x] **Membership Inference Attack (MIA)** — Interrogation Attack ("Riddle Me This," CCS 2025); see [`aginiti/attacks/mia/README.md`](aginiti/attacks/mia/README.md)
-* [x] **SECRET DRA Technique** (jailbreak-optimized extraction, arXiv:2510.02964) — see [`aginiti/attacks/dra/README.md`](aginiti/attacks/dra/README.md); live-verified (a real critical-severity finding on an undefended target), plumbing-verified against a fully defended target
-* [ ] **Tier 2 OTel Trace Collector Integration** (Langfuse / OpenTelemetry ingress)
-* [ ] **Feature/Attribute Inference Attack (FIA)**
-* [ ] **Command-Line Interface (`aginiti` CLI wrapper)**
+* [x] **Adaptive campaign engine** — Security State Graph, constrained-utility planner,
+  evidence-driven operator chaining ([`docs/AGINITI_OVERVIEW.md`](docs/AGINITI_OVERVIEW.md))
+* [x] **Data Reconstruction Attacks** — IKEA (ERS+TRDM) and SECRET (jailbreak-optimized),
+  both wired as planner-selectable Operators and as standalone runners
+* [x] **Membership Inference Attack** — Interrogation Attack ("Riddle Me This," CCS 2025)
+* [x] **Production-realism hardened target** — `hardened_agent`, 8 independently-toggleable
+  defense layers including RBAC-scoped tool-calling, live-tested end to end
+* [x] **Independent, non-LLM disclosure oracle** — every finding is cross-checked against a
+  deterministic verbatim/fuzzy match, not judged by a single LLM alone
+* [ ] Tier 2 OTel trace-collector integration for the scaled-evals targets (Langfuse ingress)
+* [ ] Feature/Attribute Inference Attack (FIA)
+* [ ] `aginiti` CLI wrapper
 
 ---
 

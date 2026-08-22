@@ -173,6 +173,24 @@ standing limitation. It no longer is one.
   access-control-architecture section for why a cross-persona variant
   would show zero signal on a pre-filter target like this one).
 
+  **A real duplicate, found during the 2026-08-22 merge audit, disclosed
+  rather than silently picked around:** `aginiti/attacks/mia/
+  interrogation.py` (the other developer's own codebase, merged in via
+  `main`) independently implements the SAME paper (arXiv:2502.00306) —
+  two developers built the Interrogation Attack from the same citation
+  without either knowing about the other's work. The two are not
+  identical: this module is wired into `run_full_assessment()`'s
+  sequential discovery-phase pipeline (`aginiti/assessment.py`);
+  `interrogation.py` is wrapped as a true, budget-competing `Operator`
+  (`aginiti/operators/deep_attack_operators.py` for its generic/dev-
+  fixture form, `aginiti/operators/hardened_deep_attack_operators.py` for
+  its `hardened_agent`-specific, real-corpus form) that `AginitiPlanner`
+  ranks directly alongside every other operator — a genuinely different
+  integration shape, not just a rename. Both are real, tested, and
+  currently kept; **not consolidated in this pass** — a real, open
+  architectural decision for whoever picks this up next, not silently
+  resolved here.
+
 All seven are fully unit-tested with deterministic stub adapters/
 extractors/LLM-call injection points — no live LLM or target calls in any
 test (`many_shot.py`/`crescendo.py`/`membership_inference.py` each follow

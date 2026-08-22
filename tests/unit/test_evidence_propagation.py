@@ -21,6 +21,7 @@ discovery mechanism (2026-08-12) and the NEW independent-evidence path
 from __future__ import annotations
 
 from aginiti.core.observation_adapter import ObservationAdapter
+from aginiti.core.campaign import run_campaign
 from aginiti.core.graph.schema import RiskTier
 from aginiti.core.graph.security_boundary import BOUNDARY_L5
 from aginiti.core.graph.ssg import SecurityStateGraph
@@ -31,6 +32,7 @@ from aginiti.operators.library import OperatorLibrary
 from aginiti.operators.multi_family_definitions import build_multi_family_library
 from aginiti.core.planner.aginiti_planner import AginitiPlanner
 from aginiti.core.policies.base import eligible_operators
+from aginiti.core.policies.static_policy import StaticPolicy
 from benchmarks.agents.multi_family_agent import MultiFamilyAgent
 
 
@@ -173,3 +175,46 @@ def test_removing_the_independent_oracle_changes_the_decision():
     # any other difference between the two runs.
     assert ssg_with.current_claim("encoding_v3_blocked") is not None
     assert ssg_without.current_claim("encoding_v3_blocked") is not None
+
+
+def test_independent_evidence_stops_the_campaign_via_stop_on_mission_success():
+    """2026-08-22 fix, verified end to end through a REAL run_campaign()
+    call (not just is_satisfied() in isolation, and not just the
+    eligibility check the tests above use) -- the exact live-observed bug
+    this closes: exp33's support/random trial ran to BUDGET_EXHAUSTED even
+    though the independent oracle had already confirmed a real disclosure,
+    because the Mission's success_criteria named the operator's own
+    (never-confirmed-by-its-judge) claim key, not the oracle's
+    differently-named one. `encoding_v3` reproduces that exact shape
+    deterministically -- it ALWAYS refuses per its own narrow extractor
+    (multi_family_definitions.py's own module docstring) while its raw
+    response ALWAYS trips the independent oracle -- so a Mission naming
+    ONLY `encoding_v3_disclosed` can NEVER be satisfied the ordinary way,
+    in any run, regardless of budget. Proven via a direct A/B: identical
+    library/agent/policy/budget, the only variable is `independent_
+    evidence_satisfies`."""
+    library = OperatorLibrary(build_multi_family_library())
+    budget = 12  # the library's own full size -- see build_multi_family_library()
+
+    def _run(independent_evidence_satisfies: bool):
+        mission = Mission(goal="test", success_criteria=("encoding_v3_disclosed",),
+                           budget=budget, risk_threshold=RiskTier.MEDIUM, success_mode="any",
+                           independent_evidence_satisfies=independent_evidence_satisfies)
+        return run_campaign(mission=mission, library=library, agent=MultiFamilyAgent(),
+                             policy=StaticPolicy(), max_steps=budget, stop_on_mission_success=True)
+
+    result_fixed = _run(independent_evidence_satisfies=True)
+    assert result_fixed.outcome == "SUCCESS"
+    # Stopped RIGHT AFTER encoding_v3 fired -- the actual efficiency payoff,
+    # not merely "eventually succeeded somehow."
+    assert result_fixed.operators_executed[-1] == "encoding_v3"
+    assert result_fixed.steps_executed < budget
+
+    result_broken = _run(independent_evidence_satisfies=False)
+    assert result_broken.outcome == "BUDGET_EXHAUSTED"  # the exact real bug, reproduced
+    assert result_broken.steps_executed == budget
+    # encoding_v3's own claim genuinely never confirms, in either run --
+    # confirming the fix adds a second SATISFACTION path, it does not
+    # change what confirms the named claim itself.
+    assert result_broken.ssg.current_claim("encoding_v3_disclosed") is None
+    assert result_fixed.ssg.current_claim("encoding_v3_disclosed") is None
