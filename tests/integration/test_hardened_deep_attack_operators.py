@@ -56,6 +56,29 @@ from aginiti.attacks.spe.spe_llm import SPEAttack
 from aginiti.operators.library import OperatorLibrary
 
 
+@pytest.fixture(autouse=True)
+def _fake_api_keys():
+    """Same fix, same reason, as tests/integration/test_deep_attack_
+    operators.py's own `_fake_api_keys` fixture (see that file's module
+    docstring for the full CI-caught story from 2026-08-21) -- but THAT
+    fixture patches `aginiti.operators.deep_attack_operators._key_for`,
+    which does NOT cover this file: `hardened_deep_attack_operators.py`
+    (2026-08-22) deliberately duplicates `_key_for` as its OWN
+    module-level function rather than importing the generic module's
+    (see that module's own docstring on why it's "not a fork" but is a
+    separate file), so it needs its own separate patch here. Missed
+    initially -- caught by GitHub Actions CI on the first real push
+    (`test_spe_operator_runs_through_hardened_agent_adapter_in_a_real_
+    campaign` constructs a real `SPEAttack` via `_build_spe_attack()`,
+    which calls this module's `_key_for()` BEFORE `SPEAttack._call_
+    classifier` is ever reached -- mocking that classifier alone was not
+    enough, exactly the same shape of gap the sibling file's own fixture
+    documents), not caught locally because this dev environment has a
+    real `.env` with real API keys, which silently masked it."""
+    with patch("aginiti.operators.hardened_deep_attack_operators._key_for", return_value="test-fake-api-key"):
+        yield
+
+
 # ---------------------------------------------------------------------------
 # 1. HardenedAgentAdapter.endpoint -- construction, caching, oracle sharing
 # ---------------------------------------------------------------------------
