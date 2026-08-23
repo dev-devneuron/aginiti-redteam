@@ -52,6 +52,7 @@ from aginiti.operators.adaptive_followups import adaptive_followup_operators
 from aginiti.operators.data_exposure import data_exposure_operators
 from aginiti.operators.encoding_variants import build_encoding_evasion_operators
 from aginiti.operators.access_control_layer_probe import access_control_layer_probe_operators
+from aginiti.operators.hardened_tool_probes import build_hardened_tool_probes
 from aginiti.operators.library import ClaimEffect, Operator
 from aginiti.operators.output_filter_evasion import output_filter_evasion_operators
 from aginiti.operators.redaction_format_evasion import redaction_format_evasion_operators
@@ -418,6 +419,19 @@ def build_hardened_agent_library(persona: str, index: VerbatimDisclosureIndex) -
         # targets where the answer won't be negative.
         *access_control_layer_probe_operators(),
         _build_recon_operator(),
+        # 2026-08-23: hardened_tool_probes.py -- new tool_discovery/
+        # tool_manipulation probes built specifically against real,
+        # exp34-diagnosed failures of this library's own generic
+        # tool_inventory_full_disclosure/tool_parameter_override_probe
+        # (aginiti/operators/data_exposure.py, both confirmed ZERO
+        # findings across all 3 personas in exp34). See that module's own
+        # docstring for the full "benign framing, not cleverer bypass
+        # wording" rationale and its ground-truth-deterministic
+        # extractors. hardened_agent-specific by construction (references
+        # real mock case IDs from this target's own _MOCK_CASE_DB), same
+        # composition tier as redaction_format_evasion/access_control_
+        # layer_probe above.
+        *build_hardened_tool_probes(persona),
     ]
 
     if persona == "ops":
