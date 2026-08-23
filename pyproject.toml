@@ -60,6 +60,12 @@ dependencies = [
     "requests>=2.31",
     "pydantic>=2.0",
     "python-dotenv>=1.0",
+    # ASCII-art text rendering for aginiti/operators/ascii_art_evasion.py
+    # (2026-08-23, ArtPrompt technique, arXiv:2402.11753) -- the SAME
+    # library the paper's own authors used ("234 different fonts filtered
+    # by human using Python art library"), not a hand-rolled approximation.
+    # Pure-Python, no native/binary deps, tiny (~1MB).
+    "art>=6.0",
 ]
 
 [project.urls]

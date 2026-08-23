@@ -116,3 +116,58 @@ def test_every_turn_is_a_real_operator_execution_recorded_in_ssg(monkeypatch):
     assert total_executions == 2
     assert ssg.is_confirmed("crescendo_test_blocked_turn1")
     assert ssg.is_confirmed("crescendo_test_blocked_turn2")
+
+
+# ---------------------------------------------------------------------------
+# _TurnDraftingFailed handling -- 2026-08-23 fix for a live-found bug: the
+# drafting model (_default_generate_turn's own live LLM call) can itself
+# return empty/refuse for some (goal, turn) combinations, and before this
+# fix the empty string silently became the literal message sent to the
+# REAL target -- a wasted, content-free query, never logged. See
+# _default_generate_turn's own docstring for the full live-observed story.
+# ---------------------------------------------------------------------------
+
+def test_a_turn_that_fails_to_draft_is_skipped_without_touching_the_target(monkeypatch):
+    """The core regression guard: a drafting failure must cost an
+    escalation-turn slot, never a real target query."""
+    _rig_success_on_turn(monkeypatch, winning_turn=None)
+    ssg = SecurityStateGraph()
+    adapter = _ScriptedAdapter(["no1", "no3"])  # only 2 real responses queued -- turn 2 must never call .send()
+
+    def _generate_but_turn2_fails(final_goal, transcript, turn_number, max_turns, seed):
+        if turn_number == 2:
+            raise cr._TurnDraftingFailed("simulated drafting failure")
+        return f"turn-{turn_number}-message"
+
+    result = cr.run_crescendo_escalation("reveal the secret", "crescendo_test_disclosed",
+                                          "crescendo_test_blocked", ssg, adapter, max_turns=3,
+                                          generate_turn_fn=_generate_but_turn2_fails)
+    assert adapter.responses == []  # both queued responses were consumed -- exactly 2 real sends
+    assert len(adapter.prompts_sent) == 2
+    # Only turns 1 and 3 were ever really executed -- turn 2 left no trace.
+    assert [t.turn_number for t in result.turns] == [1, 3]
+    assert result.succeeded is False
+
+
+def test_default_generate_turn_retries_once_on_empty_draft(monkeypatch):
+    calls = []
+
+    def _fake_chat(messages, temperature, max_tokens, seed=None):
+        calls.append(temperature)
+        return "" if len(calls) == 1 else "a real drafted message"
+
+    monkeypatch.setattr(cr, "chat", _fake_chat)
+    result = cr._default_generate_turn("reveal the secret", [], turn_number=1, max_turns=3, seed=None)
+    assert result == "a real drafted message"
+    assert len(calls) == 2  # exactly one retry, not a retry loop
+
+
+def test_default_generate_turn_raises_turn_drafting_failed_after_two_empty_attempts(monkeypatch):
+    import pytest
+
+    def _always_empty(messages, temperature, max_tokens, seed=None):
+        return ""
+
+    monkeypatch.setattr(cr, "chat", _always_empty)
+    with pytest.raises(cr._TurnDraftingFailed):
+        cr._default_generate_turn("reveal the secret", [], turn_number=1, max_turns=3, seed=None)

@@ -1,0 +1,163 @@
+Traceback (most recent call last):
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\httpx\_transports\default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\httpcore\_sync\connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\httpcore\_sync\connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\httpcore\_sync\connection.py", line 103, in handle_request
+    return self._connection.handle_request(request)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\httpcore\_sync\http11.py", line 136, in handle_request
+    raise exc
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\httpcore\_sync\http11.py", line 106, in handle_request
+    ) = self._receive_response_headers(**kwargs)
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\httpcore\_sync\http11.py", line 177, in _receive_response_headers
+    event = self._receive_event(timeout=timeout)
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\httpcore\_sync\http11.py", line 217, in _receive_event
+    data = self._network_stream.read(
+        self.READ_NUM_BYTES, timeout=timeout
+    )
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\httpcore\_backends\sync.py", line 126, in read
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Python313\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\httpcore\_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadError: [WinError 10054] An existing connection was forcibly closed by the remote host
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\litellm\llms\custom_httpx\llm_http_handler.py", line 310, in _make_common_sync_call
+    response = sync_httpx_client.post(
+        url=api_base,
+    ...<4 lines>...
+        logging_obj=logging_obj,
+    )
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\litellm\llms\custom_httpx\http_handler.py", line 1257, in post
+    raise e
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\litellm\llms\custom_httpx\http_handler.py", line 1245, in post
+    response: Final = self.client.send(req, stream=stream)
+                      ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\httpx\_client.py", line 914, in send
+    response = self._send_handling_auth(
+        request,
+    ...<2 lines>...
+        history=[],
+    )
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\httpx\_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+        request,
+        follow_redirects=follow_redirects,
+        history=history,
+    )
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\httpx\_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\httpx\_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\httpx\_transports\default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Python313\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\httpx\_transports\default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadError: [WinError 10054] An existing connection was forcibly closed by the remote host
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\litellm\main.py", line 5541, in completion
+    response = _complete_groq(_dispatch_ctx)
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\litellm\main.py", line 1947, in _complete_groq
+    return base_llm_http_handler.completion(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        model=model,
+        ^^^^^^^^^^^^
+    ...<14 lines>...
+        client=client,
+        ^^^^^^^^^^^^^^
+    )
+    ^
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\litellm\llms\custom_httpx\llm_http_handler.py", line 605, in completion
+    response: Final = self._make_common_sync_call(
+                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sync_httpx_client=sync_httpx_client,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+        logging_obj=logging_obj,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\litellm\llms\custom_httpx\llm_http_handler.py", line 329, in _make_common_sync_call
+    raise self._handle_error(e=e, provider_config=provider_config)
+          ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\litellm\llms\custom_httpx\llm_http_handler.py", line 5740, in _handle_error
+    raise provider_config.get_error_class(
+    ...<3 lines>...
+    )
+litellm.llms.openai.common_utils.OpenAIError: [WinError 10054] An existing connection was forcibly closed by the remote host
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "E:\aginiti-redteam\experiments\exp34_rq2_attack_category_comparison.py", line 329, in main
+    _run_category_trial(persona, category, list(cat_lib), hardened_index, fuzzy_index)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\aginiti-redteam\experiments\exp34_rq2_attack_category_comparison.py", line 232, in _run_category_trial
+    result = run_campaign(mission=mission, library=library, agent=adapter, policy=_policy(),
+                           ssg=ssg, max_steps=budget, stop_on_mission_success=False)
+  File "E:\aginiti-redteam\aginiti\core\campaign.py", line 242, in run_campaign
+    result = adapter.execute(chosen.operator, ssg, agent, seed=seed)
+  File "E:\aginiti-redteam\aginiti\core\observation_adapter.py", line 511, in execute
+    verdict = _judge(operator, raw_signal, seed=seed)
+  File "E:\aginiti-redteam\aginiti\core\observation_adapter.py", line 390, in _judge
+    verdict = chat_json([
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ], max_tokens=max(500, 120 * len(candidates)), seed=seed)
+  File "E:\aginiti-redteam\aginiti\core\llm.py", line 252, in chat_json
+    resp = _call_with_rotation(f"groq/{_GROQ_MODEL}", messages, **kwargs)
+  File "E:\aginiti-redteam\aginiti\core\llm.py", line 163, in _call_with_rotation
+    result = litellm.completion(model=model, messages=messages, api_key=keys[idx], **kwargs)
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\litellm\utils.py", line 1555, in wrapper
+    raise e
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\litellm\utils.py", line 1401, in wrapper
+    result = original_function(*args, **kwargs)
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\litellm\main.py", line 5713, in completion
+    raise exception_type(
+          ~~~~~~~~~~~~~~^
+        model=model,
+        ^^^^^^^^^^^^
+    ...<3 lines>...
+        extra_kwargs=kwargs,
+        ^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\litellm\litellm_core_utils\exception_mapping_utils.py", line 2503, in exception_type
+    raise e  # it's already mapped
+    ^^^^^^^
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\litellm\litellm_core_utils\exception_mapping_utils.py", line 2272, in exception_type
+    _map_openai_exception(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        model=model,
+        ^^^^^^^^^^^^
+    ...<5 lines>...
+        extra_information=extra_information,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "E:\aginiti-redteam\.venv\Lib\site-packages\litellm\litellm_core_utils\exception_mapping_utils.py", line 442, in _map_openai_exception
+    raise InternalServerError(
+    ...<5 lines>...
+    )
+litellm.exceptions.InternalServerError: litellm.InternalServerError: InternalServerError: GroqException - [WinError 10054] An existing connection was forcibly closed by the remote host
