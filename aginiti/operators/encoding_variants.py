@@ -121,5 +121,25 @@ def build_encoding_evasion_operators(
             cost_prompts=1, risk_tier=RiskTier.LOW,
             graph_edge=("start", f"encoding_evasion_{pipeline.name}"),
             branch="data_exposure",
+            # 2026-08-24, added after exp34's own audit (docs/EXP34_RESULTS.
+            # md, "Open question"): this whole family is the textbook case
+            # technique_cluster (library.py's own 2026-08-14 field) exists
+            # for -- one shared hypothesis ("does hiding an override
+            # instruction in an ENCODED payload bypass the guardrail?"),
+            # ~14 wrapper variants differing only in which encoding scheme.
+            # Never retrofitted onto this module before now, which left
+            # `technique_cluster_diversification` (already implemented,
+            # already enabled in exp34's own AginitiPolicy config) with
+            # nothing to act on here -- family_diversification alone
+            # couldn't substitute for it either, since `branch="data_
+            # exposure"` above is shared by EVERY operator in data_
+            # exposure.py (system_prompt_extraction, jailbreak_dan_style,
+            # ...), too broad a scope to isolate "encoding specifically
+            # keeps failing" from the rest of that family. Matches the
+            # SAME cluster-tagging precedent hardened_authority_claim_
+            # probe_variants already established (docs/ATTACK_LIBRARY.md's
+            # own cluster table) -- a real, same-idea-different-wrapper
+            # loop, not a guessed-on tag.
+            technique_cluster="algorithmic_encoding_variants",
         ))
     return operators

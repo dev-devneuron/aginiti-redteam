@@ -53,3 +53,16 @@ def test_merges_cleanly_into_an_operator_library_alongside_data_exposure_operato
     ops = [*data_exposure_operators(), *build_encoding_evasion_operators()]
     library = OperatorLibrary(ops)
     assert len(library) == len(ops)  # no id collisions silently dropped one
+
+
+def test_every_generated_operator_shares_one_technique_cluster():
+    """2026-08-24 fix (docs/EXP34_RESULTS.md's own "Open question"): this
+    whole family is a textbook same-idea-different-wrapper loop, the
+    exact case technique_cluster exists for -- without it,
+    technique_cluster_diversification has nothing to act on for this
+    family even when enabled, and family_diversification alone can't
+    substitute (branch="data_exposure" is shared too broadly across
+    data_exposure.py to isolate this family specifically)."""
+    ops = build_encoding_evasion_operators()
+    clusters = {op.technique_cluster for op in ops}
+    assert clusters == {"algorithmic_encoding_variants"}
