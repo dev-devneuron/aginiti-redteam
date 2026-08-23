@@ -209,7 +209,8 @@ each; full mechanics in §5.
   for already-structured evidence.
 - **OperatorLibrary** — a collection of Operators for one target, either
   authored directly or (for runtime-parameterized targets) produced by a
-  factory function.
+  factory function. `.by_category(*categories)` (2026-08-22) filters it
+  down to one or more `attack_category` values — see §9 below.
 - **`ClassPrecondition`** — a precondition satisfied by *any* current claim
   matching a semantic tag (`category`, `attack_category`, or a minimum
   `security_boundary` rank), instead of one exact claim key. The mechanism
@@ -943,12 +944,22 @@ not a code path:
 | `technique_cluster` | (2026-08-14, opt-in, default `None`) A shared string an author declares for a set of near-duplicate operator WRAPPERS around one hypothesis (e.g. 5 authority-claim framings of the same question) — feeds `technique_cluster_diversification` (§6). Never inferred, never guessed onto operators an author hasn't actually verified share a mechanism — see `docs/EXP29_RESULTS.md` for a real example (`redaction_format_evasion.py`) of a candidate cluster deliberately left untagged after inspection showed the members are genuinely distinct techniques. |
 
 An `OperatorLibrary` is a dict-backed collection with `.candidates(ssg)`
-(precondition filtering, both exact-key and class-based) and `.get(id)`.
-Most targets export a no-argument `build_X_library()`. Two targets are
-factory-shaped instead: the MCP filesystem target (`build_filesystem_mcp_
-library(allowed_root, ...)` — its structure is test-harness-controlled at
-runtime) and InjecAgent's pooled operator pack (`injecagent_pool.py`,
-parameterized by which vendored test cases to draw from).
+(precondition filtering, both exact-key and class-based), `.get(id)`, and
+`.by_category(*categories)` (2026-08-22 — returns a NEW `OperatorLibrary`
+filtered to operators matching one or more `attack_category` values, a
+union if more than one is given; resolves each operator's category via
+`operator_primary_family()`, the same canonical helper `family_
+diversification` uses, so it can never drift from the planner's own
+notion of an operator's category). `by_category()` is what
+`scripts/run_campaign.py --attack-category` wraps — see that script's own
+module docstring, "Attack-category classification", for the CLI side —
+but it's a plain library method any other caller can use directly, not
+CLI-only. Most targets export a no-argument `build_X_library()`. Two
+targets are factory-shaped instead: the MCP filesystem target
+(`build_filesystem_mcp_library(allowed_root, ...)` — its structure is
+test-harness-controlled at runtime) and InjecAgent's pooled operator pack
+(`injecagent_pool.py`, parameterized by which vendored test cases to draw
+from).
 
 ### The structured failure-diagnosis taxonomy
 

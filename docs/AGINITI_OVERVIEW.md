@@ -522,6 +522,18 @@ top-line number above was just re-audited.
 | `known_defended` | 1 | `memory_context_leakage_probe` |
 | Untagged (`attack_category=None`) | 22 | predate the taxonomy retrofit or never assigned one — listed with an informal read, not silently guessed into a bucket: A2A/consensus trust-manipulation operators, unlabeled direct/indirect-injection variants, MCP path-traversal operators, memory-injection operators |
 
+**This taxonomy is now directly selectable, not just descriptive.**
+(2026-08-22) `OperatorLibrary.by_category(*categories)`
+(`aginiti/operators/library.py`) filters any library down to one or more
+of these named groups — a union if more than one is given — resolved via
+`operator_primary_family()`, the same canonical classifier `family_
+diversification` already uses. `scripts/run_campaign.py --attack-category`
+wraps it as a CLI flag (`--list-attack-categories` prints every name with
+a one-line description); see that script's own module docstring,
+"Attack-category classification", for exactly how this differs from the
+older, coarser `--tier` flag. See `docs/ARCHITECTURE.md` §9 for the full
+method contract.
+
 **"RBAC" isn't a formal category.** There is no `attack_category="rbac"`
 in the codebase — RBAC/access-boundary-testing operators are currently
 folded into `direct_prompt_attack` (the `hardened_agent` probes) or left

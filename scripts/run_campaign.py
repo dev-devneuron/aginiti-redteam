@@ -219,9 +219,9 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--list-attack-categories", action="store_true",
-        help="Print all %d attack_category names with a one-line description each, then exit "
-             "immediately -- runs no campaign. The fastest way to see your options before "
-             "choosing --attack-category." % len(ALL_CATEGORIES),
+        help=f"Print all {len(ALL_CATEGORIES)} attack_category names with a one-line "
+             "description each, then exit immediately -- runs no campaign. The fastest way "
+             "to see your options before choosing --attack-category.",
     )
     parser.add_argument(
         "--budget", type=int, default=None,

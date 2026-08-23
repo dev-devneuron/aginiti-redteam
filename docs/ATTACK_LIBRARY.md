@@ -32,6 +32,53 @@ The last three are not offensive techniques — see `OFFENSIVE_CATEGORIES`/
 `is_offensive()` to exclude them from "how many real attack techniques
 does Aginiti cover" reporting.
 
+### Selecting by category — `OperatorLibrary.by_category()` (2026-08-22)
+
+This taxonomy was originally purely descriptive (a tag read by the
+planner's `family_diversification` term and by reporting code) — there
+was no way, from a script or the CLI, to say "load only the encoding
+attacks" or "only RAG poisoning." `OperatorLibrary.by_category(*categories)`
+(`aginiti/operators/library.py`) closes that: it returns a NEW
+`OperatorLibrary` containing only the operators whose category matches one
+of the ones given (a union across multiple categories, not an
+intersection). It resolves each operator's category through
+`operator_primary_family()` — the same canonical helper `family_
+diversification` already uses (see that function's own docstring for why
+it's the one place this classification rule lives, after being
+independently reinvented three times before consolidation) — so a
+`by_category()` filter can never silently disagree with what the planner
+itself considers an operator's category to be.
+
+```python
+from aginiti.operators.library import OperatorLibrary
+from aginiti.operators.data_exposure import data_exposure_operators
+from aginiti.operators.deep_attack_operators import deep_attack_operators
+
+library = OperatorLibrary([*data_exposure_operators(), *deep_attack_operators()])
+encoding_only = library.by_category("encoding_attack")
+encoding_or_rag = library.by_category("encoding_attack", "rag_poisoning")  # union
+```
+
+Raises `ValueError` immediately — not a silently-empty result — if given
+zero categories or a name that isn't in `ALL_CATEGORIES` (a typo caught at
+the call site, not discovered later as "why did this run nothing").
+Untagged operators (`attack_category=None`, still common on the older
+DemoAgent mock library — see `docs/AGINITI_OVERVIEW.md` §12's own
+"Untagged" row in its per-category breakdown for how many) never match
+any category filter, the same "opt-in tag, excluded rather than errored
+when absent" contract every taxonomy dimension in this project follows.
+
+`scripts/run_campaign.py --attack-category CATEGORY [CATEGORY ...]` wraps
+this directly as a CLI flag, alongside the coarser, pre-existing `--tier`
+flag (which derives from OWASP/attack_category tags into just 3 buckets —
+`data_leakage`/`unauthorized_actions`/`discovery_recon` — rather than
+exposing the full 11-category taxonomy). The two are mutually exclusive.
+Run `python scripts/run_campaign.py --list-attack-categories` to print
+every valid category name with a one-line description before choosing —
+covered end to end (unit tests for `by_category()` itself, plus a live,
+manually-verified CLI run per category-path) in
+`tests/unit/test_operator_library.py`.
+
 ### `technique_cluster` — a finer grain than `attack_category` (2026-08-14)
 
 `attack_category` groups by METHODOLOGY (11 broad categories) — too

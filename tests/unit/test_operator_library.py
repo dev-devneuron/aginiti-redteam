@@ -11,8 +11,10 @@ itself calls, so these tests are also an indirect regression guard on
 that function's own success-then-failure-effect fallback behavior, not
 just on by_category()'s filtering logic layered on top of it.
 """
+import pytest
+
 from aginiti.core.graph.attack_category import (
-    DIRECT_PROMPT_ATTACK, ENCODING_ATTACK, RAG_POISONING, TOOL_DISCOVERY,
+    DIRECT_PROMPT_ATTACK, ENCODING_ATTACK, MULTI_STEP_CHAIN, RAG_POISONING, TOOL_DISCOVERY,
 )
 from aginiti.core.graph.schema import ClaimStatus, RiskTier
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary
@@ -80,18 +82,15 @@ def test_returns_a_new_library_without_mutating_the_original():
 
 
 def test_a_category_present_in_the_taxonomy_but_absent_from_this_library_returns_empty_not_an_error():
-    from aginiti.core.graph.attack_category import MULTI_STEP_CHAIN
     result = _library().by_category(MULTI_STEP_CHAIN)
     assert len(result) == 0
 
 
 def test_no_categories_given_raises_immediately():
-    import pytest
     with pytest.raises(ValueError, match="at least one category"):
         _library().by_category()
 
 
 def test_unknown_category_name_raises_with_a_helpful_message_not_silently_empty():
-    import pytest
     with pytest.raises(ValueError, match="Unknown attack_category"):
         _library().by_category("not_a_real_category")
