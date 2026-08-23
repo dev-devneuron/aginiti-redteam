@@ -54,6 +54,7 @@ from aginiti.operators.encoding_variants import build_encoding_evasion_operators
 from aginiti.operators.access_control_layer_probe import access_control_layer_probe_operators
 from aginiti.operators.hardened_tool_probes import build_hardened_tool_probes
 from aginiti.operators.library import ClaimEffect, Operator
+from aginiti.operators.low_resource_language_evasion import build_low_resource_language_operators
 from aginiti.operators.output_filter_evasion import output_filter_evasion_operators
 from aginiti.operators.redaction_format_evasion import redaction_format_evasion_operators
 from aginiti.operators.session_isolation_probe import session_isolation_probe_operators
@@ -467,6 +468,14 @@ def build_hardened_agent_library(persona: str, index: VerbatimDisclosureIndex) -
     operators = [
         *data_exposure_operators(),
         *build_encoding_evasion_operators(),
+        # 2026-08-23: low-resource-language jailbreak (aginiti/operators/
+        # low_resource_language_evasion.py, Yong/Menghini/Bach arXiv:
+        # 2310.02446) -- deliberately TARGET-AGNOSTIC, added at explicit
+        # user direction to keep building real, general-purpose
+        # technique coverage rather than hardened_agent-only tools; see
+        # that module's own docstring for the full citation and this
+        # target's own live-verified (negative) result.
+        *build_low_resource_language_operators(),
         # 2026-08-14: output-side filter evasion (aginiti/operators/
         # output_filter_evasion.py) -- this target has redaction_enabled,
         # a defense dimension nothing else in this library tests directly
