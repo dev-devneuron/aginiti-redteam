@@ -456,32 +456,55 @@ open, specified-but-unbuilt attack proposal).
 
 ## 12. Operator inventory — audited, tiered, exact
 
-_Re-audited 2026-08-22 (previous count below was from 2026-08-13, before
-the two-developer merge and this session's `hardened_deep_attack_
-operators.py`/tool-calling additions — kept as a dated footnote rather
-than silently overwritten)._
+_Re-audited 2026-08-24 (previous count below was from 2026-08-22 — kept as
+a dated footnote rather than silently overwritten)._
 
 Verified the same way as before — actually importing and calling every
-operator-library builder function across `aginiti/operators/*.py` (now 31
-modules, up from 26) and deduplicating by `.id`, not grepped or estimated:
-377 `Operator()` instantiations produce **198 distinct `.id` values**.
+operator-library builder function across `aginiti/operators/*.py` (still
+31 modules — this pass's own 3 new files, `ascii_art_evasion.py`/`low_
+resource_language_evasion.py`/`hardened_tool_probes.py`, are net new
+additions to the count, not new module files beyond that) and
+deduplicating by `.id`, not grepped or estimated: **212 distinct `.id`
+values**, up from 198.
 
 | Tier | Count | Excludes |
 |---|---|---|
-| All distinct operator IDs in the codebase | 198 | — |
-| Recommended: appears in ≥1 non-fixture library (real/demo *target*-facing, non-decoy) | **92** | mock target, regression fixtures, planner-mechanism demo/scenario packs |
+| All distinct operator IDs in the codebase | 212 | — |
+| Recommended: appears in ≥1 non-fixture library (real/demo *target*-facing, non-decoy) | **106** | mock target, regression fixtures, planner-mechanism demo/scenario packs |
 | Fixture-only (mock target / regression / demo-pack exclusively) | 106 | — |
 
-**92 is the recommended number** for "how many real attack operators does
-Aginiti have" — every one of the 92 is independently executable against a
-real or realistically-modeled target (`hardened_agent`, `healthcare_agent`,
-AnythingLLM, DVLA, DVAA, the MCP filesystem server) and none is a
-helper/converter/utility. The excluded 106 are equally real code — the
-mock reference target, the synthetic regression fixtures that reproduce
-specific planner bugs deterministically, and the `ClassPrecondition`/
-family-diversification/technique-cluster demonstration packs — they're
-excluded because they don't represent a finding against something
-currently live, not because they're lower quality.
+**106 is the recommended number** for "how many real attack operators
+does Aginiti have" — up from 92, entirely from one session's real
+`attack_category` audit-and-fix work against `hardened_agent` (see
+`docs/EXP34_RESULTS.md` for the full methodology and per-category
+findings this count is downstream of): `ascii_art_evasion.py` (4, ArtPrompt,
+arXiv:2402.11753), `low_resource_language_evasion.py` (5, Yong/Menghini/
+Bach, arXiv:2310.02446), `hardened_tool_probes.py` (4, tool_discovery/
+tool_manipulation), plus one new `indirect_injection` canary
+(`hardened_incidental_mention_injection_probe`) — 14 new operators, all
+independently executable, all live-verified against a real target, none
+a helper/converter/utility. `aginiti/adaptive/deceptive_delight.py` (Unit
+42, Oct 2024) is NOT in this count -- it is a standalone multi-turn
+function (`run_deceptive_delight()`), matching `crescendo.py`'s own
+shape, not an `Operator` the planner selects directly; see that module's
+own docstring.
+
+**2026-08-22 figures, superseded above, kept for trend context**: 198
+distinct IDs total, 92 at the equivalent "recommended" tier.
+
+**2026-08-13 figures, kept for longer-range trend context**: 140
+distinct IDs total, 115 at the equivalent "recommended" tier. The growth
+from 140→198 total / 115→92-recommended reflects the two-developer merge
+(a second contributor's own operator libraries — DVAA, DVAA-consensus,
+the MCP filesystem server, InjecAgent — were merged into `main` on
+2026-08-20) plus that session's `hardened_deep_attack_operators.py` (IKEA/
+SECRET/MIA/SPE wrapped specifically for `hardened_agent`) and one new
+tool-result-injection probe. The recommended-tier count went *down*
+relative to the total because several of the merged libraries (DVAA,
+DVAA-consensus) are demonstration/vertical-slice targets by their own
+module docstrings, not yet a "real" tier the way `hardened_agent` is —
+the tiering rule didn't change, more fixture-tier code was added than
+recommended-tier code.
 
 **2026-08-13 figures, superseded above, kept for trend context**: 140
 distinct IDs total, 115 at the equivalent "recommended" tier. The growth
