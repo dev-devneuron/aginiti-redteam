@@ -69,10 +69,31 @@ python scripts/run_campaign.py --agent-url http://localhost:8001 \
     --tier data_leakage --budget 15
 ```
 
-`--tier` filters to one of `data_leakage | unauthorized_actions | discovery_recon |
-full_assessment`; `--budget` caps how many prompts the campaign may spend; `--model` overrides
-the attacker LLM used by the deep-attack operators (IKEA/SECRET/MIA). See
-`scripts/run_campaign.py`'s own module docstring for the full flag reference.
+`--tier` filters to one of 4 COARSE buckets — `data_leakage | unauthorized_actions |
+discovery_recon | full_assessment`. For a PRECISE selection instead, use `--attack-category`
+to pick from the 11 named attack-methodology groups directly (`direct_prompt_attack`,
+`encoding_attack`, `rag_poisoning`, `indirect_injection`, `tool_discovery`,
+`tool_manipulation`, `markdown_network_exfiltration`, `multi_step_chain`, plus 3
+planner-evaluation controls) — run `python scripts/run_campaign.py --list-attack-categories`
+to see every option with a one-line description before choosing:
+
+```bash
+# Only encoding-evasion attacks:
+python scripts/run_campaign.py --agent-url http://localhost:8001 \
+    --attack-category encoding_attack --budget 20
+
+# Two categories at once (a union):
+python scripts/run_campaign.py --agent-url http://localhost:8001 \
+    --attack-category encoding_attack rag_poisoning --budget 25
+```
+
+`--tier` and `--attack-category` are mutually exclusive (pick one granularity). `--budget` caps
+how many prompts the campaign may spend; `--model` overrides the attacker LLM used by the
+deep-attack operators (IKEA/SECRET/MIA). The same category filter is available directly in
+Python via `OperatorLibrary.by_category("encoding_attack", ...)`
+([`aginiti/operators/library.py`](aginiti/operators/library.py)) for any other caller, not
+just this script. See `scripts/run_campaign.py`'s own module docstring for the full flag
+reference.
 
 **Want to run one specific attack technique on its own** (IKEA, SECRET, or the Interrogation
 attack), rather than letting the planner decide? See [§ Standalone attack library](#-standalone-attack-library-ikea--secret--interrogation-mia) below.

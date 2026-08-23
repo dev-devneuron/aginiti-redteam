@@ -14,11 +14,35 @@ enterprise redteaming entry point:
                        DemoAgent (e.g. a Docker-hosted reference agent).
                        Switches the operator library too, not just the
                        agent -- see "Library selection" below for why.
-    --tier TIER        Filter the loaded library down to one of 4 test
-                       tiers: data_leakage | unauthorized_actions |
+    --tier TIER        Filter the loaded library down to one of 4 COARSE
+                       test tiers: data_leakage | unauthorized_actions |
                        discovery_recon | full_assessment (== no filter,
                        everything). See "Tier classification" below for
-                       how an operator is assigned to a tier.
+                       how an operator is assigned to a tier. Mutually
+                       exclusive with --attack-category (below) -- pick
+                       whichever granularity you want, not both at once.
+    --attack-category CATEGORY [CATEGORY ...]
+                       Filter the loaded library down to one or more of
+                       the 11 PRECISE named attack-methodology groups
+                       (direct_prompt_attack, encoding_attack,
+                       rag_poisoning, indirect_injection, tool_discovery,
+                       tool_manipulation, markdown_network_exfiltration,
+                       multi_step_chain, decoy, known_defended,
+                       low_value_reconnaissance) -- see "Attack-category
+                       classification" below for what each name covers
+                       and OperatorLibrary.by_category() (aginiti/
+                       operators/library.py) for the underlying,
+                       independently-usable filter this flag wraps.
+                       Multiple values are a union (any operator matching
+                       ANY listed category is included), e.g.
+                       --attack-category encoding_attack rag_poisoning.
+                       Run with --list-attack-categories to print every
+                       valid name plus a one-line description and exit.
+    --list-attack-categories
+                       Print all 11 attack_category names with a
+                       one-line description each, then exit immediately
+                       -- does not run a campaign. The fastest way to see
+                       your options before choosing --attack-category.
     --budget N          Override the mission's prompt budget.
     --model PROVIDER    Override the attacker LLM used by deep-attack
                        operators (IKEA/SECRET/MIA's own primary
@@ -29,9 +53,20 @@ Examples:
     # Original behavior, unchanged:
     python scripts/run_campaign.py
 
+    # See every available attack category before picking one:
+    python scripts/run_campaign.py --list-attack-categories
+
     # Against a real Docker target, only the cheap data-leakage probes:
     python scripts/run_campaign.py --agent-url http://localhost:8001 \\
         --tier data_leakage --budget 15
+
+    # Against a real Docker target, only encoding-evasion attacks:
+    python scripts/run_campaign.py --agent-url http://localhost:8001 \\
+        --attack-category encoding_attack --budget 20
+
+    # Two attack categories at once (a union, not an intersection):
+    python scripts/run_campaign.py --agent-url http://localhost:8001 \\
+        --attack-category encoding_attack rag_poisoning --budget 25
 
     # Everything (including deep attacks), larger budget, Groq attacker LLM:
     python scripts/run_campaign.py --agent-url http://localhost:8001 \\
@@ -79,17 +114,40 @@ mock scenario library (most of its payroll/GitHub/helpdesk operators
 predate this OWASP/attack-category tagging effort) -- a known, accepted
 limitation, not silently hidden.
 
-Mission derivation: when --agent-url or --tier changes what's actually in
-the library, `multi_path_mission()`'s hardcoded DemoAgent-specific success
-criteria (payroll_write_unauthorized, etc.) would no longer describe
-anything the loaded library can actually produce. So success_criteria is
-built dynamically from whichever operators end up in the (possibly
-tier-filtered) library -- each prompt operator's effects_success[*].key,
-each deep-attack operator's own claim_key -- with success_mode="any" (ANY
-one confirmed finding satisfies the mission, matching every other
-data-exposure-style Mission in aginiti/core/scenarios.py). The ORIGINAL
-multi_path_mission() is used unchanged only when NEITHER --agent-url NOR
---tier was passed, preserving exact original behavior.
+Attack-category classification: unlike --tier (a 3-bucket grouping this
+script derives from OWASP/attack_category tags), --attack-category filters
+directly on the real, already-existing 11-value `attack_category` taxonomy
+every operator's ClaimEffect can carry (aginiti/core/graph/
+attack_category.py) -- no new classification logic here, just
+`OperatorLibrary.by_category()` (aginiti/operators/library.py), the same
+general-purpose method any other caller of this project can use directly
+in Python, not something reimplemented per-script. That method resolves
+each operator's category via `operator_primary_family()` -- the ONE
+canonical place that rule lives (its own docstring explains why: this
+exact "first tagged success effect, else first tagged failure effect"
+logic had already been independently reinvented three times before being
+consolidated there) -- so --attack-category and any other current or
+future caller of by_category() can never silently drift apart on what
+"this operator's category" means. Same untagged-operator caveat as --tier
+above: an operator with no attack_category tag at all never matches any
+--attack-category filter, most commonly on the older DemoAgent mock
+library. Mutually exclusive with --tier (enforced by argparse) -- picking
+both at once would leave "which one wins, or is it an intersection?"
+ambiguous, so this script simply doesn't allow it.
+
+Mission derivation: when --agent-url, --tier, or --attack-category changes
+what's actually in the library, `multi_path_mission()`'s hardcoded
+DemoAgent-specific success criteria (payroll_write_unauthorized, etc.)
+would no longer describe anything the loaded library can actually produce.
+So success_criteria is built dynamically from whichever operators end up
+in the (possibly filtered) library -- each prompt operator's
+effects_success[*].key, each deep-attack operator's own claim_key -- with
+success_mode="any" (ANY one confirmed finding satisfies the mission,
+matching every other data-exposure-style Mission in
+aginiti/core/scenarios.py). The ORIGINAL
+multi_path_mission() is used unchanged only when NONE of --agent-url,
+--tier, or --attack-category was passed, preserving exact original
+behavior.
 
 Model override: only affects deep-attack operators' PRIMARY completion
 model (IKEA_OPERATOR_LLM_PROVIDER, SECRET_OPERATOR_LLM_PROVIDER,
@@ -122,6 +180,16 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
 
 
 def _parse_args() -> argparse.Namespace:
+    # Lightweight, pure-constants module (no transitive imports of its own,
+    # verified directly) -- safe to import here, ahead of every OTHER
+    # aginiti import in this file, which stay deferred inside main() so
+    # --model's env vars can be set before deep_attack_operators.py loads
+    # (see main()'s own comment on that ordering requirement). Needed here
+    # only to populate --attack-category's `choices` list so argparse's
+    # own validation and --help output are the single source of truth for
+    # valid category names, not a hand-maintained duplicate list.
+    from aginiti.core.graph.attack_category import ALL_CATEGORIES
+
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -132,11 +200,28 @@ def _parse_args() -> argparse.Namespace:
              "Switches the default operator library too -- see this file's own module "
              "docstring, 'Library selection'.",
     )
-    parser.add_argument(
+    _tier_group = parser.add_mutually_exclusive_group()
+    _tier_group.add_argument(
         "--tier", default=None,
         choices=["data_leakage", "unauthorized_actions", "discovery_recon", "full_assessment"],
-        help="Filter the loaded library to one test tier. 'full_assessment' (or omitting this "
-             "flag) means no filtering -- every operator in the loaded library is eligible.",
+        help="Filter the loaded library to one of 4 COARSE test tiers. 'full_assessment' (or "
+             "omitting this flag entirely) means no filtering -- every operator in the loaded "
+             "library is eligible. Mutually exclusive with --attack-category.",
+    )
+    _tier_group.add_argument(
+        "--attack-category", nargs="+", default=None, metavar="CATEGORY",
+        choices=sorted(ALL_CATEGORIES),
+        help="Filter the loaded library to one or more PRECISE named attack-methodology "
+             "groups (a union if you list more than one). Run --list-attack-categories to see "
+             "every valid name with a one-line description before choosing. Mutually "
+             "exclusive with --tier -- see this file's own module docstring, 'Attack-category "
+             "classification', for how this differs from --tier and what it actually filters.",
+    )
+    parser.add_argument(
+        "--list-attack-categories", action="store_true",
+        help="Print all %d attack_category names with a one-line description each, then exit "
+             "immediately -- runs no campaign. The fastest way to see your options before "
+             "choosing --attack-category." % len(ALL_CATEGORIES),
     )
     parser.add_argument(
         "--budget", type=int, default=None,
@@ -154,6 +239,31 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
+
+    if args.list_attack_categories:
+        # Deliberately handled before ANYTHING else in main() -- no .env
+        # load, no --model env var setup, none of the heavier aginiti
+        # imports below. This is a pure "look up a name, print it, exit"
+        # path, so it should work instantly even in an environment with no
+        # API keys configured at all, matching --help's own zero-
+        # dependency spirit.
+        from aginiti.core.graph.attack_category import (
+            ALL_CATEGORIES, CATEGORY_TITLES, OFFENSIVE_CATEGORIES,
+        )
+        print("Valid --attack-category values:\n")
+        for category in sorted(ALL_CATEGORIES):
+            # CATEGORY_TITLES already spells out "(planner-evaluation
+            # control)" in the title text itself for those 3 -- only the
+            # offensive ones need a label appended here, or every control
+            # category would print its own parenthetical twice.
+            suffix = " (offensive technique)" if category in OFFENSIVE_CATEGORIES else ""
+            print(f"  {category:<32} {CATEGORY_TITLES[category]}{suffix}")
+        print(
+            "\nPass one or more to --attack-category (space-separated -- a union, not an "
+            "intersection). See this file's own module docstring, 'Attack-category "
+            "classification', for exactly how this differs from --tier."
+        )
+        return
 
     # --model must be applied via env var BEFORE aginiti.operators.deep_attack_operators
     # is imported anywhere (including transitively) -- that module reads its provider
@@ -215,7 +325,7 @@ def main() -> None:
             return {op.claim_key} if op.claim_key else set()
         return {e.key for e in op.effects_success}
 
-    used_defaults = args.agent_url is None and args.tier is None
+    used_defaults = args.agent_url is None and args.tier is None and args.attack_category is None
 
     if used_defaults:
         # Exact original behavior -- zero change from before this script
@@ -229,8 +339,8 @@ def main() -> None:
             endpoint = AgentEndpoint(base_url=args.agent_url)
             agent = HTTPAgentAdapter(endpoint)
         else:
-            # --tier without --agent-url: still exercise the DemoAgent
-            # scenario library, just filtered.
+            # --tier/--attack-category without --agent-url: still exercise
+            # the DemoAgent scenario library, just filtered.
             operators = build_library()
             agent = None
 
@@ -244,13 +354,36 @@ def main() -> None:
                     f"classification', for which packs that fully covers.)"
                 )
 
+        if args.attack_category:
+            # OperatorLibrary.by_category() (aginiti/operators/library.py)
+            # does the actual filtering and its own validation -- reused
+            # here rather than reimplemented, same discipline as
+            # _classify_tier's own docstring documents for the tier case.
+            # argparse's `choices` already rejects an unknown category
+            # name before main() ever runs, so by_category()'s own
+            # ValueError path is a defensive second layer, not the
+            # primary one, here specifically.
+            operators = list(OperatorLibrary(operators).by_category(*args.attack_category))
+            if not operators:
+                raise SystemExit(
+                    f"--attack-category {args.attack_category!r} matched zero operators in the "
+                    f"loaded library. (See this file's own module docstring, 'Attack-category "
+                    f"classification', for the untagged-operator caveat, most common against "
+                    f"the older DemoAgent mock library.)"
+                )
+
         library = OperatorLibrary(operators)
 
         success_criteria = tuple(sorted({key for op in operators for key in _success_keys(op)}))
+        _scope_note = (
+            f" (tier: {args.tier})" if args.tier
+            else f" (attack categories: {', '.join(args.attack_category)})" if args.attack_category
+            else ""
+        )
         mission = Mission(
             goal=(
                 f"Demonstrate a concrete compromise against the target"
-                f"{' (tier: ' + args.tier + ')' if args.tier else ''}."
+                f"{_scope_note}."
             ),
             success_criteria=success_criteria,
             # 25: comfortably admits a mix of cheap data_exposure probes
