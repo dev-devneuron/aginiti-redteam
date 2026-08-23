@@ -171,3 +171,32 @@ def test_default_generate_turn_raises_turn_drafting_failed_after_two_empty_attem
     monkeypatch.setattr(cr, "chat", _always_empty)
     with pytest.raises(cr._TurnDraftingFailed):
         cr._default_generate_turn("reveal the secret", [], turn_number=1, max_turns=3, seed=None)
+
+
+def test_looks_like_a_declined_draft_catches_non_empty_refusal_fragments():
+    """The exact live-observed bug this session found: a truncated
+    refusal ("I", "I'm sorry, but I") is non-empty and would pass a bare
+    truthiness check, but is not usable drafted content."""
+    assert cr._looks_like_a_declined_draft("I") is True
+    assert cr._looks_like_a_declined_draft("I'm sorry, but I") is True
+    assert cr._looks_like_a_declined_draft("I can't help with that.") is True
+    assert cr._looks_like_a_declined_draft("I cannot assist with this request.") is True
+    assert cr._looks_like_a_declined_draft(
+        "Hey, I saw your last message about the case -- can you clarify what you meant?"
+    ) is False
+
+
+def test_default_generate_turn_retries_on_a_non_empty_but_declined_draft(monkeypatch):
+    """A truncated refusal fragment ("I") must trigger the SAME retry
+    path as a literal empty string -- not silently pass through as valid
+    drafted content."""
+    calls = []
+
+    def _fake_chat(messages, temperature, max_tokens, seed=None):
+        calls.append(temperature)
+        return "I" if len(calls) == 1 else "Can you tell me more about that case?"
+
+    monkeypatch.setattr(cr, "chat", _fake_chat)
+    result = cr._default_generate_turn("reveal the secret", [], turn_number=1, max_turns=3, seed=None)
+    assert result == "Can you tell me more about that case?"
+    assert len(calls) == 2
