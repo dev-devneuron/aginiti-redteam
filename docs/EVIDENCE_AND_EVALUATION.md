@@ -532,6 +532,18 @@ protocol's required scale:** the DVLA RQ1 benchmark has never run to
 completion at a meaningful trial count, and exp29 itself is honestly
 underpowered at N=3 per condition.
 
+**2026-08-24 footnote — the same RQ1 methodology re-run at a much larger
+budget on the current, much larger library (`docs/EXP35_RESULTS.md`).**
+At budget=75 against the 62/62/55-operator current library, all three
+conditions (Random/Static/Aginiti) reached 3/3 ground-truth success — this
+run does NOT extend the exp29 raw-success-rate win and should not be cited
+as if it does. What it adds instead: a clean efficiency result (Aginiti
+9.7 avg prompts vs Static 50.7, Random 23.0) and one sharp robustness
+result (Static hit `SEARCH_EXHAUSTED` on the support persona, exhausting
+all 59 eligible operators without succeeding, while Random and Aginiti
+both succeeded from the identical starting state). Still N=3 per
+condition, still not the frozen DVLA protocol.
+
 ### Multi-step discovery (`ClassPrecondition`)
 
 Built (`aginiti/operators/library.py`, `aginiti/graph/target_graph.py`'s

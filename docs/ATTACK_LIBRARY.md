@@ -1,6 +1,6 @@
 # Aginiti — Attack Library: Taxonomy, Catalog, and Adaptive Discovery
 
-_Last updated 2026-08-14. The deep-dive companion to `docs/
+_Last updated 2026-08-24. The deep-dive companion to `docs/
 AGINITI_OVERVIEW.md` §6–7 — read that first for the summary; this document
 is the full taxonomy reference and the mechanics of how the adaptive-search
 modules work._
@@ -98,6 +98,9 @@ instead of moving to a genuinely different technique in the same family.
 | `session_isolation_probe_variants` | 3 | Same "does cross-session memory leak" question, 3 different pretexts |
 | `output_filter_evasion_system_prompt_variants` | 5 | Same "does an output-filter reformatting trick let the system prompt through" question, 5 reformatting tricks |
 | `output_filter_evasion_secret_variants` | 3 | Same question for a credential/secret instead of the system prompt |
+| `algorithmic_encoding_variants` *(2026-08-24)* | 12 | Same "does hiding an override instruction in an ENCODED payload bypass the guardrail" question, 12 encoding schemes/stacks (`encoding_variants.py`) — see below, this was a real gap found and fixed this session, not present from the start |
+| `artprompt_word_masking_variants` *(2026-08-23)* | 4 | Same ArtPrompt mechanism (Jiang et al., ACL 2024, arXiv:2402.11753) — mask a sensitive term as ASCII art so a moderation layer reading the literal token never sees it, 4 masking variants |
+| `low_resource_language_variants` *(2026-08-23)* | 5 | Same low-resource-language jailbreak (Yong/Menghini/Bach, arXiv:2310.02446) — safety-tuning coverage is thin for low-resource languages, 5 variants across Zulu/Scots Gaelic/Guarani |
 
 **Deliberately NOT applied to every candidate 5-variant-in-one-factory-
 function pack.** `redaction_format_evasion.py`'s 5 variants were inspected
@@ -106,11 +109,22 @@ specific regex gap (SSN vs. email vs. credit card vs. phone), a genuinely
 different hypothesis per variant, not a wrapper of one repeated question.
 Guessing a shared cluster onto operators that don't actually share a
 mechanism would be worse than leaving them untagged — see that module's
-own docstring for the full reasoning. `encoding_variants.py`'s 13 base
-pipelines are similarly untagged: each is a genuinely distinct encoding
-scheme (base64, rot13, hex, morse, ...), not a wrapper of one idea. This
-audit has not yet been run over the full 115-operator library — see
-`docs/ARCHITECTURE.md` §12 for what's confirmed still open.
+own docstring for the full reasoning.
+
+**Correction (2026-08-24): `encoding_variants.py`'s 12 pipelines were
+NOT correctly left untagged** — this document previously described them
+as "similarly untagged: each is a genuinely distinct encoding scheme
+... not a wrapper of one idea," but that reasoning was wrong. All 12
+pipelines test the exact SAME hypothesis (does an override instruction
+survive this specific encoding), the textbook case `technique_cluster`
+exists for — they were simply never retrofitted with the tag when the
+field was introduced. Found via exp34's own audit (`docs/
+EXP34_RESULTS.md`, "Open question"), fixed the same session (see
+`algorithmic_encoding_variants` above and `encoding_variants.py`'s own
+2026-08-24 docstring note), and verified deterministically. This
+category-level audit has still not been re-run over the full current
+library beyond these three clusters — see `docs/ARCHITECTURE.md` §12 for
+what's confirmed still open.
 
 ## The failure-diagnosis taxonomy (`aginiti/graph/failure_diagnosis.py`)
 
@@ -237,12 +251,29 @@ standing limitation. It no longer is one.
   currently kept; **not consolidated in this pass** — a real, open
   architectural decision for whoever picks this up next, not silently
   resolved here.
+- **`deceptive_delight.py`** *(2026-08-23)* — Deceptive Delight (Palo
+  Alto Unit 42, Oct 2024): a fixed 2-3 turn template that interleaves a
+  genuinely harmful request between two benign ones inside a single
+  narrative-generation ask, then asks the model to "elaborate" on all
+  three topics together, exploiting the model's own narrative-coherence
+  drive to carry the harmful thread through unflagged, rather than
+  hiding it via encoding or role-play. `run_deceptive_delight()` follows
+  the SAME "inject a deterministic stand-in for the drafting LLM call"
+  pattern as `crescendo.py`/`many_shot.py` above, real turn-by-turn
+  against the actual target adapter. **Structural note, stated plainly**:
+  unlike the other six engines, this one is not yet wired into
+  `run_full_assessment()`'s orchestrator or exposed as a planner-
+  selectable `Operator` — it is invoked the same standalone way
+  `run_crescendo_escalation` was before that wiring existed. Live results
+  and the honest case for/against wiring it in are in
+  `docs/EXP34_RESULTS.md`.
 
-All seven are fully unit-tested with deterministic stub adapters/
+All eight are fully unit-tested with deterministic stub adapters/
 extractors/LLM-call injection points — no live LLM or target calls in any
-test (`many_shot.py`/`crescendo.py`/`membership_inference.py` each follow
-the SAME "inject a deterministic stand-in for any LLM-drafting function
-via an explicit parameter" pattern `refinement.py` established first).
+test (`many_shot.py`/`crescendo.py`/`membership_inference.py`/
+`deceptive_delight.py` each follow the SAME "inject a deterministic
+stand-in for any LLM-drafting function via an explicit parameter" pattern
+`refinement.py` established first).
 **Live-tested twice now**: exp20's discovery-arm bonus test (`docs/
 EXP20_RESULTS.md`, `encoding_discovery`/`framing_discovery` only, 10
 trials, a genuine null result against a hardened AnythingLLM target); and

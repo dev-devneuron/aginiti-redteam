@@ -258,8 +258,13 @@ toggleable defenses.
 | `data_exposure.py` / `encoding_variants.py` / `adaptive_followup_operators.py` (reused, unmodified) | 7 / 12 / varies | Same target-agnostic packs every other real target uses |
 | `aginiti/adaptive/membership_inference.py` (standalone, not in the static library — called directly, see `docs/ATTACK_LIBRARY.md`) | n probes/candidate doc | RAG corpus-membership inference — live-verified across all 3 personas with a fresh-server, MI-first run: average score gap 1.06 (legal 1.31, support 0.75, ops 1.13); see `docs/EXP26_RESULTS.md` for the full arc, including a signal-collapse failure mode found and fixed along the way |
 
-**Real, current per-persona operator counts** (`build_hardened_agent_library`):
-legal 49, support 49, ops 44. `healthcare_agent`: 37.
+**Real, current per-persona operator counts** (`build_hardened_agent_library`,
+2026-08-24 recount after this session's category-strengthening additions —
+ArtPrompt, low-resource-language jailbreak, hardened-tool-RBAC probes,
+Deceptive Delight (standalone, not in this count, see `docs/
+ATTACK_LIBRARY.md`)): legal 58, support 58, ops 51 (+4 deep-attack
+operators per persona from `hardened_deep_attack_operators`, giving the
+62/62/55 totals `docs/EXP35_RESULTS.md` ran against). `healthcare_agent`: 37.
 
 `aginiti/assessment.py`'s `run_full_assessment()` is the orchestrator that
 actually drives all of this (plus `many_shot`/`crescendo`/encoding/framing
@@ -291,8 +296,9 @@ EXP26_RESULTS.md` for the full experimental record and analysis.
   evaluation harness.
 
 **Total addressable operator surface**: ~71 hand-authored/generated
-operators across the earlier static libraries, plus 44-49 more per
-`hardened_agent` persona / 37 for `healthcare_agent` (§7 above), plus
+operators across the earlier static libraries, plus 51-58 more per
+`hardened_agent` persona (+4 deep-attack operators per persona) / 37 for
+`healthcare_agent` (§7 above), plus
 1,054 InjecAgent test cases, plus the unbounded encoding-discovery/
 framing-discovery/many-shot/Crescendo/membership-inference search space.
 
@@ -365,9 +371,35 @@ process), 3 personas as the real independent-trial axis:
 Full findings-by-finding audit, quoted evidence, and every honest
 limitation in `docs/EXP29_RESULTS.md`.
 
+**2026-08-24 footnote — the same RQ1 methodology re-run on the current,
+much larger library: `docs/EXP35_RESULTS.md`.** After a full session of
+category-strengthening work (ArtPrompt, low-resource-language jailbreak,
+Deceptive Delight, hardened-tool-RBAC probes, a real `technique_cluster`
+planner fix) grew the library to 62/62/55 operators (legal/support/ops,
+up from exp29's much smaller set), exp35 re-ran the identical
+Random/Static/Aginiti/fresh-restart methodology at a proportionally
+larger budget (75). At this generous budget all three conditions reached
+3/3 ground-truth success — this run is not a repeat of exp29's raw
+success-rate win, and is reported as such, not oversold. What it does
+show cleanly: Aginiti used 9.7 avg prompts vs Static's 50.7 (5.2×) and
+Random's 23.0 (2.4×), and averaged 0.7 input-filter blocks per trial vs
+Static's 40.7 — the planner steering away from doomed encoding-style
+attempts within a single campaign, not just being faster by luck. The
+sharpest single trial: Static hit `SEARCH_EXHAUSTED` on the support
+persona after exhausting all 59 eligible operators, while Random and
+Aginiti both succeeded on the identical starting state. Full numbers,
+per-trial detail, and the honest caveats (budget chosen once and not
+swept; Aginiti's own avg-findings count being lower than Static's is a
+mechanical consequence of stopping earlier under the shared
+`stop_on_mission_success` rule, not weaker exploration) in
+`docs/EXP35_RESULTS.md`.
+
 ## 9. Test suite and what it proves
 
-**1,079 tests, fully offline** — every LLM call and every network call is
+**1,827 tests, fully offline** (2026-08-24 recount — grown from the
+1,079 figure below as this session's category-strengthening work each
+shipped with its own dedicated test module; see `docs/EXP35_RESULTS.md`
+and `docs/EXP34_RESULTS.md` for what was added). Every LLM call and every network call is
 mocked or deterministically stubbed; nothing in the suite costs tokens or
 requires a running server. Coverage spans: the SSG/evidence model in
 isolation, every operator library's structural invariants, the planner's
