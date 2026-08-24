@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aginiti-redteam"
-version = "0.1.0"
+version = "0.1.2"
 description = "Red-teaming library for enterprise agentic AI systems — data leak evaluation"
-readme = "README.md"
+readme = "README_pypi.md"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [
