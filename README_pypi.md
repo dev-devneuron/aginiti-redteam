@@ -1,8 +1,19 @@
 # Aginiti Red-Team Framework 🛡️🤖
 
-**Aginiti** is an automated security-assessment and penetration-testing library designed for enterprise agentic AI systems (chatbots, RAG assistants, tool-calling agents, and multi-agent fleets). 
+**Aginiti** is an autonomous security-assessment and penetration-testing engine for
+enterprise agentic AI systems — chatbots, RAG assistants, tool-calling agents, and
+multi-agent fleets.
 
-Rather than executing a static list of prompts and checking pass/fail, Aginiti builds an active **Security State Graph (SSG)** of the target, evaluates security controls, and plans multi-step exploits autonomously.
+Rather than executing a static list of prompts and checking pass/fail, Aginiti builds an
+active **Security State Graph (SSG)** of the target, evaluates security controls, and
+plans multi-step exploits autonomously — the way a human red-teamer reasons, at machine
+speed.
+
+**Proven, not just architected:** benchmarked head-to-head against fixed-order
+enumeration (~5x fewer requests to the same outcomes) and validated against NVIDIA's
+garak (findings agreed exactly on every comparable category) on real, production-realistic
+targets. 11 attack methodologies, grounded in 9+ published research papers, 1,827 tests.
+Full numbers: [`docs/BENCHMARKS.md`](https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/BENCHMARKS.md).
 
 ---
 

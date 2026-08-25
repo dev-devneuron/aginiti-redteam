@@ -45,8 +45,7 @@ dependencies = [
     # its own ONNX runtime; PyTorch is never a dependency of this project).
     #
     # Native-binary troubleshooting (some Windows/older-CPU machines — do NOT
-    # hard-pin these globally, they are per-machine workarounds; see
-    # docs/how-it-works.md §3.10):
+    # hard-pin these globally, they are per-machine workarounds):
     #   * onnxruntime "DLL load failed": pin `onnxruntime==1.17.0` (needs
     #     `numpy==1.26.4`, i.e. NumPy 1.x — 1.17.0 is built against NumPy 1.x).
     #   * chromadb `add()`/`query()` SIGSEGV: the 1.x Rust core can crash on
@@ -77,8 +76,8 @@ Issues = "https://github.com/dev-devneuron/aginiti-redteam/issues"
 [project.optional-dependencies]
 # Full local dev/benchmark workflow: running the test suite PLUS the local
 # reference agents (benchmarks/dev_fixtures/, benchmarks/scaled_evals/) that
-# docs/dev_setup.md and the root README's Quick Start walk through — those
-# agents are FastAPI/Uvicorn apps and use Faker to generate synthetic data.
+# the root README's Quick Start walks through — those agents are FastAPI/
+# Uvicorn apps and use Faker to generate synthetic data.
 # 2026-07-2x: fastapi/uvicorn/faker moved here FROM the core `dependencies`
 # list above — nothing under aginiti/ imports any of the three (verified by
 # grep), they were only ever needed by benchmarks/. A bare `pip install

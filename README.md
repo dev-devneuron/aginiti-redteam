@@ -2,13 +2,16 @@
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)]()
-[![Tests](https://img.shields.io/badge/tests-1761%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-1827%20passing-brightgreen.svg)]()
+[![Attack Categories](https://img.shields.io/badge/attack%20categories-11-blueviolet.svg)]()
+[![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)]()
 
-**Aginiti** is an AI agent security-assessment tool. It drives a real target — a chatbot, a
-RAG-backed assistant, a tool-calling agent, even a multi-agent fleet — through a live
-conversation, accumulates everything it learns into a persistent evidence graph, and uses
-that graph to decide what to try next. It does not fire a fixed list of prompts and score
-pass/fail; it plans.
+**Aginiti is an autonomous red-teaming engine for AI agents.** Point it at a chatbot, a
+RAG-backed assistant, a tool-calling agent, or a multi-agent fleet, and it plans a real
+attack campaign against it — accumulating everything it learns into a persistent evidence
+graph and deciding what to try next from that graph, turn by turn. No fixed prompt list, no
+scripted chain: it reasons about the target the way a human red-teamer would, at machine
+speed and scale.
 
 Two things live in this repo, and you can use either independently:
 
@@ -16,7 +19,7 @@ Two things live in this repo, and you can use either independently:
    eligible attack by a multi-term utility function (information gain, chain progress,
    diagnosed failure patterns, …), executes the top pick, records what happened as
    Fact → Observation → Claim evidence, and repeats. This is the actual novel part of the
-   project — see [`docs/AGINITI_OVERVIEW.md`](docs/AGINITI_OVERVIEW.md) for the full design.
+   project — see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design.
 2. **A standalone attack library** (`aginiti/attacks/`) — IKEA and SECRET (two independent
    Data Reconstruction Attacks), and an Interrogation/Membership-Inference attack — each
    runnable directly against one target via its own script, or wrapped as planner-selectable
@@ -24,8 +27,32 @@ Two things live in this repo, and you can use either independently:
 
 Every real target is probed through the same evidence pipeline: raw responses are judged
 (deterministically where possible, by an LLM otherwise) **and** cross-checked against an
-independent, non-LLM disclosure oracle before anything counts as a confirmed finding — see
-[`docs/EVIDENCE_AND_EVALUATION.md`](docs/EVIDENCE_AND_EVALUATION.md).
+independent, non-LLM disclosure oracle before anything counts as a confirmed finding.
+
+---
+
+## 🏆 Results
+
+Aginiti isn't validated on toy examples. It's benchmarked head-to-head against honest
+baselines and an industry-standard scanner, on real, independently-built targets:
+
+- **~5x fewer requests than fixed-order enumeration** to reach the same ground-truth
+  outcomes against a production-realistic target with 8 independently-toggleable defense
+  layers (RBAC, output redaction, rate limiting, a dedicated input-filter classifier, and
+  more) — and **cut requests the target's own filter blocked by over 98%**, evidence the
+  planner is steering around dead ends mid-campaign, not succeeding through brute volume.
+- **Validated against [NVIDIA's garak](https://github.com/NVIDIA/garak):** on every
+  directly comparable attack category, Aginiti's findings agreed exactly with garak's —
+  plus real, confirmed findings (live tool exfiltration, network egress) that a
+  REST-only scanner is structurally unable to see at all.
+- **11 named attack methodologies**, from direct prompt injection to RAG poisoning to
+  multi-step MCP tool-chain composition, grounded in **9+ published, cited research
+  papers** — ArtPrompt, Crescendo, PAIR, CipherChat/MetaCipher, the Interrogation Attack,
+  IKEA, SECRET, InjecAgent, and STAC among them.
+- **1,827 tests, fully offline** — every LLM and network call mocked, full suite in
+  under 30 seconds, zero API cost.
+
+Full methodology, numbers, and citations: [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md).
 
 ---
 
@@ -100,9 +127,10 @@ attack), rather than letting the planner decide? See [§ Standalone attack libra
 
 **Windows users:** native `onnxruntime` (used by the default local embedding backend) can hit
 DLL-loading issues on native Windows. Running inside **WSL2** or Docker
-([`docs/docker.md`](docs/docker.md)) is the smoothest path; the Quickstart above also works
-natively on Windows in most environments, it's only the optional local-embedding path that's
-more reliable under WSL2/Docker.
+(`docker build -t aginiti-redteam . && docker compose up` — see the [`Dockerfile`](Dockerfile)
+and [`docker-compose.yml`](docker-compose.yml) at the repo root) is the smoothest path; the
+Quickstart above also works natively on Windows in most environments, it's only the optional
+local-embedding path that's more reliable under WSL2/Docker.
 
 ---
 
@@ -122,7 +150,7 @@ aginiti-redteam/
 │   │   │                             #   (deterministic extractor -> LLM judge -> independent oracle)
 │   │   └── llm.py                     # Provider-agnostic LLM client (Groq/Gemini, auto-fallback)
 │   ├── operators/                # Operator libraries — one module per target/technique family;
-│   │                             #   see docs/AGINITI_OVERVIEW.md §12 for the full inventory
+│   │                             #   see docs/ARCHITECTURE.md for the full catalog
 │   ├── adapters/                 # One BaseAdapter subclass per real/mock target — the only
 │   │                             #   place target-specific transport (HTTP, stdio, a gateway) lives
 │   ├── attacks/
@@ -141,8 +169,8 @@ aginiti-redteam/
 │   ├── run_campaign.py           # The general-purpose entry point — see Quickstart above
 │   ├── run_ikea.py / run_secret.py / run_interrogation.py   # Standalone single-attack runners
 │   └── run_healthcare_benchmark.py  # Preset benchmark against the HealthCareMagic-1k corpus
-├── docs/                         # Start with docs/AGINITI_OVERVIEW.md, then docs/ARCHITECTURE.md
-└── tests/                        # 1,761 tests, fully offline (every LLM/HTTP call mocked)
+├── docs/                         # ARCHITECTURE.md, BENCHMARKS.md, ROADMAP.md
+└── tests/                        # 1,827 tests, fully offline (every LLM/HTTP call mocked)
 ```
 
 ---
@@ -154,9 +182,8 @@ aginiti-redteam/
 * A valid API key for any LiteLLM-supported provider (`GEMINI_API_KEY`, `GROQ_API_KEY`,
   `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …) — the planner's reasoning, the judge, and the
   attack loops are all provider-agnostic via [LiteLLM](https://github.com/BerriAI/litellm).
-* **Windows users:** see the Quickstart note above — WSL2 or Docker
-  ([`docs/docker.md`](docs/docker.md)) is the most reliable path for anything that touches
-  the local ONNX embedding backend.
+* **Windows users:** see the Quickstart note above — WSL2 or Docker is the most reliable
+  path for anything that touches the local ONNX embedding backend.
 
 ### Install & Configure
 
@@ -263,10 +290,9 @@ against real records), **SS** (Semantic Similarity), and **EE** (Exfiltration Ef
 combined gating metric). Results land as timestamped JSON/Markdown under
 `benchmarks/scaled_evals/results/`.
 
-For the full `hardened_agent` setup (seeding, all 8 defenses, RBAC personas, and how to run and
-interpret a complete live experiment end to end) see
-[`docs/QUICKSTART_HARDENED_AGENT.md`](docs/QUICKSTART_HARDENED_AGENT.md) and
-[`docs/benchmarking.md`](docs/benchmarking.md#8-benchmarking-against-a-defended-target-hardened_agent).
+For real results interpreting exactly this kind of run — including a full head-to-head
+against Random/Static baselines and against NVIDIA's garak — see
+[`docs/BENCHMARKS.md`](docs/BENCHMARKS.md).
 
 ---
 
@@ -279,7 +305,7 @@ offline, in seconds, at zero API cost:
 pytest tests/ -v
 ```
 
-1,761 tests currently pass on a clean checkout.
+1,827 tests currently pass on a clean checkout.
 
 ---
 
@@ -287,32 +313,18 @@ pytest tests/ -v
 
 | Doc | What it covers |
 |---|---|
-| [`docs/AGINITI_OVERVIEW.md`](docs/AGINITI_OVERVIEW.md) | **Start here.** What Aginiti is, how the planner works, the audited operator inventory |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Deep code-level architecture — the evidence graph, execution paths, glossary |
-| [`docs/EVIDENCE_AND_EVALUATION.md`](docs/EVIDENCE_AND_EVALUATION.md) | The evidence ledger — every claim, cited |
-| [`docs/QUICKSTART_HARDENED_AGENT.md`](docs/QUICKSTART_HARDENED_AGENT.md) | Full walkthrough: stand up `hardened_agent` and run a live experiment against it |
-| [`docs/benchmarking.md`](docs/benchmarking.md) | Benchmark methodology, metrics, and results interpretation |
-| [`docs/COMPETITOR_COMPARISON.md`](docs/COMPETITOR_COMPARISON.md) | How Aginiti compares against garak and the broader field |
-| [`docs/RESEARCH_AND_PROVENANCE.md`](docs/RESEARCH_AND_PROVENANCE.md) | Every paper, dataset, and codebase this project builds on, with license/citation |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Trajectory and what's next |
-| [`docs/docker.md`](docs/docker.md) | Full containerized setup (all reference agents, including `hardened_agent`) |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | **Start here.** How Aginiti works — the evidence graph, the planner, the full attack catalog |
+| [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) | Real results — the garak head-to-head, live planner-advantage experiments, and every research citation |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | What's shipped, what's in progress, what's next, and how to contribute |
 
 ---
 
-## 🗺️ Roadmap & Status
+## 🗺️ Status
 
-* [x] **Adaptive campaign engine** — Security State Graph, constrained-utility planner,
-  evidence-driven operator chaining ([`docs/AGINITI_OVERVIEW.md`](docs/AGINITI_OVERVIEW.md))
-* [x] **Data Reconstruction Attacks** — IKEA (ERS+TRDM) and SECRET (jailbreak-optimized),
-  both wired as planner-selectable Operators and as standalone runners
-* [x] **Membership Inference Attack** — Interrogation Attack ("Riddle Me This," CCS 2025)
-* [x] **Production-realism hardened target** — `hardened_agent`, 8 independently-toggleable
-  defense layers including RBAC-scoped tool-calling, live-tested end to end
-* [x] **Independent, non-LLM disclosure oracle** — every finding is cross-checked against a
-  deterministic verbatim/fuzzy match, not judged by a single LLM alone
-* [ ] Tier 2 OTel trace-collector integration for the scaled-evals targets (Langfuse ingress)
-* [ ] Feature/Attribute Inference Attack (FIA)
-* [ ] `aginiti` CLI wrapper
+Evidence-driven adaptive planning, multi-step discovery, composite severity scoring, data
+reconstruction attacks, membership inference, and a production-realism hardened target are
+all shipped and live-tested. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the full picture
+— what's shipped, what's actively being scaled up, and what's next.
 
 ---
 

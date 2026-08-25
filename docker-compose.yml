@@ -1,6 +1,6 @@
 # Full-stack Docker setup for aginiti-redteam: the three reference agents,
 # their one-shot seeding jobs, and the two attack scripts — all built from the
-# single shared Dockerfile at the repo root. See docs/docker.md for usage.
+# single shared Dockerfile at the repo root. See the README's Quickstart for usage.
 #
 # Design notes:
 #   - .chroma/ stores, run results, and the prepared HealthCareMagic dataset

@@ -71,7 +71,7 @@ for f in findings:
 > **Embeddings run locally by default.** All of IKEA's ERS/TRDM similarity math
 > uses `chromadb/all-MiniLM-L6-v2` via ChromaDB's ONNX runtime — no API key, no
 > PyTorch, zero embedding API cost. Only the attacker's LLM calls
-> (`llm_provider`) hit a cloud API. See `docs/benchmarking.md` §6 for overrides.
+> (`llm_provider`) hit a cloud API. See `.env.example` for the model-override variables.
 
 ### Tier 2 (OTel) usage
 
@@ -265,8 +265,8 @@ restricted to confirmed-leak findings only.
 These metrics are computed for you by **`scripts/run_benchmark.py`** (or the
 zero-arg preset `scripts/run_healthcare_benchmark.py`), which runs the attack
 against a live agent over a public dataset and scores the findings against
-ground truth. See **`docs/benchmarking.md`** for the full workflow and how to
-read the results.
+ground truth. See **[`docs/BENCHMARKS.md`](../../../docs/BENCHMARKS.md)** for how these
+metrics have scored on real, live runs.
 
 ---
 

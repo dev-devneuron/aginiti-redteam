@@ -6,8 +6,8 @@
 #
 # Runs on Linux inside the container regardless of host OS (Docker Desktop on
 # Windows/Mac already runs a Linux VM under the hood). This sidesteps the
-# Windows-native-Python onnxruntime/chromadb binary issues documented in
-# docs/how-it-works.md §3.10 entirely — no WSL2 setup needed to use this image.
+# Windows-native-Python onnxruntime/chromadb binary issues (see the README's
+# Windows note) entirely — no WSL2 setup needed to use this image.
 FROM python:3.12-slim
 
 # curl is only used by docker-compose.yml's HTTP healthchecks against each
@@ -20,11 +20,10 @@ WORKDIR /app
 
 # Copy only what setuptools needs to resolve the editable install first, so
 # this (slow) layer stays cached across changes to scripts/benchmarks/tests.
-# pyproject.toml declares readme = "docs/dev_setup.md" and
+# pyproject.toml declares readme = "README_pypi.md" and
 # [tool.setuptools.packages.find] include = ["aginiti*"] — both must be
 # present for `pip install -e` to succeed.
-COPY pyproject.toml ./
-COPY docs/dev_setup.md docs/dev_setup.md
+COPY pyproject.toml README_pypi.md ./
 COPY aginiti ./aginiti
 
 # [benchmarks] extra (datasets + rouge-score) is included because the shared
