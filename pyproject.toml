@@ -12,6 +12,7 @@ license-files = ["LICENSE"]
 authors = [
     { name = "Aginiti" },
     { name = "Omer Bin Dawood" },
+    { name = "Muhammad Hammad Irfan" },
 ]
 requires-python = ">=3.10"
 keywords = [

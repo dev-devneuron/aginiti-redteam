@@ -187,5 +187,5 @@ for claim in result.ssg.claims:
 
 *   **GitHub Repository:** For local developer setups, starting Docker target containers, or contributing, visit [Aginiti Red-Team GitHub](https://github.com/dev-devneuron/aginiti-redteam).
 *   **Detailed Documentation:** Refer to the `docs/` folder in the repository for detailed papers on the Aginiti planning model, evidence classification, and mitigation guides.
-*   **Contributors:** [Omer Bin Dawood](https://github.com/OmerBinDawood)
+*   **Contributors:** [Omer Bin Dawood](https://github.com/OmerBinDawood), [Muhammad Hammad Irfan](https://github.com/MuhammadHammadIrfan)
 *   **License:** MIT
