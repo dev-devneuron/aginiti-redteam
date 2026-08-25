@@ -328,6 +328,12 @@ all shipped and live-tested. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the fu
 
 ---
 
+## 👥 Contributors
+
+- [Omer Bin Dawood](https://github.com/OmerBinDawood)
+
+---
+
 ## 📄 License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
