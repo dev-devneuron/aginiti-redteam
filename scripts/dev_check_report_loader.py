@@ -1,10 +1,10 @@
-"""Dev-only sanity check of aginiti.core.report.load_run against whatever partial
-run data currently exists on disk -- not a pytest (needs real run output)."""
+"""Dev-only sanity check of aginiti.reporting.report.load_run against whatever
+partial run data currently exists on disk -- not a pytest (needs real run output)."""
 import glob
 import os
 import sys
 
-from aginiti.core.report import load_run
+from aginiti.reporting.report import load_run
 
 run_dirs = sorted(glob.glob("runs/*"))
 if not run_dirs:

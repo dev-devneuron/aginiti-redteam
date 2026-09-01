@@ -11,7 +11,7 @@ import os
 import sys
 
 from aginiti.operators.definitions import build_library
-from aginiti.core.report import CONDITION_LABELS, CONDITION_ORDER, load_run
+from aginiti.reporting.report import CONDITION_LABELS, CONDITION_ORDER, load_run
 
 CONDITION_EXPLAIN = {
     "random": ("Floor baseline.", "Uniformly picks among whatever operators currently satisfy "
@@ -485,7 +485,7 @@ def main():
     print(f"wrote {out_path}")
 
     if want_pdf:
-        from aginiti.core.pdf_export import html_to_pdf
+        from aginiti.reporting.pdf_export import html_to_pdf
         pdf_path = html_to_pdf(out_path)
         print(f"wrote {pdf_path}")
 

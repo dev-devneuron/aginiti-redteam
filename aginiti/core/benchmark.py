@@ -22,14 +22,14 @@ import time
 from dataclasses import dataclass
 
 from aginiti.core.campaign import run_campaign
-from aginiti.core.logging_utils import load_json, new_run_id, run_dir, save_json, save_trial
+from aginiti.core.trial_logging import load_json, new_run_id, run_dir, save_json, save_trial
 from aginiti.core.mission import Mission
 from aginiti.operators.definitions import build_library
 from aginiti.core.policies.aginiti_policy import AginitiPolicy
 from aginiti.core.policies.memory_guided_policy import MemoryGuidedPolicy, OperatorMemory
 from aginiti.core.policies.random_policy import RandomPolicy
 from aginiti.core.policies.static_policy import StaticPolicy
-from aginiti.core.report import load_run
+from aginiti.reporting.report import load_run
 
 CONDITIONS = ("random", "static", "memory_guided", "aginiti")
 
