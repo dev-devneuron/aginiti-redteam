@@ -4,7 +4,8 @@ JailbreakOptimizer — SECRET Phase 1: Adaptive Jailbreak Prompt Optimization.
 Implements Algorithm 1 ("Generate p_e*") from:
     He, Chen, Li, Shao, Qi, Li, Tao, Qin. "External Data Extraction Attacks
     against Retrieval-Augmented Large Language Models," IEEE Transactions on
-    Information Forensics and Security, arXiv:2510.02964v2.
+    Information Forensics and Security, vol. 21, pp. 5864-5879, 2026,
+    doi:10.1109/TIFS.2026.3705326 (arXiv:2510.02964v2).
 
 See ``aginiti/attacks/dra/secret-methodology.md`` for the full algorithm
 extraction this is built from (§3), and ``plans/secret-dra-attack.md`` for

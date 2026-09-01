@@ -69,7 +69,8 @@ ATTACK_REGISTRY: dict[str, type] = {
 
 # ---------------------------------------------------------------------------
 # Paper-reported reference numbers (hardcoded, NOT measured).
-# Source: IKEA paper (arXiv:2505.15420) Table 1, LLaMA + MPNet, No Defense row.
+# Source: IKEA paper (Wang et al., ICLR 2026, arXiv:2505.15420) Table 1,
+# LLaMA + MPNet, No Defense row.
 # Shown alongside our measured numbers for context — standard practice in
 # systems papers. Do not treat these as computed by this run.
 # ---------------------------------------------------------------------------
@@ -506,8 +507,9 @@ def _print_summary(
     print(f"{'CRR':<10}{metrics['crr_mean']:<8}{_PAPER_TABLE1['crr']}")
     print(f"{'SS':<10}{metrics['ss_mean']:<8}{_PAPER_TABLE1['ss']}")
     print(
-        "NOTE: Paper-reported column is from arXiv:2505.15420 Table 1 (LLaMA +\n"
-        "all-mpnet-base-v2 on BOTH attacker and target, No Defense) — hardcoded,\n"
+        "NOTE: Paper-reported column is from the IKEA paper (Wang et al., ICLR\n"
+        "2026, arXiv:2505.15420) Table 1 (LLaMA + all-mpnet-base-v2 on BOTH\n"
+        "attacker and target, No Defense) — hardcoded,\n"
         f"not measured. This run used {embed_model} on both attacker and target\n"
         "(symmetric, per this project's embedding design). The default here is\n"
         "all-MiniLM-L6-v2 (ChromaDB's local ONNX model) vs the paper's\n"

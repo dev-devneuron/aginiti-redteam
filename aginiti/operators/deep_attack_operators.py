@@ -1,6 +1,8 @@
 """Deep-attack Operator definitions (Phase 2 Slice E/G,
-plans/phase2-operator-wrapping.md). Wires IKEA (arXiv:2505.15420), SECRET
-(arXiv:2510.02964), Interrogation/MIA (arXiv:2502.00306), and SPE-LLM as
+plans/phase2-operator-wrapping.md). Wires IKEA (Wang et al., ICLR 2026,
+arXiv:2505.15420), SECRET (He et al., IEEE TIFS 2026, arXiv:2510.02964),
+Interrogation/MIA (Naseh et al., ACM CCS 2025, arXiv:2502.00306), and
+SPE-LLM (Das, Amini, Wu, ICLR 2026, arXiv:2505.23817) as
 real, planner-selectable `Operator`s. IKEA was wrapped first and validated
 live (Slice E/F); SECRET/MIA/SPE followed in Slice G once that was
 confirmed working end-to-end (design doc's own staged-rollout rationale).
@@ -486,7 +488,8 @@ def deep_attack_operators() -> list[Operator]:
         Operator(
             id="ikea_sensitive_data_exfiltration",
             description=(
-                "Run the full IKEA data-reconstruction attack (arXiv:2505.15420) against "
+                "Run the full IKEA data-reconstruction attack (Wang et al., ICLR 2026, "
+                "arXiv:2505.15420) against "
                 "the target's RAG knowledge base -- an adaptive, multi-query extraction "
                 "loop (anchor generation, exploration/resampling, template-refinement "
                 "mutation), not a single templated prompt."
@@ -541,7 +544,8 @@ def deep_attack_operators() -> list[Operator]:
         Operator(
             id="secret_jailbreak_exfiltration",
             description=(
-                "Run the SECRET attack (arXiv:2510.02964) against the target's RAG knowledge "
+                "Run the SECRET attack (He et al., IEEE TIFS 2026, arXiv:2510.02964) "
+                "against the target's RAG knowledge "
                 "base -- a jailbreak-optimized extraction wrapper (Phase 1: adaptive jailbreak "
                 "prompt optimization) combined with cluster-focused triggering (Phase 2: "
                 "GE/LE adaptive query search), not a single templated prompt. Reuses the same "
@@ -582,7 +586,8 @@ def deep_attack_operators() -> list[Operator]:
         Operator(
             id="mia_membership_inference",
             description=(
-                "Run the Interrogation attack (MIA, arXiv:2502.00306) to determine whether "
+                "Run the Interrogation attack (MIA, Naseh et al., ACM CCS 2025, "
+                "arXiv:2502.00306) to determine whether "
                 "specific candidate documents exist in the target's RAG knowledge base, via "
                 "calibrated probe-question interrogation -- a fundamentally different claim "
                 "from IKEA/SECRET's content exfiltration (existence, not content). STRUCTURAL "
@@ -642,7 +647,8 @@ def deep_attack_operators() -> list[Operator]:
         Operator(
             id="spe_system_prompt_extraction",
             description=(
-                "Run the SPE-LLM attack: 3 static heuristic system-prompt-extraction templates "
+                "Run the SPE-LLM attack (Das, Amini, Wu, ICLR 2026, arXiv:2505.23817): 3 static "
+                "heuristic system-prompt-extraction templates "
                 "(Chain-of-Thought, Extended Sandwich, Few-Shot) against the target, each judged "
                 "heuristically (refusal check + instructional-keyword density) rather than "
                 "LLM-graded. Reuses the same system_prompt_disclosed claim key as "

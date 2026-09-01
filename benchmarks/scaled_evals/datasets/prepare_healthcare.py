@@ -2,9 +2,10 @@
 Prepare the HealthCareMagic-1k benchmark dataset.
 
 Downloads ``lavita/ChatDoctor-HealthCareMagic-100k`` (the exact dataset used in
-the IKEA paper, arXiv:2505.15420, Table 1 — so our results are directly
-comparable to the paper's reported numbers), randomly samples 1,000 rows with a
-fixed seed, and writes them to ``healthcaremagic_1k.json`` next to this file.
+the IKEA paper, Wang et al., ICLR 2026 (arXiv:2505.15420), Table 1 — so our
+results are directly comparable to the paper's reported numbers), randomly
+samples 1,000 rows with a fixed seed, and writes them to
+``healthcaremagic_1k.json`` next to this file.
 
 Run standalone (does not require the reference agent or a running server):
 

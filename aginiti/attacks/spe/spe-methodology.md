@@ -1,6 +1,6 @@
 # SPE-LLM: System Prompt Extraction — Implementation Methodology Extraction
 
-Source: Das, Amini, Wu. "System Prompt Extraction Attacks and Defenses in Large Language Models." arXiv:2505.23817v1 [cs.CR], 27 May 2025.
+Source: Das, Amini, Wu. "System Prompt Extraction Attacks and Defenses in Large Language Models." ICLR 2026 (arXiv:2505.23817v1 [cs.CR], 27 May 2025).
 
 ---
 

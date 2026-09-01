@@ -44,7 +44,8 @@ topics, what general categories, is there anything you're leaving out) --
 exactly the "avoid unnatural/jailbreak-flavored queries" design principle
 published membership-inference-against-RAG research uses for the same
 reason (Riddle Me This! Stealthy Membership Inference for Retrieval-
-Augmented Generation, arXiv:2502.00306, 2025 -- its "Interrogation Attack"
+Augmented Generation, Naseh et al., ACM CCS 2025, arXiv:2502.00306 -- its
+"Interrogation Attack"
 is built on the same insight: natural completeness/consistency questions
 leak more than direct extraction attempts do, and are far less likely to
 trigger a guardrail than a jailbreak-flavored one).

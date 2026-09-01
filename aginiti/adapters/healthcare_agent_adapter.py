@@ -1,8 +1,9 @@
 """BaseAdapter for `benchmarks/scaled_evals/agents/healthcare_agent` -- a
 vendored (see `.gitignore`/`docs/AGINITI_OVERVIEW.md`) RAG chatbot target
 over the real HealthCareMagic-1k dataset (`lavita/ChatDoctor-HealthCareMagic-
-100k`, the same dataset the IKEA paper, arXiv:2505.15420, benchmarks
-against). One FastAPI surface, no auth, a single `/chat` endpoint -- the
+100k`, the same dataset the IKEA paper, Wang et al., ICLR 2026,
+arXiv:2505.15420, benchmarks against). One FastAPI surface, no auth, a
+single `/chat` endpoint -- the
 simplest of the two new targets, and the one with only a soft, prompt-level
 guardrail (no RBAC, no output redaction, no rate limiting).
 

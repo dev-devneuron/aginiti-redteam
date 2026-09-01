@@ -4,7 +4,8 @@ SECRET — Adaptive Jailbreak Optimization + Cluster-Focused Triggering (CFT).
 Implements the extraction (Phase 2 / CFT) half of the attack described in:
     He, Chen, Li, Shao, Qi, Li, Tao, Qin. "External Data Extraction Attacks
     against Retrieval-Augmented Large Language Models," IEEE Transactions on
-    Information Forensics and Security, arXiv:2510.02964v2.
+    Information Forensics and Security, vol. 21, pp. 5864-5879, 2026,
+    doi:10.1109/TIFS.2026.3705326 (arXiv:2510.02964v2).
 
 See ``aginiti/attacks/dra/secret-methodology.md`` for the full algorithm
 extraction (§4), and ``plans/secret-dra-attack.md`` for the design record

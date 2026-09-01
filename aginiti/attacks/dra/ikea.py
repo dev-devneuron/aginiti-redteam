@@ -3,7 +3,7 @@ IKEA — Implicit Knowledge Extraction Attack on RAG Systems.
 
 Implements the attack described in:
     Wang et al., "Silent Leaks: Implicit Knowledge Extraction Attack on RAG
-    Systems through Benign Queries," arXiv:2505.15420v2.
+    Systems through Benign Queries," ICLR 2026 (arXiv:2505.15420v2).
 
 The attack extracts knowledge from a RAG system's vector store using only
 benign, natural-sounding queries — no jailbreaks, no direct "repeat your
@@ -471,7 +471,7 @@ class IKEAAttack(BaseAttack):
     """
     IKEA (Implicit Knowledge Extraction Attack) for RAG systems.
 
-    Implements Wang et al., arXiv:2505.15420v2 ("Silent Leaks"). Probes a
+    Implements Wang et al., ICLR 2026 (arXiv:2505.15420v2) ("Silent Leaks"). Probes a
     RAG-based agent for data leakage using only benign, natural-sounding
     queries via Experience Reflection Sampling (ERS) and Trust Region
     Directed Mutation (TRDM).

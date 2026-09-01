@@ -233,16 +233,16 @@ available as planner-selectable `Operator`s — see `aginiti/operators/deep_atta
 — when you'd rather let the campaign engine decide whether they're worth the budget relative
 to everything else it could try.)
 
-* **IKEA — Data Reconstruction Attack (DRA):** arXiv:2505.15420. Generates natural-sounding,
-  benign-looking queries via Embedding-space Resampling (ERS) and Topic-restricted Random Walk
-  Mutation (TRDM) to bypass keyword/jailbreak detectors.
-* **SECRET — jailbreak-optimized DRA:** arXiv:2510.02964 (IEEE TIFS 2026). An
+* **IKEA — Data Reconstruction Attack (DRA):** ICLR 2026 (arXiv:2505.15420). Generates
+  natural-sounding, benign-looking queries via Embedding-space Resampling (ERS) and
+  Topic-restricted Random Walk Mutation (TRDM) to bypass keyword/jailbreak detectors.
+* **SECRET — jailbreak-optimized DRA:** IEEE TIFS 2026 (arXiv:2510.02964). An
   Optimizer/Evaluator LLM loop calibrates a jailbreak prompt against the live target, then
   Cluster-Focused Triggering alternates exploration and exploitation to extract knowledge-base
   clusters. Every query is jailbreak-wrapped — see
   [`aginiti/attacks/dra/README.md`](aginiti/attacks/dra/README.md) before assuming it behaves
   like IKEA.
-* **Interrogation Attack — Membership Inference (MIA):** arXiv:2502.00306 (ACM CCS 2025).
+* **Interrogation Attack — Membership Inference (MIA):** ACM CCS 2025 (arXiv:2502.00306).
   Confirms or denies whether a specific document you already hold exists in the target's
   knowledge base via calibrated yes/no probing. See
   [`aginiti/attacks/mia/README.md`](aginiti/attacks/mia/README.md) — a genuinely different
