@@ -59,8 +59,8 @@ from aginiti.attacks.dra.ikea import IKEAAttack
 
 # 1. Initialize the standalone attack
 attack = IKEAAttack(
-    target_url="http://localhost:8001/chat",  # Target agent chat endpoint
-    llm_provider="groq/llama-3.3-70b-versatile",
+    target_url="http://localhost:8001",  # Target agent base URL
+    llm_provider="gemini/gemini-3.5-flash",  # or "groq/openai/gpt-oss-20b" for Groq
     api_key="your_api_key"
 )
 
