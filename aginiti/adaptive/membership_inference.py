@@ -1,24 +1,40 @@
-"""A real, working implementation of the Interrogation Attack (IA) from
-"Riddle Me This! Stealthy Membership Inference for Retrieval-Augmented
-Generation" (Naseh et al., arXiv:2502.00306, 2025) -- membership inference
-against a RAG system's retrieval corpus: does a SPECIFIC candidate
-document exist in the target's knowledge base, tested via natural-
-sounding queries rather than jailbreak-flavored extraction attempts.
+"""Adaptive-search Operator wrapper around the Interrogation Attack (IA) from
+Naseh, Peng, Suri, Chaudhari, Oprea, Houmansadr, "Riddle Me This! Stealthy
+Membership Inference for Retrieval-Augmented Generation," ACM CCS 2025
+(arXiv:2502.00306) -- membership inference against a RAG system's retrieval
+corpus: does a SPECIFIC candidate document exist in the target's knowledge
+base, tested via natural-sounding queries rather than jailbreak-flavored
+extraction attempts.
 
-Added 2026-08-14 to close a gap this project's own docstrings had already
-named but never filled: `prepare_hardened_dataset.py`'s module docstring
-says the ingested/held-out split exists specifically "for future
-membership-inference work (Riddle Me This)" -- that held-out file
-(`hardened_dataset_held_out.json`, 240 real CUAD/CFPB documents, verified
-NEVER ingested) had sat completely unused until this module. An earlier
-version of this session's work cited this paper as design inspiration for
-`access_control_layer_probe.py`'s query phrasing without actually
-implementing the paper's own technique -- that gap, once pointed out
-directly, is what this module closes.
+**Relationship to `aginiti/attacks/mia/interrogation.py` -- read this
+first if you are choosing which one to use or extend.** Both modules
+implement the same paper; that is a known, deliberate duplication, not an
+oversight, and it exists because the two solve genuinely different
+problems:
 
-**Methodology, verified against the paper's actual methodology section
-(fetched and read, not assumed from the abstract alone) -- faithfully
-reproduced, with ONE disclosed scope reduction:**
+- `aginiti/attacks/mia/interrogation.py` (`InterrogationAttack`) is the
+  primary, paper-faithful implementation and the source of truth for the
+  algorithm itself -- a standalone `BaseAttack` subclass, run directly
+  against a target with its own query budget, calibration, and
+  `LeakFinding` output. Use it, or extend it, for anything that needs the
+  attack's own correctness to be authoritative.
+- This module wraps the same technique as an `Operator` (see
+  `aginiti/operators/library.py`) so the adaptive campaign planner can
+  select membership inference as one step among many in a multi-step
+  search, composed with reconnaissance/other operators and budgeted like
+  any other operator. It is deliberately a thinner, planner-shaped
+  restatement of the technique, not a second attempt at the paper's
+  algorithm -- if the underlying methodology changes, `interrogation.py`
+  is where that change belongs; mirror it here only if the campaign
+  integration itself needs to change.
+
+Do not delete `aginiti/attacks/mia/interrogation.py` in favor of this
+module, and do not add a third implementation of this paper -- extend one
+of these two, per whichever role (standalone attack vs. planner-composable
+operator) your change actually serves.
+
+**Methodology, verified against the paper's actual methodology section --
+faithfully reproduced, with ONE disclosed scope reduction:**
 
   1. For a candidate document, an LLM call generates a short, natural-
      sounding RETRIEVAL SUMMARY (key terms engineered to trigger retrieval
@@ -54,10 +70,10 @@ reproduced, with ONE disclosed scope reduction:**
      purpose.
 
 **The one disclosed scope reduction**: the paper's default is 30 queries
-per candidate document; `DEFAULT_NUM_PROBES = 8` here, for real per-query
-LLM-call cost reasons on a project already budget-conscious about live
-API spend (documented cost complaints elsewhere in this project's own
-history) -- the paper itself notes "diminishing returns at higher question
+per candidate document; `DEFAULT_NUM_PROBES = 8` here, to keep per-query
+LLM-call cost bounded for use inside a multi-step adaptive campaign (where
+this operator is one of many steps sharing a budget, not the sole
+expense) -- the paper itself notes "diminishing returns at higher question
 counts," so this is a real cost/power tradeoff, not a silent shortcut, and
 is exposed as a parameter for anyone who wants the paper's original n=30.
 
@@ -65,14 +81,12 @@ is exposed as a parameter for anyone who wants the paper's original n=30.
 boundary crossing on its own. Testing whether a document from a persona's
 OWN authorized domain is a member of the corpus (vs the held-out set) is
 NOT a boundary crossing -- it's ordinary corpus-membership inference
-within scope, a real and useful capability this project genuinely lacked,
-not a new way past hardened_agent's retrieval-time filter (which, per
-this session's own source-level analysis of `personas.py`/`agent.py`,
-structurally prevents ANY cross-persona signal -- including a membership
-signal -- from ever reaching a persona whose retrieval `where` filter
-excludes that content entirely, so this technique's cross-persona variant
-is expected to show zero signal against THIS target specifically, for the
-same architectural reason everything else has)."""
+within scope. Against a target whose retrieval layer enforces RBAC via a
+per-persona `where` filter (excluding out-of-scope content from retrieval
+entirely, not just from the final answer), this technique's cross-persona
+variant is expected to show zero signal by construction -- the same
+architectural reason every other extraction-style probe shows zero signal
+against that kind of target."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
