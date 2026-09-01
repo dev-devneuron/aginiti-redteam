@@ -42,7 +42,7 @@ from aginiti.core.observation_adapter import ExecutionResult, ObservationAdapter
 from aginiti.adapters.base import BaseAdapter
 from aginiti.core.graph.schema import ClaimStatus, RiskTier
 from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
-from aginiti.core.llm import chat
+from aginiti.providers.llm import chat
 from aginiti.core.observability import get_logger
 from aginiti.operators.library import ClaimEffect, Operator
 
@@ -127,7 +127,7 @@ def _default_generate_turn(final_goal: str, transcript: list[tuple[str, str]],
     fabricated ones.
 
     Retry-on-empty added 2026-08-23, found live: the escalation-drafting
-    model (aginiti.core.llm.chat's own default, groq/openai/gpt-oss-20b --
+    model (aginiti.providers.llm.chat's own default, groq/openai/gpt-oss-20b --
     an OPEN-WEIGHT model, already the same one SECRET's Phase-1 optimizer
     was moved TO after Gemini refused its framing, see deep_attack_
     operators.py's own _SECRET_OPTIMIZER_LLM_PROVIDER docstring) can still

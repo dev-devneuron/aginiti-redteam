@@ -46,7 +46,7 @@ from dotenv import load_dotenv
 from aginiti.attacks.base import LeakFinding
 from aginiti.attacks.dra import IKEAAttack
 from aginiti.attacks.dra.ikea import _CONFIRMED_LEAK_TYPES
-from aginiti.connectors.embedding import embed_texts
+from aginiti.providers.embedding import embed_texts
 from aginiti.reporting import generate_markdown_report
 
 load_dotenv()

@@ -96,7 +96,7 @@ from aginiti.adapters.base import BaseAdapter
 from aginiti.core.graph.attack_category import LOW_VALUE_RECONNAISSANCE
 from aginiti.core.graph.schema import ClaimStatus, RiskTier
 from aginiti.core.graph.ssg import CATEGORY_CAPABILITY, SUBGRAPH_TARGET, SecurityStateGraph
-from aginiti.core.llm import chat_json
+from aginiti.providers.llm import chat_json
 from aginiti.core.observability import get_logger
 from aginiti.operators.library import ClaimEffect, Operator
 

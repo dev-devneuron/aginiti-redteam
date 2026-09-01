@@ -65,7 +65,7 @@ HELD_OUT_PATH = "benchmarks/scaled_evals/datasets/hardened_dataset_held_out.json
 LLM_PROVIDER = "gemini/gemini-3.5-flash"
 # 2026-08-21: groq/llama-3.3-70b-versatile no longer exists on Groq at all
 # (confirmed live during a Phase 2 Slice F health sweep -- see
-# aginiti/core/llm.py's own module docstring for the fuller history of this
+# aginiti/providers/llm.py's own module docstring for the fuller history of this
 # model's deprecation). Updated to the same replacement already verified
 # live and adopted as this project's shared _GROQ_MODEL default.
 SHADOW_LLM_PROVIDER = "groq/openai/gpt-oss-20b"

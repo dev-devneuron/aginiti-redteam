@@ -62,8 +62,8 @@ from aginiti.attacks.dra.jailbreak_optimizer import (
     JailbreakArtifact,
     JailbreakOptimizer,
 )
-from aginiti.connectors.embedding import embed_texts
 from aginiti.connectors.endpoint import AgentEndpoint
+from aginiti.providers.embedding import embed_texts
 
 logger = logging.getLogger(__name__)
 

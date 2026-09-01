@@ -42,7 +42,7 @@ import json
 from pathlib import Path
 
 from aginiti.adapters.base import SendResult
-from aginiti.core.llm import chat_tools
+from aginiti.providers.llm import chat_tools
 
 _DATA_DIR = Path(__file__).resolve().parent.parent / "operators" / "injecagent_data"
 

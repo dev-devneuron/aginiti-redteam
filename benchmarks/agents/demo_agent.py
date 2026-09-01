@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 
 from aginiti.adapters.base import SendResult
-from aginiti.core.llm import chat_tools
+from aginiti.providers.llm import chat_tools
 from benchmarks.agents.tools import TOOL_SCHEMAS, ToolWorld
 
 SYSTEM_PROMPT = """You are Aria, an internal AI assistant for Acme Corp. You have access to \

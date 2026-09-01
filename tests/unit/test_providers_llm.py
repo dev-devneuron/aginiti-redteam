@@ -1,26 +1,29 @@
 """Tests the key-rotation and Groq->Gemini fallback logic in
-aginiti.core.llm, with litellm.completion mocked -- no live API calls.
+aginiti.providers.llm, with litellm.completion mocked -- no live API calls.
 
-Replaces tests/test_llm_client.py (retired 2026-08-20 alongside
-aginiti/llm_client.py itself, as part of the LiteLLM-unification pass --
-see aginiti/core/llm.py's own module docstring). Same behaviors under
+Replaces tests/test_llm_client.py (retired alongside aginiti/llm_client.py
+itself, as part of the LiteLLM-unification pass -- see
+aginiti/providers/llm.py's own module docstring). Same behaviors under
 test, same no-live-calls discipline; only the mocking target changed,
-since aginiti.core.llm calls litellm.completion() directly instead of
-constructing per-key groq.Groq() client objects.
+since aginiti.providers.llm calls litellm.completion() directly instead of
+constructing per-key groq.Groq() client objects. (This module lived at
+aginiti/core/llm.py before the connectors/ vs. providers/ split --
+aginiti/core/llm.py is now a backward-compatible re-export shim, tested
+separately in test_provider_shims.py.)
 
 tests/test_gemini_client.py has NO replacement here -- it tested the
 retired aginiti/gemini_client.py's hand-rolled message/tool-schema
 translation layer (_to_contents/_ToolCallShim/_MessageShim/
-_to_gemini_tools), which has no equivalent in aginiti.core.llm at all:
-LiteLLM already returns an OpenAI-compatible response for every provider
-it routes to, Gemini included, so that translation code was deleted
-outright rather than ported. Its correctness is LiteLLM's own test
-suite's responsibility now, not this project's.
+_to_gemini_tools), which has no equivalent in aginiti.providers.llm at
+all: LiteLLM already returns an OpenAI-compatible response for every
+provider it routes to, Gemini included, so that translation code was
+deleted outright rather than ported. Its correctness is LiteLLM's own
+test suite's responsibility now, not this project's.
 """
 import litellm
 import pytest
 
-import aginiti.core.llm as core_llm
+import aginiti.providers.llm as provider_llm
 
 
 def _rate_limit_error() -> litellm.RateLimitError:
@@ -38,11 +41,11 @@ def reset_module_state(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "k0")
     monkeypatch.delenv("GROQ_API_KEY_2", raising=False)
     monkeypatch.delenv("GROQ_API_KEY_3", raising=False)
-    core_llm._current_idx = 0
-    core_llm._last_fallback_reason = None
+    provider_llm._current_idx = 0
+    provider_llm._last_fallback_reason = None
     yield
-    core_llm._current_idx = 0
-    core_llm._last_fallback_reason = None
+    provider_llm._current_idx = 0
+    provider_llm._last_fallback_reason = None
 
 
 def test_rotation_falls_through_to_next_key_on_rate_limit(monkeypatch):
@@ -57,7 +60,7 @@ def test_rotation_falls_through_to_next_key_on_rate_limit(monkeypatch):
         return _fake_response("ok-from-key1")
 
     monkeypatch.setattr(litellm, "completion", fake_completion)
-    result = core_llm._call_with_rotation("groq/llama-3.3-70b-versatile", [{"role": "user", "content": "hi"}])
+    result = provider_llm._call_with_rotation("groq/llama-3.3-70b-versatile", [{"role": "user", "content": "hi"}])
 
     assert result.choices[0].message.content == "ok-from-key1"
     assert calls == ["k0", "k1"]
@@ -75,11 +78,11 @@ def test_rotation_sticks_with_working_key_after_first_success(monkeypatch):
         return _fake_response("ok")
 
     monkeypatch.setattr(litellm, "completion", fake_completion)
-    core_llm._call_with_rotation("groq/llama-3.3-70b-versatile", [{"role": "user", "content": "hi"}])
+    provider_llm._call_with_rotation("groq/llama-3.3-70b-versatile", [{"role": "user", "content": "hi"}])
     calls.clear()
 
     # second call should go straight to k1, not retry k0 first
-    core_llm._call_with_rotation("groq/llama-3.3-70b-versatile", [{"role": "user", "content": "hi"}])
+    provider_llm._call_with_rotation("groq/llama-3.3-70b-versatile", [{"role": "user", "content": "hi"}])
     assert calls == ["k1"]
 
 
@@ -92,7 +95,7 @@ def test_rotation_raises_when_every_key_is_rate_limited(monkeypatch):
 
     monkeypatch.setattr(litellm, "completion", fake_completion)
     with pytest.raises(litellm.RateLimitError):
-        core_llm._call_with_rotation("groq/llama-3.3-70b-versatile", [{"role": "user", "content": "hi"}])
+        provider_llm._call_with_rotation("groq/llama-3.3-70b-versatile", [{"role": "user", "content": "hi"}])
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +132,7 @@ def test_rotation_falls_through_to_next_key_on_bad_request_error(monkeypatch):
         return _fake_response("ok-from-key1")
 
     monkeypatch.setattr(litellm, "completion", fake_completion)
-    result = core_llm._call_with_rotation("groq/openai/gpt-oss-20b", [{"role": "user", "content": "hi"}])
+    result = provider_llm._call_with_rotation("groq/openai/gpt-oss-20b", [{"role": "user", "content": "hi"}])
 
     assert result.choices[0].message.content == "ok-from-key1"
     assert calls == ["k0", "k1"]
@@ -147,7 +150,7 @@ def test_rotation_falls_through_to_next_key_on_authentication_error(monkeypatch)
         return _fake_response("ok-from-key1")
 
     monkeypatch.setattr(litellm, "completion", fake_completion)
-    result = core_llm._call_with_rotation("groq/openai/gpt-oss-20b", [{"role": "user", "content": "hi"}])
+    result = provider_llm._call_with_rotation("groq/openai/gpt-oss-20b", [{"role": "user", "content": "hi"}])
 
     assert result.choices[0].message.content == "ok-from-key1"
     assert calls == ["k0", "k1"]
@@ -162,7 +165,7 @@ def test_rotation_raises_when_every_key_is_a_bad_request(monkeypatch):
 
     monkeypatch.setattr(litellm, "completion", fake_completion)
     with pytest.raises(litellm.BadRequestError):
-        core_llm._call_with_rotation("groq/openai/gpt-oss-20b", [{"role": "user", "content": "hi"}])
+        provider_llm._call_with_rotation("groq/openai/gpt-oss-20b", [{"role": "user", "content": "hi"}])
 
 
 def test_chat_falls_back_to_gemini_when_groq_pool_exhausted_by_bad_request_error(monkeypatch):
@@ -180,10 +183,10 @@ def test_chat_falls_back_to_gemini_when_groq_pool_exhausted_by_bad_request_error
         return _fake_response("gemini-said-hi")
 
     monkeypatch.setattr(litellm, "completion", fake_completion)
-    result = core_llm.chat([{"role": "user", "content": "hi"}])
+    result = provider_llm.chat([{"role": "user", "content": "hi"}])
 
     assert result == "gemini-said-hi"
-    assert core_llm.last_fallback_reason() == "chat: groq pool exhausted, used gemini"
+    assert provider_llm.last_fallback_reason() == "chat: groq pool exhausted, used gemini"
 
 
 def test_groq_model_default_is_not_the_dead_llama_string():
@@ -192,7 +195,7 @@ def test_groq_model_default_is_not_the_dead_llama_string():
     # (llama-3.1-8b-instant) is also gone (confirmed live). Locks in the
     # new default so a future edit can't silently regress back to either
     # dead string.
-    assert core_llm._GROQ_MODEL == "openai/gpt-oss-20b"
+    assert provider_llm._GROQ_MODEL == "openai/gpt-oss-20b"
 
 
 def test_load_groq_keys_reads_numbered_env_vars(monkeypatch):
@@ -200,7 +203,7 @@ def test_load_groq_keys_reads_numbered_env_vars(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY_2", "k1")
     monkeypatch.setenv("GROQ_API_KEY_3", "k2")
     monkeypatch.delenv("GROQ_API_KEY_4", raising=False)
-    assert core_llm._load_groq_keys() == ["k0", "k1", "k2"]
+    assert provider_llm._load_groq_keys() == ["k0", "k1", "k2"]
 
 
 # ---------------------------------------------------------------------------
@@ -219,10 +222,10 @@ def test_chat_falls_back_to_gemini_when_groq_pool_exhausted(monkeypatch):
         return _fake_response("gemini-said-hi")
 
     monkeypatch.setattr(litellm, "completion", fake_completion)
-    result = core_llm.chat([{"role": "user", "content": "hi"}])
+    result = provider_llm.chat([{"role": "user", "content": "hi"}])
 
     assert result == "gemini-said-hi"
-    assert core_llm.last_fallback_reason() == "chat: groq pool exhausted, used gemini"
+    assert provider_llm.last_fallback_reason() == "chat: groq pool exhausted, used gemini"
 
 
 def test_chat_json_falls_back_to_gemini_when_groq_pool_exhausted(monkeypatch):
@@ -234,10 +237,10 @@ def test_chat_json_falls_back_to_gemini_when_groq_pool_exhausted(monkeypatch):
         return _fake_response('{"ok": true}')
 
     monkeypatch.setattr(litellm, "completion", fake_completion)
-    result = core_llm.chat_json([{"role": "user", "content": "hi"}])
+    result = provider_llm.chat_json([{"role": "user", "content": "hi"}])
 
     assert result == {"ok": True}
-    assert core_llm.last_fallback_reason() == "chat_json: groq pool exhausted, used gemini"
+    assert provider_llm.last_fallback_reason() == "chat_json: groq pool exhausted, used gemini"
 
 
 def test_chat_tools_falls_back_to_gemini_when_groq_pool_exhausted(monkeypatch):
@@ -251,18 +254,18 @@ def test_chat_tools_falls_back_to_gemini_when_groq_pool_exhausted(monkeypatch):
         return type("Resp", (), {"choices": [choice]})()
 
     monkeypatch.setattr(litellm, "completion", fake_completion)
-    result = core_llm.chat_tools([{"role": "user", "content": "hi"}], tools=[])
+    result = provider_llm.chat_tools([{"role": "user", "content": "hi"}], tools=[])
 
     assert result is sentinel_message
-    assert core_llm.last_fallback_reason() == "chat_tools: groq pool exhausted, used gemini"
+    assert provider_llm.last_fallback_reason() == "chat_tools: groq pool exhausted, used gemini"
 
 
 def test_no_fallback_reason_recorded_when_groq_succeeds_directly(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
     monkeypatch.setattr(litellm, "completion", lambda model, messages, **kw: _fake_response("hello"))
 
-    core_llm.chat([{"role": "user", "content": "hi"}])
-    assert core_llm.last_fallback_reason() is None
+    provider_llm.chat([{"role": "user", "content": "hi"}])
+    assert provider_llm.last_fallback_reason() is None
 
 
 def test_rate_limit_still_raises_when_no_gemini_key_configured(monkeypatch):
@@ -270,9 +273,9 @@ def test_rate_limit_still_raises_when_no_gemini_key_configured(monkeypatch):
     monkeypatch.setattr(litellm, "completion", lambda model, messages, **kw: (_ for _ in ()).throw(_rate_limit_error()))
 
     with pytest.raises(litellm.RateLimitError):
-        core_llm.chat([{"role": "user", "content": "hi"}])
+        provider_llm.chat([{"role": "user", "content": "hi"}])
     # No confusing secondary failure -- the real, original error surfaces.
-    assert core_llm.last_fallback_reason() is None
+    assert provider_llm.last_fallback_reason() is None
 
 
 def test_provider_is_never_mutated_by_a_fallback(monkeypatch):
@@ -280,7 +283,7 @@ def test_provider_is_never_mutated_by_a_fallback(monkeypatch):
     # per-call, not a permanent provider switch (a key may recover, or
     # succeed under a different call shape's token budget).
     monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
-    assert core_llm._PROVIDER == "groq"
+    assert provider_llm._PROVIDER == "groq"
 
     def fake_completion(model, messages, **kwargs):
         if model.startswith("groq/"):
@@ -288,6 +291,6 @@ def test_provider_is_never_mutated_by_a_fallback(monkeypatch):
         return _fake_response("ok")
 
     monkeypatch.setattr(litellm, "completion", fake_completion)
-    core_llm.chat([{"role": "user", "content": "hi"}])
+    provider_llm.chat([{"role": "user", "content": "hi"}])
 
-    assert core_llm._PROVIDER == "groq"  # unchanged
+    assert provider_llm._PROVIDER == "groq"  # unchanged

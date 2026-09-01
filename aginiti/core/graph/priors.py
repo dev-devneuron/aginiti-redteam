@@ -32,7 +32,7 @@ import json
 
 from aginiti.core.graph.schema import IMPORTANCE_BUCKET_SPAN, IMPORTANCE_WEIGHT, InsightCategory
 from aginiti.core.graph.ssg import SecurityStateGraph
-from aginiti.core.llm import chat_json, warn_if_parse_error
+from aginiti.providers.llm import chat_json, warn_if_parse_error
 from aginiti.operators.library import OperatorLibrary
 
 _VALID_IMPORTANCE = set(IMPORTANCE_WEIGHT)

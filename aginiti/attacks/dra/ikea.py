@@ -35,8 +35,8 @@ import litellm
 import openai
 
 from aginiti.attacks.base import BaseAttack, LeakFinding
-from aginiti.connectors.embedding import embed_texts
 from aginiti.connectors.endpoint import AgentEndpoint
+from aginiti.providers.embedding import embed_texts
 
 # Progress logging only — the attack loop makes many sequential LLM/embedding/
 # HTTP calls and can run for minutes with zero output otherwise, which is
@@ -497,7 +497,7 @@ class IKEAAttack(BaseAttack):
         where the dict contains at least ``{"span_id": str}``.
     embed_model : str
         Embedding model string, routed by ``embed_texts()`` in
-        ``aginiti/connectors/embedding.py``. Default is
+        ``aginiti/providers/embedding.py``. Default is
         ``"chromadb/all-MiniLM-L6-v2"`` — a **local ONNX** model (no API key,
         no PyTorch, zero embedding API cost). Pass a ``"<provider>/<model>"``
         string (e.g. ``"gemini/gemini-embedding-001"``) with ``embed_api_key``
