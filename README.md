@@ -328,6 +328,13 @@ all shipped and live-tested. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the fu
 
 ---
 
+## 🤝 Contributing
+
+Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for
+the development setup, code standards, and issue-first workflow. This
+project follows the [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md). See
+[`CHANGELOG.md`](CHANGELOG.md) for release history.
+
 ## 👥 Contributors
 
 - [Omer Bin Dawood](https://github.com/OmerBinDawood)
