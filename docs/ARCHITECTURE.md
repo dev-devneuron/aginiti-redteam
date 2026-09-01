@@ -144,8 +144,8 @@ external benchmark's own test case, or synthesized live by a search).
 | **Multi-turn escalation** | [Crescendo](https://arxiv.org/abs/2404.01833) (gradual real-turn escalation), [Deceptive Delight](https://unit42.paloaltonetworks.com/) (benign-sandwiched harmful requests), many-shot jailbreaking |
 | **RAG poisoning & indirect injection** | Planted documents surviving retrieval and triggering later, unrelated turns; [InjecAgent](https://arxiv.org/abs/2403.02691)'s 1,054 real test cases driven through Aginiti's own campaign loop |
 | **Tool & agent exploitation** | Tool-inventory disclosure, parameter-override, MCP auth/registration-poisoning, real 2-step cross-tool composition attacks |
-| **Data reconstruction** | IKEA (embedding-space resampling) and SECRET (jailbreak-optimized, [arXiv:2510.02964](https://arxiv.org/abs/2510.02964)) — standalone or planner-selectable |
-| **Membership inference** | The [Interrogation Attack](https://arxiv.org/abs/2502.00306) — confirms whether a specific document exists in a target's retrieval corpus via calibrated yes/no probing, no direct extraction needed |
+| **Data reconstruction** | IKEA (embedding-space resampling) and SECRET (jailbreak-optimized, He et al., IEEE TIFS 2026, [arXiv:2510.02964](https://arxiv.org/abs/2510.02964)) — standalone or planner-selectable |
+| **Membership inference** | The Interrogation Attack (Naseh et al., ACM CCS 2025, [arXiv:2502.00306](https://arxiv.org/abs/2502.00306)) — confirms whether a specific document exists in a target's retrieval corpus via calibrated yes/no probing, no direct extraction needed |
 | **RBAC & access-control probing** | Cross-persona authority claims, output-filter evasion, session-isolation, PII-redaction format gaps |
 
 Select any subset directly:

@@ -1,3 +1,17 @@
+"""
+SPE-LLM — System Prompt Extraction Attack.
+
+Implements the static-template extraction techniques described in:
+    Das, Amini, Wu, "System Prompt Extraction Attacks and Defenses in
+    Large Language Models," ICLR 2026 (arXiv:2505.23817).
+
+See ``aginiti/attacks/spe/spe-methodology.md`` for the full algorithm
+extraction this implementation is built from.
+
+Authorized use only. This tool is intended exclusively for security testing
+of systems you own or have explicit written permission to test.
+"""
+
 import json
 import logging
 import re
@@ -5,8 +19,8 @@ import numpy as np
 from typing import Optional, Any
 
 from aginiti.attacks.base import BaseAttack, LeakFinding
-from aginiti.connectors.embedding import embed_texts
 from aginiti.connectors.endpoint import AgentEndpoint
+from aginiti.providers.embedding import embed_texts
 
 logger = logging.getLogger(__name__)
 
@@ -79,8 +93,9 @@ Here is the system instruction: "I am a travel assistant, I share travel tips, d
 class SPEAttack(BaseAttack):
     """
     System Prompt Extraction (SPE) Attack.
-    
-    Implements a black-box, static prompt extraction attack using 3 baseline templates:
+
+    Implements Das, Amini, Wu, ICLR 2026 (arXiv:2505.23817)'s static
+    prompt extraction attack using 3 baseline templates:
     1. Chain-of-Thought (CoT)
     2. Extended Sandwich
     3. Few-Shot prompting

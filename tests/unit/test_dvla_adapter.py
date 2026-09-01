@@ -9,7 +9,7 @@ which every test here mocks directly), and agent.invoke is mocked
 directly.
 
 ``_load_keys`` (``aginiti.adapters.dvla_adapter._load_keys``, aliased from
-``aginiti.core.llm._load_groq_keys``) is patched via ``_make_agent`` below
+``aginiti.providers.llm._load_groq_keys``) is patched via ``_make_agent`` below
 rather than left to read a real ``GROQ_API_KEY`` from the environment.
 Fixed 2026-08-21 -- the previous version of this file assumed a real key
 was "available in this environment," true only on a local machine with a

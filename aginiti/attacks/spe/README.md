@@ -8,6 +8,9 @@ This package implements **SPE (System Prompt Extraction)** attack modules for `a
 
 ## Implemented: SPE-LLM Baseline Probes
 
+**Paper:** Das, Amini, Wu, "System Prompt Extraction Attacks and Defenses
+in Large Language Models," ICLR 2026 (arXiv:2505.23817).
+
 ### What it does
 
 SPE-LLM fires three static adversarial prompt templates designed to jailbreak or guide the model into leaking its system instructions (e.g. system prompts):

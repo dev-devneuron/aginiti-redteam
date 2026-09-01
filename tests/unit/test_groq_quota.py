@@ -3,7 +3,7 @@ no live calls, just exception-shape checks.
 
 Simplified 2026-08-20 alongside the LiteLLM migration: litellm.RateLimitError
 is now a single, unified exception type across every provider LiteLLM routes
-to (confirmed directly against aginiti/core/llm.py's own tests), so
+to (confirmed directly against aginiti/providers/llm.py's own tests), so
 groq_quota.py's is_rate_limit_error() no longer needs to check two separate
 provider-specific exception shapes (the old groq.RateLimitError /
 google.genai.errors.ClientError-with-code-429 pair) -- one isinstance check

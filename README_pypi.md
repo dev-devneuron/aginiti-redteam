@@ -186,6 +186,7 @@ for claim in result.ssg.claims:
 ## 🔗 Links & Resources
 
 *   **GitHub Repository:** For local developer setups, starting Docker target containers, or contributing, visit [Aginiti Red-Team GitHub](https://github.com/dev-devneuron/aginiti-redteam).
+*   **Full Usage Guide:** [`docs/USAGE.md`](https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/USAGE.md) — every attack's parameters and query budget, target authentication, where results/cache files land, and a gotchas/FAQ list.
 *   **Detailed Documentation:** Refer to the `docs/` folder in the repository for detailed papers on the Aginiti planning model, evidence classification, and mitigation guides.
 *   **Contributors:** [Omer Bin Dawood](https://github.com/OmerBinDawood), [Muhammad Hammad Irfan](https://github.com/MuhammadHammadIrfan)
 *   **License:** MIT

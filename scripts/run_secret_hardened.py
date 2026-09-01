@@ -71,7 +71,7 @@ DEFAULT_LLM_PROVIDER = "gemini/gemini-3.5-flash"
 # live during a Phase 2 Slice F health sweep, 2026-08-21) -- both
 # constants below updated to the replacement already verified live and
 # adopted as this project's shared _GROQ_MODEL default
-# (aginiti/core/llm.py).
+# (aginiti/providers/llm.py).
 FALLBACK_LLM_PROVIDER = "groq/openai/gpt-oss-20b"
 # Semantic-shift (Phase 2 LE trigger generation) routed to Groq (added
 # 2026-08-19) -- the paper's own design runs this step on a small/local

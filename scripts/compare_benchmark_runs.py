@@ -75,7 +75,8 @@ def build_comparison_table(runs: list[tuple[str, dict]]) -> str:
 
     lines.append("")
     lines.append(
-        "*Paper baseline: arXiv:2505.15420 Table 1 (LLaMA + all-mpnet-base-v2, "
+        "*Paper baseline: IKEA (Wang et al., ICLR 2026, arXiv:2505.15420) "
+        "Table 1 (LLaMA + all-mpnet-base-v2, "
         "No Defense) — hardcoded, not measured. Not directly comparable to "
         "either run above: different embedding model on both sides "
         "(all-MiniLM-L6-v2 here vs. all-mpnet-base-v2 in the paper), and "

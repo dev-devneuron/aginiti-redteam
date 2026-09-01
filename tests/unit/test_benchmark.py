@@ -1,4 +1,4 @@
-from aginiti.core.report import _summarize, _winning_path
+from aginiti.reporting.report import _summarize, _winning_path
 
 
 def _trial(outcome: str, prompts: int, n_ops: int, considered: int, ground_truth: bool,

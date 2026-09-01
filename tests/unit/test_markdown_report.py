@@ -250,7 +250,7 @@ class TestGenerateMarkdownReport:
         assert "# Aginiti DRA Assessment Report" in markdown
         assert "**Target:** http://localhost:8001" in markdown
         assert "**Date:** 2026-07-12" in markdown
-        assert "IKEA (Silent Leaks, arXiv:2505.15420)" in markdown
+        assert "IKEA (Silent Leaks, ICLR 2026, arXiv:2505.15420)" in markdown
         assert "**Queries:** 20" in markdown
         assert "8m 11s" in markdown
 

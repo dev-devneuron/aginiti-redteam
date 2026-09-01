@@ -9,7 +9,7 @@ caller never sees it. Reuses the exact `Authorization: Bearer <key>` header
 AnythingLLMAdapter already sends, so no adapter code changes are needed --
 only different constructor arguments.
 
-Run standalone: `python -m aginiti.target_hardening.gateway_server`
+Run standalone: `python -m benchmarks.target_hardening.gateway_server`
 (reads ANYTHINGLLM_BASE_URL, ANYTHINGLLM_ADMIN_KEY, GATEWAY_PORT from the
 environment, with the live values used throughout this project as
 defaults)."""
@@ -23,7 +23,7 @@ import time
 import requests
 from flask import Flask, Response, request
 
-from aginiti.target_hardening.policy import (
+from benchmarks.target_hardening.policy import (
     RateLimiter,
     SuspicionTracker,
     check_document_size,

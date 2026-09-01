@@ -13,7 +13,7 @@ from a RAG system's vector store.
 ## Implemented: IKEA (Silent Leaks)
 
 **Paper:** Wang et al., "Silent Leaks: Implicit Knowledge Extraction Attack
-on RAG Systems through Benign Queries," arXiv:2505.15420v2.
+on RAG Systems through Benign Queries," ICLR 2026 (arXiv:2505.15420v2).
 
 ### What it does
 

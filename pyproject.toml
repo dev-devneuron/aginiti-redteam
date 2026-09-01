@@ -106,16 +106,22 @@ benchmarks = [
 cloud-embeddings = []
 # The Adaptive-Mode / SSG orchestrator layer (integration Slice D,
 # 2026-08-20, plans/integration-plan.md's namespace-map resolution item 7)
-# — needed only by three specific adapters, not by the core campaign/
+# — needed only by two specific adapters, not by the core campaign/
 # planner/graph machinery itself (verified directly by grep, same
 # discipline as the `dev` extra's own note above):
 #   * aginiti/adapters/dvla_adapter.py — groq (direct exception types,
-#     not routed through core.llm — this adapter drives a real LangChain
-#     agent simulating the TARGET's own reasoning, a genuinely different
-#     use than our own LLM calls), langchain, langchain-groq,
+#     not routed through providers.llm — this adapter drives a real
+#     LangChain agent simulating the TARGET's own reasoning, a genuinely
+#     different use than our own LLM calls), langchain, langchain-groq,
 #     langchain-community
 #   * aginiti/adapters/mcp_stdio_adapter.py — mcp
-#   * aginiti/target_hardening/gateway_server.py — flask
+# flask is NOT listed here: it was needed only by
+# aginiti/target_hardening/gateway_server.py, which moved to
+# benchmarks/target_hardening/ (a benchmark fixture, not shipped in the
+# wheel at all — see benchmarks/target_hardening/README.md) as part of
+# the open-source-readiness directory reorg. Anyone running that fixture
+# locally installs flask via requirements.txt (the full dev environment
+# file), same as every other benchmarks/ fixture's runtime deps.
 # psutil is used by experiments/_target_lifecycle.py (not shipped in the
 # wheel — experiments/ is excluded by packages.find — but grouped here
 # per the plan doc since it's part of the same adaptive-orchestrator dev
@@ -136,7 +142,6 @@ adaptive = [
     "langchain-groq>=1.1.3",
     "langchain-community>=0.4",
     "mcp>=2.0.0",
-    "flask>=3.1.3",
     "psutil>=7.2.2",
 ]
 

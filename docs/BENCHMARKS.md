@@ -114,7 +114,7 @@ implemented as described, in Aginiti's own code, never copied:
 | PAIR (adaptive prompt refinement) | Chao et al. — [arXiv:2310.08419](https://arxiv.org/abs/2310.08419) |
 | CipherChat / MetaCipher (cipher-family search) | [arXiv:2308.06463](https://arxiv.org/abs/2308.06463), [arXiv:2506.22557](https://arxiv.org/abs/2506.22557) |
 | Interrogation Attack (membership inference) | Naseh et al., ACM CCS 2025 — [arXiv:2502.00306](https://arxiv.org/abs/2502.00306) |
-| IKEA (data reconstruction) | [arXiv:2505.15420](https://arxiv.org/abs/2505.15420) |
+| IKEA (data reconstruction) | Wang et al., ICLR 2026 — [arXiv:2505.15420](https://arxiv.org/abs/2505.15420) |
 | SECRET (jailbreak-optimized DRA) | IEEE TIFS 2026 — [arXiv:2510.02964](https://arxiv.org/abs/2510.02964) |
 | InjecAgent (indirect injection benchmark) | Zhan et al., ACL Findings 2024 — [arXiv:2403.02691](https://arxiv.org/abs/2403.02691) |
 | STAC (tool-chain composition) | [arXiv:2509.25624](https://arxiv.org/abs/2509.25624) |

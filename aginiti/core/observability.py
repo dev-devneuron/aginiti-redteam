@@ -3,7 +3,7 @@ a real production-readiness gap found by direct audit: `aginiti/` used
 Python's `logging` module NOWHERE. Operational signal existed only as
 `print()` (appropriate in experiments/*.py scripts, which are run
 interactively -- left untouched) and a single `warnings.warn()` call
-(`aginiti.core.llm.warn_if_parse_error`, kept exactly as-is; it serves a
+(`aginiti.providers.llm.warn_if_parse_error`, kept exactly as-is; it serves a
 distinct, still-valid purpose -- see its own docstring). Neither gives a
 host application embedding Aginiti as a library any way to route,
 filter, or alert on what the library is actually doing.
@@ -29,9 +29,9 @@ e.g.:
     logging.getLogger("aginiti").setLevel(logging.INFO)
 
 Every logger this module hands out is a child of "aginiti" (e.g.
-"aginiti.core.llm", "aginiti.campaign"), so that one line attaches to
+"aginiti.providers.llm", "aginiti.campaign"), so that one line attaches to
 everything -- or a caller can target just one subsystem
-(`logging.getLogger("aginiti.core.llm")`) if that's all they want.
+(`logging.getLogger("aginiti.providers.llm")`) if that's all they want.
 
 Deliberately NOT a wholesale rewrite of this codebase's print()-based
 experiment scripts or its existing warnings.warn() mechanism -- this adds

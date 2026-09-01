@@ -1,5 +1,5 @@
 """Integration test closing a real internal-audit gap: the Groq->Gemini
-auto-fallback (aginiti/core/llm.py, post-LiteLLM-migration -- see that
+auto-fallback (aginiti/providers/llm.py, post-LiteLLM-migration -- see that
 module's docstring) and a REAL planner had never been exercised together
 inside an actual run_campaign() call -- every live benchmark this session
 ran forced AGINITI_LLM_PROVIDER=gemini specifically to avoid the
@@ -21,7 +21,7 @@ to fall back) from target/judge concerns already covered elsewhere.
 import litellm
 import pytest
 
-from aginiti.core import llm as core_llm
+from aginiti.providers import llm as provider_llm
 from aginiti.core.observation_adapter import ExecutionResult
 from aginiti.core.campaign import run_campaign
 from aginiti.core.graph.schema import RiskTier
@@ -57,8 +57,8 @@ class _FakeAdapter:
 def test_real_campaign_with_a_real_planner_completes_when_every_groq_key_is_exhausted(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key-for-this-test")
     monkeypatch.setenv("GROQ_API_KEY", "k0")
-    core_llm._current_idx = 0
-    core_llm._last_fallback_reason = None
+    provider_llm._current_idx = 0
+    provider_llm._last_fallback_reason = None
 
     priors_verdict = {"priorities": {}, "rank": [], "reasoning": {}}
 
@@ -89,11 +89,11 @@ def test_real_campaign_with_a_real_planner_completes_when_every_groq_key_is_exha
     # silently-empty result.
     assert result.outcome == "SUCCESS"
     assert result.steps_executed >= 1
-    assert core_llm.last_fallback_reason() == "chat_json: groq pool exhausted, used gemini"
+    assert provider_llm.last_fallback_reason() == "chat_json: groq pool exhausted, used gemini"
     # And the provider itself was never mutated by the fallback -- still
-    # "groq" by default, just routed around per-call (see aginiti/core/
+    # "groq" by default, just routed around per-call (see aginiti/providers/
     # llm.py's own docstring on why this distinction matters).
-    assert core_llm._PROVIDER == "groq"
+    assert provider_llm._PROVIDER == "groq"
 
 
 def test_real_campaign_raises_cleanly_when_groq_exhausted_and_no_gemini_key_configured(monkeypatch):
@@ -101,8 +101,8 @@ def test_real_campaign_raises_cleanly_when_groq_exhausted_and_no_gemini_key_conf
     # loudly (a clear RateLimitError), not silently produce a bogus result.
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.setenv("GROQ_API_KEY", "k0")
-    core_llm._current_idx = 0
-    core_llm._last_fallback_reason = None
+    provider_llm._current_idx = 0
+    provider_llm._last_fallback_reason = None
     monkeypatch.setattr(litellm, "completion", lambda model, messages, **kw: (_ for _ in ()).throw(_rate_limit_error()))
 
     library = OperatorLibrary(data_exposure_operators())

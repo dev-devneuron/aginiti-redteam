@@ -1,5 +1,6 @@
 """Tests for aginiti/adaptive/membership_inference.py -- the Interrogation
-Attack (Riddle Me This!, arXiv:2502.00306). No live LLM/network calls:
+Attack (Riddle Me This!, Naseh et al., ACM CCS 2025, arXiv:2502.00306). No
+live LLM/network calls:
 `generate_probes_fn`/`judge_response_fn` are injected deterministic stubs,
 matching test_crescendo.py's own established pattern for this project's
 LLM-drafting-function dependency injection."""

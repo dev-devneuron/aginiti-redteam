@@ -35,7 +35,7 @@ import re
 
 import litellm
 
-from aginiti.core.llm import chat_json
+from aginiti.providers.llm import chat_json
 
 _RETRY_AFTER_RE = re.compile(r"try again in ([0-9.]+m)?([0-9.]+s)?", re.IGNORECASE)
 

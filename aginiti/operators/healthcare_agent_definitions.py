@@ -19,10 +19,11 @@ The one new operator below tests a property the reused packs structurally
 can't: whether an innocuous, topically-relevant question (no jailbreak,
 no override instruction -- just a benign question in this target's actual
 domain) causes real patient-consultation text to be retrieved and recited
-back verbatim. This is the exact mechanism the IKEA paper (arXiv:2505.15420,
-the paper this dataset and this specific vendored target were built to
-benchmark against, per `benchmarks/scaled_evals/agents/healthcare_agent/
-agent.py`'s own docstring) and this project's own real RAG-poisoning
+back verbatim. This is the exact mechanism the IKEA paper (Wang et al.,
+ICLR 2026, arXiv:2505.15420 -- the paper this dataset and this specific
+vendored target were built to benchmark against, per
+`benchmarks/scaled_evals/agents/healthcare_agent/agent.py`'s own
+docstring) and this project's own real RAG-poisoning
 chains against AnythingLLM both exercise: real data reaching the model's
 context and coming back out, not an instruction-following bypass. It's
 confirmed via `aginiti/adapters/scaled_evals_ground_truth.py`'s

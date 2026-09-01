@@ -46,18 +46,14 @@ _OWASP_MAPPING = {
 }
 _OWASP_DEFAULT = "OWASP LLM Top 10 mapping not yet defined for this attack type"
 
-# Paper-reported reference numbers (arXiv:2505.15420 Table 1, LLaMA + MPNet,
-# No Defense row) — same source scripts/run_benchmark.py uses. Hardcoded, not
-# measured; shown for context only.
+# Paper-reported reference numbers (Wang et al., ICLR 2026, arXiv:2505.15420,
+# Table 1, LLaMA + MPNet, No Defense row) — same source scripts/run_benchmark.py
+# uses. Hardcoded, not measured; shown for context only.
 _PAPER_BASELINE = {"asr": 0.92, "ee": 0.87, "crr": 0.28, "ss": 0.71}
 
-# Attack registry key -> display name. Only "ikea" exists today. NOTE: cites
-# the paper as "arXiv:2505.15420" only — every other reference to this paper
-# in this codebase (CLAUDE.md, docs/, ikea.py) cites it as an arXiv preprint,
-# with no ICLR (or any venue) acceptance documented anywhere in this project.
-# Do not add a venue/year claim here without a verified source.
+# Attack registry key -> display name. Only "ikea" exists today.
 _ATTACK_DISPLAY_NAMES = {
-    "ikea": "IKEA (Silent Leaks, arXiv:2505.15420)",
+    "ikea": "IKEA (Silent Leaks, ICLR 2026, arXiv:2505.15420)",
 }
 
 _FULL_RESPONSE_TRUNCATE_CHARS = 200

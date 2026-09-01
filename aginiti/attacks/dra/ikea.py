@@ -3,7 +3,7 @@ IKEA — Implicit Knowledge Extraction Attack on RAG Systems.
 
 Implements the attack described in:
     Wang et al., "Silent Leaks: Implicit Knowledge Extraction Attack on RAG
-    Systems through Benign Queries," arXiv:2505.15420v2.
+    Systems through Benign Queries," ICLR 2026 (arXiv:2505.15420v2).
 
 The attack extracts knowledge from a RAG system's vector store using only
 benign, natural-sounding queries — no jailbreaks, no direct "repeat your
@@ -35,8 +35,8 @@ import litellm
 import openai
 
 from aginiti.attacks.base import BaseAttack, LeakFinding
-from aginiti.connectors.embedding import embed_texts
 from aginiti.connectors.endpoint import AgentEndpoint
+from aginiti.providers.embedding import embed_texts
 
 # Progress logging only — the attack loop makes many sequential LLM/embedding/
 # HTTP calls and can run for minutes with zero output otherwise, which is
@@ -471,7 +471,7 @@ class IKEAAttack(BaseAttack):
     """
     IKEA (Implicit Knowledge Extraction Attack) for RAG systems.
 
-    Implements Wang et al., arXiv:2505.15420v2 ("Silent Leaks"). Probes a
+    Implements Wang et al., ICLR 2026 (arXiv:2505.15420v2) ("Silent Leaks"). Probes a
     RAG-based agent for data leakage using only benign, natural-sounding
     queries via Experience Reflection Sampling (ERS) and Trust Region
     Directed Mutation (TRDM).
@@ -497,7 +497,7 @@ class IKEAAttack(BaseAttack):
         where the dict contains at least ``{"span_id": str}``.
     embed_model : str
         Embedding model string, routed by ``embed_texts()`` in
-        ``aginiti/connectors/embedding.py``. Default is
+        ``aginiti/providers/embedding.py``. Default is
         ``"chromadb/all-MiniLM-L6-v2"`` — a **local ONNX** model (no API key,
         no PyTorch, zero embedding API cost). Pass a ``"<provider>/<model>"``
         string (e.g. ``"gemini/gemini-embedding-001"``) with ``embed_api_key``

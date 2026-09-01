@@ -85,7 +85,7 @@ DEFAULT_LLM_PROVIDER = "gemini/gemini-3.5-flash"
 # groq/llama-3.3-70b-versatile no longer exists on Groq at all (confirmed
 # live during a Phase 2 Slice F health sweep, 2026-08-21); updated to the
 # replacement already verified live and adopted as this project's shared
-# _GROQ_MODEL default (aginiti/core/llm.py).
+# _GROQ_MODEL default (aginiti/providers/llm.py).
 FALLBACK_LLM_PROVIDER = "groq/openai/gpt-oss-20b"
 EMBED_MODEL = "chromadb/all-MiniLM-L6-v2"
 THETA_INTER = 0.6

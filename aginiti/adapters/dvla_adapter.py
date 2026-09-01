@@ -41,7 +41,7 @@ from aginiti.adapters.vendor.dvla_transaction_db import TransactionDb
 # tool-calling loop, not Aginiti's own attacker-side reasoning, so it
 # needs the raw pooled keys to construct its own ChatGroq client rather
 # than going through the chat()/chat_json()/chat_tools() call shapes.
-from aginiti.core.llm import _load_groq_keys as _load_keys
+from aginiti.providers.llm import _load_groq_keys as _load_keys
 
 SYSTEM_PROMPT = (
     "Assistant helps the current user retrieve the list of their recent bank transactions and "
@@ -62,7 +62,7 @@ class DVLAAdapter:
     # 2026-08-21: llama-3.3-70b-versatile no longer exists on Groq at all
     # (confirmed live during a Phase 2 Slice F health sweep). Updated to
     # the replacement already verified live and adopted as this project's
-    # shared _GROQ_MODEL default (aginiti/core/llm.py) -- bare model name
+    # shared _GROQ_MODEL default (aginiti/providers/llm.py) -- bare model name
     # here, not "groq/"-prefixed, since this class constructs a real
     # langchain_groq.ChatGroq client directly (below), not routed through
     # LiteLLM's provider-prefix convention.
@@ -87,7 +87,7 @@ class DVLAAdapter:
         self._tool_results: list[str] = []  # ground-truth ledger, independent of SSG belief
 
         self._model = model
-        self._keys = _load_keys()  # same pooled keys as aginiti.core.llm -- DVLA gets rotation too
+        self._keys = _load_keys()  # same pooled keys as aginiti.providers.llm -- DVLA gets rotation too
         self._key_idx = 0
         self._rebuild_agent()
 

@@ -20,6 +20,14 @@ document set (same distribution as the target's real data) to calibrate a
 decision threshold. Neither is optional: a raw aggregation score with no
 calibrated cutoff can't produce a yes/no membership verdict at all.
 
+This module is the primary, paper-faithful implementation of the
+technique and the source of truth for the algorithm itself.
+``aginiti/adaptive/membership_inference.py`` also implements this paper,
+restated as a planner-composable ``Operator`` for use inside a multi-step
+adaptive campaign — a deliberate duplication for a different unit-of-work
+shape, not an oversight; see that module's docstring for the full
+rationale before extending either one.
+
 Authorized use only. This tool is intended exclusively for security testing
 of systems you own or have explicit written permission to test.
 """

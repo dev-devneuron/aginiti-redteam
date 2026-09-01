@@ -44,4 +44,16 @@ would have, at whichever layer can genuinely enforce each one:
 policy.py holds pure, dependency-free logic (independently unit-testable,
 no Flask/network I/O). gateway_server.py wires it into a real Flask
 reverse proxy. See docs/HARDENED_TARGET.md for the full inventory and
-what's proposed but not (yet) built."""
+what's proposed but not (yet) built.
+
+Moved here from aginiti/target_hardening/ as part of the open-source-
+readiness directory reorg: this package hardens a benchmark TARGET
+(AnythingLLM) against Aginiti's own attacks -- defensive fixture code for
+the benchmarking harness, not an offensive red-team module, so it belongs
+under benchmarks/ (not shipped in the published wheel at all) rather than
+in the aginiti/ attack-library namespace. No backward-compatible shim was
+left at the old aginiti/target_hardening/ path -- unlike the providers/
+and reporting/ moves, nothing in this package was ever part of the
+installable aginiti-redteam package's public surface (benchmarks/ is
+excluded from the wheel by pyproject.toml's packages.find), so there is
+no external caller for a shim to protect."""

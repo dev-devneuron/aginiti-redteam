@@ -10,7 +10,7 @@ from aginiti.core.graph.owasp_llm_taxonomy import LLM01_PROMPT_INJECTION
 from aginiti.core.graph.schema import ClaimStatus
 from aginiti.core.graph.security_boundary import BOUNDARY_L0
 from aginiti.core.graph.ssg import SecurityStateGraph
-from aginiti.core.logging_utils import campaign_result_to_dict, save_trial
+from aginiti.core.trial_logging import campaign_result_to_dict, save_trial
 
 
 def _fake_result() -> CampaignResult:

@@ -1,4 +1,4 @@
-from aginiti.target_hardening.policy import (
+from benchmarks.target_hardening.policy import (
     MAX_DOCUMENT_UPLOAD_BYTES,
     MAX_MESSAGE_LENGTH_CHARS,
     RateLimiter,
