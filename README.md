@@ -314,6 +314,7 @@ pytest tests/ -v
 | Doc | What it covers |
 |---|---|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | **Start here.** How Aginiti works — the evidence graph, the planner, the full attack catalog |
+| [`docs/USAGE.md`](docs/USAGE.md) | Full usage reference — every attack's parameters and query budget, Direct vs. Adaptive Mode, target authentication, where results/cache files land, and a gotchas/FAQ list |
 | [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) | Real results — the garak head-to-head, live planner-advantage experiments, and every research citation |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | What's shipped, what's in progress, what's next, and how to contribute |
 
