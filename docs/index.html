@@ -1,0 +1,1209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aginiti Redteam — Framework Documentation</title>
+<meta name="description" content="Full framework documentation for aginiti-redteam: how to contribute to the project, and how to install and use the library to red-team enterprise agentic AI systems.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f7f9;
+    --surface:#ffffff;
+    --surface-2:#eef0f3;
+    --border:#dde1e7;
+    --text:#171b24;
+    --text-dim:#4c5566;
+    --text-faint:#828b9c;
+    --accent:#b3123a;
+    --accent-ink:#ffffff;
+    --accent-soft:#fbe6ec;
+    --link:#8f0f30;
+    --code-accent:#2c5271;
+    --code-bg:#101521;
+    --code-fg:#e6e9f0;
+    --code-border:#232a3a;
+    --warn:#8a5a06;
+    --warn-bg:#fdf1dc;
+    --warn-border:#eecf98;
+    --ok:#1f6d4c;
+    --ok-bg:#e5f4ec;
+    --ok-border:#b6ddc7;
+    --info:#2c5271;
+    --info-bg:#e9f0f6;
+    --info-border:#c2d6e6;
+    --shadow: 0 1px 2px rgba(20,24,34,.04), 0 8px 24px -12px rgba(20,24,34,.12);
+    --radius: 10px;
+    --sidebar-w: 290px;
+    --maxw: 880px;
+    font-family:"IBM Plex Sans", -apple-system, Segoe UI, sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1117;
+      --surface:#151a23;
+      --surface-2:#1b212c;
+      --border:#2a3140;
+      --text:#e8eaf0;
+      --text-dim:#aab2c2;
+      --text-faint:#77809414;
+      --text-faint:#7d879b;
+      --accent:#ef4d70;
+      --accent-ink:#1a0710;
+      --accent-soft:#331420;
+      --link:#ff7d9b;
+      --code-accent:#7fb2d8;
+      --code-bg:#0b0e15;
+      --code-fg:#e6e9f0;
+      --code-border:#232a3a;
+      --warn:#e6b352;
+      --warn-bg:#332705;
+      --warn-border:#5c4a12;
+      --ok:#6fce9f;
+      --ok-bg:#0e2a1d;
+      --ok-border:#1f4a34;
+      --info:#8fc1e6;
+      --info-bg:#101f2c;
+      --info-border:#1f3b52;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+    }
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--bg);color:var(--text);line-height:1.6;font-size:16px;}
+  h1,h2,h3,h4{font-family:"IBM Plex Mono",monospace;font-weight:600;line-height:1.25;text-wrap:balance;color:var(--text);}
+  a{color:var(--link);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:"IBM Plex Mono",monospace;font-size:.86em;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:.1em .4em;color:var(--code-accent);}
+  pre{font-family:"IBM Plex Mono",monospace;background:var(--code-bg);color:var(--code-fg);border:1px solid var(--code-border);border-radius:var(--radius);padding:1rem 1.1rem;overflow-x:auto;font-size:.86rem;line-height:1.55;position:relative;}
+  pre code{background:none;border:none;padding:0;color:inherit;font-size:1em;}
+  img{max-width:100%;}
+  [hidden]{display:none!important;}
+
+  /* ---------- top bar ---------- */
+  .topbar{position:sticky;top:0;z-index:40;background:var(--surface);border-bottom:1px solid var(--border);}
+  .topbar-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:.7rem 1.25rem;gap:1rem;}
+  .brand{display:flex;align-items:center;gap:.55rem;font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:1.02rem;color:var(--text);}
+  .brand .mark{font-size:1.25rem;}
+  .topbar-links{display:flex;align-items:center;gap:1.1rem;font-size:.86rem;}
+  .topbar-links a{color:var(--text-dim);font-weight:500;}
+  .topbar-links a:hover{color:var(--accent);text-decoration:none;}
+  .gh-btn{display:inline-flex;align-items:center;gap:.4rem;background:var(--text);color:var(--bg);padding:.4rem .75rem;border-radius:7px;font-weight:600;font-size:.82rem;}
+  .gh-btn:hover{opacity:.85;text-decoration:none;}
+  .navtoggle{display:none;background:none;border:1px solid var(--border);border-radius:7px;padding:.4rem .6rem;color:var(--text);font-size:1rem;cursor:pointer;}
+
+  /* ---------- layout ---------- */
+  .layout{max-width:1200px;margin:0 auto;display:flex;align-items:flex-start;}
+  .sidebar{width:var(--sidebar-w);flex:0 0 auto;position:sticky;top:53px;max-height:calc(100vh - 53px);overflow-y:auto;padding:1.5rem 1rem 3rem 1.25rem;font-size:.86rem;}
+  .sidebar::-webkit-scrollbar{width:6px;}
+  .sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+  .side-group{margin-bottom:1.4rem;}
+  .side-group-label{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:0 0 .5rem .55rem;font-weight:600;}
+  .side-group ul{list-style:none;margin:0;padding:0;border-left:1px solid var(--border);}
+  .side-group ul ul{border-left:1px solid transparent;margin-left:.15rem;}
+  .side-group a{display:block;padding:.3rem .55rem .3rem .7rem;color:var(--text-dim);border-left:2px solid transparent;margin-left:-1px;}
+  .side-group ul ul a{padding-left:1.3rem;font-size:.92em;color:var(--text-faint);}
+  .side-group a:hover{color:var(--accent);text-decoration:none;}
+  .side-group a.active{color:var(--accent);border-left-color:var(--accent);font-weight:600;background:var(--accent-soft);border-radius:0 6px 6px 0;}
+
+  main{flex:1 1 auto;min-width:0;padding:0 1.5rem 6rem;max-width:calc(var(--maxw) + 3rem);}
+
+  /* ---------- hero ---------- */
+  .hero{padding:3.2rem 0 2.4rem;border-bottom:1px solid var(--border);margin-bottom:2.6rem;}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:600;margin:0 0 .8rem;}
+  .hero h1{font-size:2.3rem;margin:0 0 .9rem;letter-spacing:-.01em;}
+  .hero p.lead{font-size:1.08rem;color:var(--text-dim);max-width:62ch;margin:0 0 1.6rem;}
+  .badges{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.8rem;}
+  .badge{font-family:"IBM Plex Mono",monospace;font-size:.72rem;background:var(--surface-2);border:1px solid var(--border);color:var(--text-dim);padding:.3rem .6rem;border-radius:20px;}
+  .cta-row{display:flex;flex-wrap:wrap;gap:.9rem;}
+  .cta-card{flex:1 1 260px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.25rem;box-shadow:var(--shadow);transition:transform .15s ease, border-color .15s ease;}
+  .cta-card:hover{transform:translateY(-2px);border-color:var(--accent);text-decoration:none;}
+  .cta-card .cta-kicker{font-family:"IBM Plex Mono",monospace;font-size:.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:.35rem;}
+  .cta-card h3{margin:.1rem 0 .4rem;font-size:1.08rem;}
+  .cta-card p{margin:0;color:var(--text-dim);font-size:.88rem;}
+
+  /* ---------- sections ---------- */
+  section{margin-bottom:3.2rem;}
+  .section-banner{display:flex;align-items:center;gap:.9rem;padding:1.1rem 1.3rem;border-radius:var(--radius);margin-bottom:2rem;background:linear-gradient(135deg, var(--accent-soft), transparent);border:1px solid var(--border);}
+  .section-banner .num{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:1.5rem;color:var(--accent);}
+  .section-banner h2{margin:0;font-size:1.5rem;}
+  .section-banner p{margin:.2rem 0 0;color:var(--text-dim);font-size:.92rem;}
+
+  h2.h-anchor{font-size:1.5rem;margin:0 0 1rem;padding-top:.2rem;}
+  h3.h-anchor{font-size:1.15rem;margin:2.2rem 0 .8rem;padding-top:.3rem;border-top:1px solid var(--border);padding-top:1.4rem;}
+  h4{font-size:1rem;margin:1.4rem 0 .5rem;}
+  p{margin:0 0 1rem;}
+  ul,ol{margin:0 0 1rem;padding-left:1.35rem;}
+  li{margin-bottom:.35rem;}
+  .lead-in{color:var(--text-dim);}
+
+  table{border-collapse:collapse;width:100%;margin:0 0 1.4rem;font-size:.88rem;}
+  caption{caption-side:bottom;font-size:.78rem;color:var(--text-faint);text-align:left;padding-top:.4rem;}
+  th,td{text-align:left;padding:.55rem .7rem;border-bottom:1px solid var(--border);vertical-align:top;}
+  th{font-family:"IBM Plex Mono",monospace;font-size:.76rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text-faint);font-weight:600;background:var(--surface-2);}
+  tr:last-child td{border-bottom:none;}
+  .tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1.4rem;}
+  .tablewrap table{margin-bottom:0;}
+
+  .callout{border-radius:var(--radius);padding:1rem 1.15rem;margin:1.2rem 0;border:1px solid var(--border);display:flex;gap:.75rem;}
+  .callout .ic{font-size:1.1rem;line-height:1.4;}
+  .callout .body p:last-child{margin-bottom:0;}
+  .callout.warn{background:var(--warn-bg);border-color:var(--warn-border);}
+  .callout.warn .body strong{color:var(--warn);}
+  .callout.info{background:var(--info-bg);border-color:var(--info-border);}
+  .callout.info .body strong{color:var(--info);}
+  .callout.ok{background:var(--ok-bg);border-color:var(--ok-border);}
+  .callout.ok .body strong{color:var(--ok);}
+
+  .pill-row{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 1.2rem;}
+  .pill{font-family:"IBM Plex Mono",monospace;font-size:.72rem;background:var(--surface-2);border:1px solid var(--border);padding:.22rem .55rem;border-radius:14px;color:var(--text-dim);}
+
+  .card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.9rem;margin:0 0 1.4rem;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.1rem;box-shadow:var(--shadow);}
+  .card h4{margin:0 0 .4rem;font-size:.95rem;}
+  .card p{margin:0;font-size:.86rem;color:var(--text-dim);}
+  .card code{font-size:.78rem;}
+
+  .copybtn{position:absolute;top:.5rem;right:.5rem;background:var(--surface-2);border:1px solid var(--code-border);color:var(--text-dim);font-family:"IBM Plex Mono",monospace;font-size:.68rem;padding:.22rem .5rem;border-radius:5px;cursor:pointer;opacity:.75;}
+  .copybtn:hover{opacity:1;}
+
+  .step-list{counter-reset:step;list-style:none;padding-left:0;}
+  .step-list > li{counter-increment:step;position:relative;padding-left:2.4rem;margin-bottom:1rem;}
+  .step-list > li::before{content:counter(step);position:absolute;left:0;top:0;width:1.7rem;height:1.7rem;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:.85rem;display:flex;align-items:center;justify-content:center;}
+
+  footer{border-top:1px solid var(--border);padding:2.4rem 0 4rem;margin-top:2rem;color:var(--text-dim);font-size:.86rem;}
+  footer a{color:var(--text-dim);text-decoration:underline;}
+  .backtotop{position:fixed;right:1.4rem;bottom:1.4rem;background:var(--text);color:var(--bg);border:none;width:2.6rem;height:2.6rem;border-radius:50%;font-size:1.1rem;cursor:pointer;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:50;}
+  .backtotop.show{opacity:1;pointer-events:auto;}
+
+  @media (max-width: 920px){
+    .sidebar{position:fixed;left:0;top:53px;bottom:0;background:var(--surface);border-right:1px solid var(--border);z-index:39;transform:translateX(-105%);transition:transform .2s ease;width:78vw;max-width:320px;box-shadow:var(--shadow);}
+    .sidebar.open{transform:translateX(0);}
+    .navtoggle{display:inline-flex;}
+    .topbar-links a:not(.gh-btn){display:none;}
+    main{padding:0 1.1rem 5rem;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div style="display:flex;align-items:center;gap:.6rem;">
+      <button class="navtoggle" id="navtoggle" aria-label="Toggle navigation">☰</button>
+      <a class="brand" href="#top">🛡️ aginiti-redteam</a>
+    </div>
+    <nav class="topbar-links">
+      <a href="#contribute">Contribute</a>
+      <a href="#use">Use the library</a>
+      <a href="https://github.com/dev-devneuron/aginiti-redteam" class="gh-btn">GitHub ↗</a>
+    </nav>
+  </div>
+</div>
+
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="side-group">
+      <p class="side-group-label">Overview</p>
+      <ul>
+        <li><a href="#overview">What is Aginiti</a></li>
+        <li><a href="#results">Results at a glance</a></li>
+      </ul>
+    </div>
+    <div class="side-group">
+      <p class="side-group-label">1 · Contributing</p>
+      <ul>
+        <li><a href="#contribute">Section overview</a></li>
+        <li><a href="#c-philosophy">Philosophy &amp; bar</a></li>
+        <li><a href="#c-workflow">Issue-first workflow</a></li>
+        <li><a href="#c-setup">Dev environment setup</a></li>
+        <li><a href="#c-structure">Repository structure</a></li>
+        <li><a href="#c-distinction">attacks/ vs operators/ vs adaptive/</a></li>
+        <li><a href="#c-standards">Code standards</a></li>
+        <li><a href="#c-comments">Comment &amp; docstring style</a></li>
+        <li><a href="#c-citations">Citing research papers</a></li>
+        <li><a href="#c-where">Where a new module goes</a></li>
+        <li><a href="#c-submit">Submitting a change</a></li>
+        <li><a href="#c-roadmap">Roadmap &amp; how to help</a></li>
+        <li><a href="#c-security">Reporting a security issue</a></li>
+      </ul>
+    </div>
+    <div class="side-group">
+      <p class="side-group-label">2 · Using the library</p>
+      <ul>
+        <li><a href="#use">Section overview</a></li>
+        <li><a href="#u-install">Installation</a></li>
+        <li><a href="#u-config">Configuration &amp; API keys</a></li>
+        <li><a href="#u-direct">Direct Mode — 4 attacks</a>
+          <ul>
+            <li><a href="#u-ikea">IKEA</a></li>
+            <li><a href="#u-secret">SECRET</a></li>
+            <li><a href="#u-mia">Interrogation (MIA)</a></li>
+            <li><a href="#u-spe">SPE-LLM</a></li>
+            <li><a href="#u-budgets">Query budgets compared</a></li>
+          </ul>
+        </li>
+        <li><a href="#u-adaptive">Adaptive Mode — campaign engine</a>
+          <ul>
+            <li><a href="#u-adaptive-cli">CLI usage</a></li>
+            <li><a href="#u-adaptive-api">Python API</a></li>
+            <li><a href="#u-adaptive-tiers">Tiers vs. categories</a></li>
+            <li><a href="#u-adaptive-auth">Target authentication</a></li>
+          </ul>
+        </li>
+        <li><a href="#u-internals">How the framework thinks</a></li>
+        <li><a href="#u-output">Output &amp; results files</a></li>
+        <li><a href="#u-cache">Cache files</a></li>
+        <li><a href="#u-benchmark">Benchmarking defended targets</a></li>
+        <li><a href="#u-testing">Testing</a></li>
+        <li><a href="#u-reference">CLI &amp; env var reference</a></li>
+        <li><a href="#u-faq">Gotchas &amp; FAQ</a></li>
+      </ul>
+    </div>
+    <div class="side-group">
+      <p class="side-group-label">Links</p>
+      <ul>
+        <li><a href="https://github.com/dev-devneuron/aginiti-redteam">Repository</a></li>
+        <li><a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/ARCHITECTURE.md">Architecture (full)</a></li>
+        <li><a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/BENCHMARKS.md">Benchmarks (full)</a></li>
+        <li><a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/USAGE.md">Usage guide (full)</a></li>
+        <li><a href="https://github.com/dev-devneuron/aginiti-redteam/issues">Issue tracker</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <main id="top">
+
+    <div class="hero">
+      <p class="eyebrow">Framework Documentation</p>
+      <h1>aginiti-redteam</h1>
+      <p class="lead">An open-source, adaptive red-teaming engine for enterprise agentic AI. Point it at a
+        chatbot, a RAG-backed assistant, or a tool-calling agent, and it plans a real attack campaign against
+        it — accumulating everything it learns into a persistent evidence graph and deciding what to try next
+        from that graph, turn by turn.</p>
+      <div class="badges">
+        <span class="badge">Python 3.10+</span>
+        <span class="badge">MIT License</span>
+        <span class="badge">1,827 tests · offline</span>
+        <span class="badge">11 attack categories</span>
+        <span class="badge">9+ cited papers</span>
+      </div>
+      <div class="cta-row">
+        <a class="cta-card" href="#contribute">
+          <div class="cta-kicker">Section 1</div>
+          <h3>🤝 I want to contribute</h3>
+          <p>Development setup, code standards, where a new module belongs, and how to submit a change.</p>
+        </a>
+        <a class="cta-card" href="#use">
+          <div class="cta-kicker">Section 2</div>
+          <h3>⚙️ I want to use the library</h3>
+          <p>Install it, configure it, and run every attack and the adaptive campaign engine — in detail.</p>
+        </a>
+      </div>
+    </div>
+
+    <section id="overview">
+      <h2 class="h-anchor">What Aginiti actually is</h2>
+      <p>Most red-teaming tools work one of two ways: a <strong>static scanner</strong> fires a fixed list of
+        payloads and scores pass/fail, one probe at a time — or a <strong>human operator</strong> builds up an
+        understanding of the target and improvises a chain by hand. Aginiti does neither. It treats an
+        assessment as <strong>planning under uncertainty over a persistent evidence graph</strong>. Every real
+        signal from the target — a tool it revealed, a trust relationship it exposed, a defense that fired — is
+        recorded as an evidence-linked claim, and that claim immediately changes what the planner considers
+        trying next. The graph <em>is</em> the model of the target; the plan is derived from it, not scripted
+        in advance.</p>
+      <p class="lead-in">Two things live in this repository, and either is usable completely independently of
+        the other:</p>
+      <div class="card-grid">
+        <div class="card">
+          <h4>🧠 The adaptive campaign engine</h4>
+          <p><code>aginiti/core/</code> — a planner that ranks every currently eligible attack by a nine-term
+            utility function (information gain, chain progress, diagnosed failure patterns, exploration
+            terms, …), executes the top-ranked one, records what happened as evidence, and repeats. This is
+            the project's actual novel contribution.</p>
+        </div>
+        <div class="card">
+          <h4>🎯 A standalone attack library</h4>
+          <p><code>aginiti/attacks/</code> — IKEA and SECRET (two independent Data Reconstruction Attacks) and
+            an Interrogation/Membership-Inference attack, each runnable directly against one target via its
+            own script, or wrapped as a planner-selectable <code>Operator</code> so the engine above can
+            decide <em>when</em> it's worth its query budget.</p>
+        </div>
+      </div>
+      <p>Every real target is probed through the same evidence pipeline: raw responses are judged
+        (deterministically where possible, by an LLM otherwise) <strong>and</strong> cross-checked against an
+        independent, non-LLM disclosure oracle before anything counts as a confirmed finding — see
+        <a href="#u-internals">How the framework thinks</a> for the exact pipeline.</p>
+    </section>
+
+    <section id="results">
+      <h2 class="h-anchor">Results at a glance</h2>
+      <p class="lead-in">Not validated on toy examples — benchmarked head-to-head against honest baselines and
+        an industry-standard scanner, on real, independently-built targets. Full methodology and citations in
+        <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/BENCHMARKS.md">docs/BENCHMARKS.md</a>.</p>
+      <div class="tablewrap">
+        <table>
+          <tr><td><strong>~5×</strong></td><td>fewer requests than fixed-order enumeration to reach the same ground-truth outcomes against a production-realistic target with 8 independently-toggleable defense layers</td></tr>
+          <tr><td><strong>98%</strong></td><td>reduction in requests blocked by the target's own input filter — evidence the planner steers around dead ends, not around by brute volume</td></tr>
+          <tr><td><strong>4/5</strong></td><td>attack categories where Aginiti and <a href="https://github.com/NVIDIA/garak">NVIDIA's garak</a> agreed exactly — plus real, confirmed findings (live tool exfiltration, network egress) a REST-only scanner cannot see at all</td></tr>
+          <tr><td><strong>11</strong></td><td>named attack methodologies, grounded in <strong>9+</strong> published, cited research papers — ArtPrompt, Crescendo, PAIR, CipherChat/MetaCipher, the Interrogation Attack, IKEA, SECRET, InjecAgent, and STAC among them</td></tr>
+          <tr><td><strong>1,827</strong></td><td>tests, fully offline — every LLM and network call mocked, full suite in under 30 seconds, zero API cost</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 1 — CONTRIBUTING                                      -->
+    <!-- ============================================================ -->
+
+    <div class="section-banner">
+      <div class="num">01</div>
+      <div>
+        <h2 style="border:none;padding:0;">For Contributors</h2>
+        <p>Everything needed to get a development environment running and land a real, mergeable change.</p>
+      </div>
+    </div>
+
+    <section id="contribute">
+      <p>This is a security tool used to red-team real enterprise systems — code quality, test coverage, and
+        clear documentation aren't optional polish here, they're what makes the tool trustworthy enough for a
+        security team to actually run against systems they care about. Every contribution is held to that bar
+        from the start, not retroactively.</p>
+
+      <h3 class="h-anchor" id="c-philosophy">Philosophy &amp; the quality bar</h3>
+      <ul>
+        <li><strong>Type hints on every public function/class.</strong> This is a library other engineers
+          import and rely on — untyped public APIs are a real adoption blocker.</li>
+        <li><strong>Docstrings on every public class/function</strong> — what it does, parameters, return
+          type, and for attack modules, which paper/section it implements.</li>
+        <li><strong>Tests for every attack module</strong>, at minimum unit tests against the reference agents
+          with known ground truth — extraction claims need to be verifiable, not just plausible-looking.</li>
+        <li><strong>No silent failures.</strong> If a probe fails, a defense blocks a query, or an LLM call
+          errors, that surfaces as structured information — never swallowed.</li>
+        <li><strong>Every LLM call goes through <a href="https://docs.litellm.ai/">LiteLLM</a></strong> via
+          <code>aginiti/providers/llm.py</code>'s provider-agnostic pattern. Never hardcode a provider SDK or
+          assume a specific response shape.</li>
+      </ul>
+
+      <h3 class="h-anchor" id="c-workflow">Issue-first workflow</h3>
+      <p>Work here happens issue-by-issue, not via unsolicited large PRs.</p>
+      <ol class="step-list">
+        <li>Check the <a href="https://github.com/dev-devneuron/aginiti-redteam/issues">issue tracker</a> for
+          an existing issue covering what you want to do.</li>
+        <li>If none exists, open one describing the problem or proposal. For anything nontrivial — a new
+          attack module, a schema change, a directory reorganization — expect a short discussion before
+          implementation starts, not after.</li>
+        <li>Look for the <code>good-first-issue</code> label if you're new to the codebase.</li>
+      </ol>
+      <div class="callout warn">
+        <div class="ic">⚠️</div>
+        <div class="body"><strong>A PR that doesn't reference an issue</strong>, or that does something
+          materially different from what its issue described, will likely need rework.</div>
+      </div>
+
+      <h3 class="h-anchor" id="c-setup">Development environment setup</h3>
+      <pre><code># Clone and enter the project
+git clone https://github.com/dev-devneuron/aginiti-redteam.git
+cd aginiti-redteam
+
+# Create a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+
+# Install in editable mode with dev/test tooling (pytest, FastAPI/Uvicorn
+# for the local reference-target servers, Faker for synthetic data)
+pip install -e ".[dev]"
+
+# Add one LLM API key (needed by the planner's own reasoning / the judge —
+# the in-memory demo target itself needs no key at all)
+cp .env.example .env
+# edit .env and set GEMINI_API_KEY=... or GROQ_API_KEY=...
+
+# Run the full test suite — no API key required, every LLM/HTTP call is mocked
+pytest tests/ -v</code></pre>
+      <p>1,827 tests currently pass on a clean checkout, fully offline, in under 30 seconds.</p>
+
+      <p>To exercise real target agents locally (not required just to run the test suite):</p>
+      <pre><code># Seed the local ChromaDB vector databases (computes embeddings offline, no API cost)
+python -m benchmarks.dev_fixtures.agents.reference_agent_blackbox.seed
+python -m benchmarks.dev_fixtures.agents.reference_agent_otel.seed
+
+# Start them (separate terminals)
+uvicorn benchmarks.dev_fixtures.agents.reference_agent_blackbox.main:app --port 8001
+uvicorn benchmarks.dev_fixtures.agents.reference_agent_otel.main:app --port 8002
+
+# Then run a full adaptive campaign against the built-in mock target
+python scripts/run_campaign.py</code></pre>
+      <div class="callout info">
+        <div class="ic">🪟</div>
+        <div class="body"><strong>Windows contributors:</strong> native <code>onnxruntime</code> (used by the
+          default local embedding backend) can hit DLL-loading issues on native Windows. Developing inside
+          <strong>WSL2</strong> or Docker (<code>docker build -t aginiti-redteam . &amp;&amp; docker compose
+          up</code>) is the smoothest path — the standard setup above still works natively on Windows for
+          everything that doesn't touch the local embedding path.</div>
+      </div>
+
+      <h3 class="h-anchor" id="c-structure">Repository structure</h3>
+      <pre><code>aginiti-redteam/
+├── aginiti/
+│   ├── core/                    # The campaign engine — the project's actual core
+│   │   ├── graph/                    # Security State Graph: schema, taxonomy tags
+│   │   ├── planner/                  # AginitiPlanner — the utility-ranking function
+│   │   └── policies/                 # Policy interface + Random/Static baselines
+│   ├── operators/                # Planner-selectable Operator libraries, one module
+│   │                             #   per target/technique family
+│   ├── adapters/                 # One BaseAdapter subclass per real/mock target
+│   ├── adaptive/                 # Stateful, multi-step search-based discovery engines
+│   ├── attacks/
+│   │   ├── base.py                    # BaseAttack & the LeakFinding schema (locked)
+│   │   ├── dra/                       # Data Reconstruction Attacks: IKEA, SECRET
+│   │   └── mia/                       # Interrogation Attack (Membership Inference)
+│   ├── connectors/                # HTTP client for targets; embedding routing
+│   ├── providers/                 # LiteLLM-backed LLM client (Groq/Gemini/…)
+│   └── reporting/                 # Markdown/PDF report generation
+├── benchmarks/
+│   ├── dev_fixtures/             # Lightweight mock targets for unit tests & local dev
+│   └── scaled_evals/             # Production-scale targets over real document corpora
+├── experiments/                  # Every live A/B experiment script + its results
+├── scripts/                      # Entry points — run_campaign.py, run_ikea.py, …
+├── docs/                         # ARCHITECTURE.md, BENCHMARKS.md, ROADMAP.md, USAGE.md
+└── tests/                        # 1,827 tests, fully offline</code></pre>
+      <p>Every top-level <code>aginiti/</code> subdirectory ships its own <code>README.md</code> describing
+        exactly what belongs there — read the relevant one before adding a new module.</p>
+
+      <h3 class="h-anchor" id="c-distinction">Three genuinely different things: attacks/, operators/, adaptive/</h3>
+      <p>Easy to conflate, and each new module needs to land in the right one:</p>
+      <div class="tablewrap">
+        <table>
+          <tr><th>Directory</th><th>What it holds</th></tr>
+          <tr><td><code>aginiti/attacks/</code></td><td>Deep, paper-faithful, standalone-runnable attack
+            implementations. Every attack subclasses <code>BaseAttack</code> and emits <code>LeakFinding</code>
+            (<code>aginiti/attacks/base.py</code>) — <strong>this schema is locked</strong>; field names/types
+            and <code>execute()</code>'s dispatch logic never change without explicit maintainer sign-off.</td></tr>
+          <tr><td><code>aginiti/operators/</code></td><td>Mostly-static, planner-selectable <code>Operator</code>
+            instances (one fixed prompt + typed preconditions/effects) that compose into a campaign. Schema
+            lives in <code>aginiti/operators/base.py</code>.</td></tr>
+          <tr><td><code>aginiti/adaptive/</code></td><td>Stateful, multi-step <em>search</em> engines that
+            generate new candidates at runtime and stop on success — not "operators, just more detailed."</td></tr>
+        </table>
+      </div>
+      <div class="callout warn">
+        <div class="ic">🔎</div>
+        <div class="body"><strong>If you're not sure which of these three a new module belongs in</strong>, ask
+          in the issue before writing code — and don't add a second implementation of an already-implemented
+          paper without first checking whether one exists. (<code>aginiti/attacks/mia/</code> vs.
+          <code>aginiti/adaptive/membership_inference.py</code> is the one existing example of this handled
+          correctly — read either module's own docstring for how they relate.)</div>
+      </div>
+
+      <h3 class="h-anchor" id="c-standards">Code standards, in practice</h3>
+      <div class="card-grid">
+        <div class="card"><h4>Type hints</h4><p>Every public function/class signature is fully typed. This is
+          a library other engineers import — untyped public APIs are a real adoption blocker.</p></div>
+        <div class="card"><h4>Docstrings</h4><p>What it does, parameters, return type; for an attack module,
+          which paper/section it implements.</p></div>
+        <div class="card"><h4>Tests</h4><p>Every attack module has unit tests against the reference agents
+          with known ground truth — extraction claims must be verifiable.</p></div>
+        <div class="card"><h4>No silent failures</h4><p>A failed probe, a blocked query, an LLM error — all
+          surface as structured information, never swallowed silently.</p></div>
+      </div>
+
+      <h3 class="h-anchor" id="c-comments">Comment &amp; docstring style — write for a future contributor</h3>
+      <p>A comment answers <strong>"why does this code look the way it does,"</strong> for a reader with zero
+        context on the PR/conversation that produced it — never "what did we discover while debugging this."</p>
+      <ul>
+        <li>No first-person narration of a debugging process ("I tried X, it didn't work, then I tried Y") and
+          no session-specific narrative in a shipped comment.</li>
+        <li>No exact dates hardcoded into inline comments or docstrings — git history already carries "when."
+          If something is genuinely worth recording for future readers, it belongs in <code>CHANGELOG.md</code>.</li>
+        <li>Citations, paper references, and the rationale behind a locked design decision are the exception —
+          that's evergreen, developer-facing content, and stays, accurately.</li>
+      </ul>
+      <p>Ask yourself: would this comment make sense to someone reading this file for the first time on
+        GitHub, who was never part of the PR discussion? If not, rewrite or cut it.</p>
+
+      <h3 class="h-anchor" id="c-citations">Citing the core attack papers</h3>
+      <p>If your change touches one of the implemented attacks, cite the paper's actual publication venue
+        first, with the arXiv ID retained as a secondary reference in parentheses — never arXiv-only:</p>
+      <div class="tablewrap">
+        <table>
+          <tr><th>Attack</th><th>Citation</th></tr>
+          <tr><td>IKEA</td><td>Wang et al., "Silent Leaks: Implicit Knowledge Extraction Attack on RAG Systems
+            through Benign Queries," ICLR 2026 (arXiv:2505.15420)</td></tr>
+          <tr><td>SECRET</td><td>He, Chen, Li, Shao, Qi, Li, Tao, Qin, "External Data Extraction Attacks
+            against Retrieval-Augmented Large Language Models," IEEE TIFS, vol. 21, pp. 5864–5879, 2026,
+            doi:10.1109/TIFS.2026.3705326 (arXiv:2510.02964)</td></tr>
+          <tr><td>Interrogation / MIA</td><td>Naseh, Peng, Suri, Chaudhari, Oprea, Houmansadr, "Riddle Me
+            This! Stealthy Membership Inference for Retrieval-Augmented Generation," ACM CCS 2025
+            (arXiv:2502.00306)</td></tr>
+          <tr><td>SPE-LLM</td><td>Das, Amini, Wu, "System Prompt Extraction Attacks and Defenses in Large
+            Language Models," ICLR 2026 (arXiv:2505.23817)</td></tr>
+        </table>
+      </div>
+
+      <h3 class="h-anchor" id="c-where">Where a new module goes</h3>
+      <p>Before creating a new top-level <code>aginiti/</code> directory, check whether an existing one already
+        fits — each directory's own <code>README.md</code> states exactly what belongs there. The clearest ways
+        to extend Aginiti:</p>
+      <div class="card-grid">
+        <div class="card"><h4>🧩 A new operator library</h4><p>One module per technique family, composing onto
+          any <code>BaseAdapter</code>. See <code>aginiti/operators/</code> for the existing shape and
+          <code>aginiti/operators/base.py</code>'s worked example.</p></div>
+        <div class="card"><h4>🔌 A new target adapter</h4><p>One class implementing <code>BaseAdapter</code>
+          per real or mock target. See <code>aginiti/adapters/base.py</code> for the exact interface
+          (<code>send</code>, <code>ground_truth_mission_achieved</code>, <code>SendResult</code>).</p></div>
+        <div class="card"><h4>🔍 A new discovery engine</h4><p>Anything that searches rather than enumerates —
+          see <code>aginiti/adaptive/</code> for the existing pattern: inject a deterministic stand-in for any
+          LLM-drafting call, so it stays fully testable offline.</p></div>
+      </div>
+
+      <h3 class="h-anchor" id="c-submit">Submitting a change</h3>
+      <ol class="step-list">
+        <li>Fork the repo and branch from <code>main</code>.</li>
+        <li>Make your change, matching the standards above.</li>
+        <li>Run <code>pytest tests/ -v</code> — all tests must pass.</li>
+        <li>Open a PR referencing the issue it addresses (e.g. "fixes #42").</li>
+        <li>Keep the PR scoped to that one issue — a PR that also drive-by-fixes something unrelated is harder
+          to review and more likely to be asked to split up.</li>
+      </ol>
+
+      <h3 class="h-anchor" id="c-roadmap">Roadmap &amp; how to help right now</h3>
+      <p>Shipped and live-tested today: evidence-driven adaptive planning, multi-step discovery via
+        <code>ClassPrecondition</code>'s semantic-tag gating, composite severity-weighted scoring, Data
+        Reconstruction Attacks (IKEA, SECRET), Membership Inference (Interrogation), multi-turn escalation
+        (Crescendo, Deceptive Delight, many-shot), a production-realism hardened target with 8
+        independently-toggleable defense layers, an independent non-LLM disclosure oracle, and the
+        11-category attack selector.</p>
+      <div class="tablewrap">
+        <table>
+          <tr><th>In progress</th><th>Next up</th></tr>
+          <tr><td>Scaling trial counts on live comparisons (currently 3 independent trials per condition);
+            wiring every remaining standalone discovery engine into one shared campaign; OTel trace-collector
+            integration for the scaled-evaluation targets.</td>
+              <td>Feature/Attribute Inference Attack (FIA); a dedicated <code>aginiti</code> CLI wrapper;
+            cross-target learning (carrying a diagnosed failure pattern from one campaign's prior into the
+            next); broader multi-agent (A2A/MCP) coverage.</td></tr>
+        </table>
+      </div>
+      <p>Full detail, kept current: <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/ROADMAP.md">docs/ROADMAP.md</a>.</p>
+
+      <h3 class="h-anchor" id="c-security">Reporting a security issue in Aginiti itself</h3>
+      <div class="callout warn">
+        <div class="ic">🔒</div>
+        <div class="body">This tool is meant for authorized security testing of systems you own or have
+          explicit permission to test. If you find a vulnerability in <strong>aginiti-redteam itself</strong>
+          (not in a target you tested with it), report it privately rather than opening a public issue — see
+          the contact information on the repository's GitHub profile. This project follows the standards in
+          <code>CODE_OF_CONDUCT.md</code>.</div>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 2 — USING THE LIBRARY                                 -->
+    <!-- ============================================================ -->
+
+    <div class="section-banner">
+      <div class="num">02</div>
+      <div>
+        <h2 style="border:none;padding:0;">For Framework Users</h2>
+        <p>Install it, configure it, and run every attack and the adaptive engine — everything you need
+          without reading the source.</p>
+      </div>
+    </div>
+
+    <section id="use">
+      <p>Aginiti ships two ways to run an assessment. <strong>Direct Mode</strong> runs one attack — IKEA,
+        SECRET, Interrogation, or SPE-LLM — straight against a target URL, with every parameter under your
+        control by hand. <strong>Adaptive Mode</strong> hands the campaign engine a target and a budget; it
+        ranks every eligible operator by expected value, executes the winner, and repeats. Both are covered
+        below in full.</p>
+
+      <h3 class="h-anchor" id="u-install">Installation</h3>
+      <pre><code># Core library — the 4 attacks, HTTP target adapters, the campaign engine
+pip install aginiti-redteam
+
+# + LangChain agents, OTel tracing, MCP stdio servers, the DVLA reference target
+pip install aginiti-redteam[adaptive]</code></pre>
+      <div class="callout warn">
+        <div class="ic">📦</div>
+        <div class="body"><strong>The one thing <code>pip install</code> does not give you.</strong>
+          <code>pip install aginiti-redteam</code> installs the <code>aginiti</code> Python package only — no
+          <code>scripts/</code>, no CLI. Every attack and the full campaign engine are fully usable as a
+          Python library from a plain <code>pip install</code> (every code example on this page works that
+          way) — the <code>--tier</code>/<code>--attack-category</code> <em>command-line</em> convenience
+          shown in <a href="#u-adaptive-cli">Adaptive Mode</a> specifically needs
+          <code>git clone</code> + <code>pip install -e ".[dev]"</code>. A dedicated <code>aginiti</code> CLI
+          wrapper that ships with the package is on the roadmap, not shipped yet.</div>
+      </div>
+      <p>Requirements: Python 3.10+, and a valid API key for any <a href="https://github.com/BerriAI/litellm">LiteLLM</a>-supported
+        provider (Gemini, Groq, OpenAI, Anthropic, …) — the planner's reasoning, the judge, and the attack
+        loops are all provider-agnostic.</p>
+      <p>Optional install extras, for reference:</p>
+      <div class="tablewrap">
+        <table>
+          <tr><th>Extra</th><th>Adds</th></tr>
+          <tr><td><code>pip install aginiti-redteam</code></td><td>Core: the 4 attacks, HTTP adapters, the
+            campaign engine, litellm, chromadb (local embeddings).</td></tr>
+          <tr><td><code>[adaptive]</code></td><td>LangChain + langchain-groq/community (for the DVLA reference
+            target's own reasoning), MCP client (for a real MCP stdio server target).</td></tr>
+          <tr><td><code>[dev]</code> <em>(git clone only)</em></td><td>pytest, FastAPI/Uvicorn (local reference
+            target servers), Faker — the full contributor/local-dev workflow.</td></tr>
+          <tr><td><code>[benchmarks]</code> <em>(git clone only)</em></td><td>datasets, rouge-score — the
+            public-dataset benchmarking layer against real corpora.</td></tr>
+        </table>
+      </div>
+
+      <h3 class="h-anchor" id="u-config">Configuration — two different things are both called "an API key"</h3>
+      <p>Keep them apart:</p>
+      <ol>
+        <li><strong>Attacker / judge LLM key.</strong> Aginiti's <em>own reasoning</em> — generating probe
+          queries, judging whether a response counts as a leak, ranking operators. Every attack constructor
+          and the campaign engine both need one, routed through LiteLLM, so any supported provider works.</li>
+        <li><strong>Target authentication.</strong> If <em>the agent you're testing</em> requires its own auth
+          (a Bearer token, an API key header) to accept requests at all — nothing to do with Aginiti's own
+          reasoning. Set via <code>endpoint_kwargs</code> — see <a href="#u-adaptive-auth">Target
+          authentication</a>.</li>
+      </ol>
+      <p>Put at least one attacker/judge key in your environment or a <code>.env</code> file (Aginiti reads it
+        via <code>python-dotenv</code>):</p>
+      <pre><code>GEMINI_API_KEY=your_key
+GROQ_API_KEY=your_key
+OPENAI_API_KEY=your_key
+ANTHROPIC_API_KEY=your_key</code></pre>
+      <p>Then pass the matching provider string as <code>llm_provider</code> — LiteLLM's
+        <code>provider/model</code> convention: <code>gemini/gemini-3.5-flash</code>,
+        <code>groq/openai/gpt-oss-20b</code>, <code>openai/gpt-4o</code>, and so on.</p>
+      <div class="callout info">
+        <div class="ic">ℹ️</div>
+        <div class="body"><strong><code>target_url</code> is a base URL, not an endpoint path.</strong> Pass
+          just the host — <code>http://localhost:8001</code>. <code>AgentEndpoint</code> appends
+          <code>/chat</code> itself on every call; a <code>target_url</code> that already ends in
+          <code>/chat</code> would resolve to <code>/chat/chat</code>.</div>
+      </div>
+
+      <h3 class="h-anchor" id="u-direct">Direct Mode — the 4 attacks</h3>
+      <p>Each attack is independently runnable against one target, and each takes its query budget completely
+        differently — this is the part people get wrong.</p>
+
+      <h4 id="u-ikea">IKEA — Data Reconstruction Attack</h4>
+      <div class="pill-row"><span class="pill">ICLR 2026 · arXiv:2505.15420</span><span class="pill">Query budget: yes</span></div>
+      <p>Generates natural-sounding, benign-looking queries via Embedding-space Resampling (ERS) and
+        Topic-restricted Random Walk Mutation (TRDM) to reconstruct records from a RAG knowledge base — no
+        jailbreak wrapper, designed to read as an ordinary user question.</p>
+      <div class="tablewrap">
+        <table>
+          <tr><th>Parameter</th><th>Where</th><th>Required?</th><th>Default</th></tr>
+          <tr><td><code>target_url</code></td><td>constructor</td><td>yes</td><td>—</td></tr>
+          <tr><td><code>llm_provider</code>, <code>api_key</code></td><td>constructor</td><td>yes</td><td>—</td></tr>
+          <tr><td><code>topic</code></td><td>constructor or call</td><td>one of the two</td><td>—</td></tr>
+          <tr><td><code>max_queries</code></td><td>constructor or call</td><td>no</td><td>256 (paper default)</td></tr>
+          <tr><td><code>embed_model</code></td><td>constructor</td><td>no</td><td><code>chromadb/all-MiniLM-L6-v2</code> (local, free)</td></tr>
+        </table>
+      </div>
+      <pre><code>from aginiti.attacks.dra.ikea import IKEAAttack
+
+attack = IKEAAttack(
+    target_url="http://localhost:8001",
+    llm_provider="gemini/gemini-3.5-flash",
+    api_key="your_key",
+)
+
+findings = attack.execute_black_box(
+    topic="HR payroll records",
+    max_queries=10,  # the query budget lives HERE
+)
+
+for f in findings:
+    if f.confirmed:
+        print(f.severity, f.leaked_content)</code></pre>
+
+      <h4 id="u-secret">SECRET — jailbreak-optimized DRA</h4>
+      <div class="pill-row"><span class="pill">IEEE TIFS 2026 · arXiv:2510.02964</span><span class="pill">Query budget: yes — two phases</span></div>
+      <p>An Optimizer/Evaluator LLM loop first calibrates a jailbreak prompt against the live target
+        (<strong>Phase 1</strong>), then wraps every extraction query in it and alternates
+        exploration/exploitation to pull knowledge-base clusters (<strong>Phase 2</strong>). Every query is
+        jailbreak-wrapped — this is not IKEA's benign-question approach.</p>
+      <div class="tablewrap">
+        <table>
+          <tr><th>Parameter</th><th>Where</th><th>Required?</th><th>Default</th></tr>
+          <tr><td><code>target_url</code>, <code>llm_provider</code>, <code>api_key</code></td><td>constructor</td><td>yes</td><td>—</td></tr>
+          <tr><td><code>external_corpus</code></td><td>constructor</td><td>yes</td><td>non-empty <code>list[str]</code></td></tr>
+          <tr><td><code>phase1_n_iter</code> × <code>phase1_n_cand</code></td><td>constructor</td><td>no</td><td>20 × 3 (paper default)</td></tr>
+          <tr><td><code>max_queries</code></td><td>constructor or call</td><td>no</td><td>Phase 2's own budget</td></tr>
+          <tr><td><code>optimizer_llm_provider</code></td><td>constructor</td><td>no — read the callout below</td><td>falls back to <code>llm_provider</code></td></tr>
+        </table>
+      </div>
+      <div class="callout warn">
+        <div class="ic">⚠️</div>
+        <div class="body"><strong>The one thing most likely to bite you.</strong>
+          <code>optimizer_llm_provider</code> defaults to whatever you passed as <code>llm_provider</code>.
+          Safety-aligned commercial models (Gemini, GPT) tend to <strong>refuse the Optimizer's own "author a
+          jailbreak candidate" framing</strong> — Phase 1 then silently produces nothing, and Phase 2 runs on
+          a dud prompt. Point the optimizer at a model that will actually comply.</div>
+      </div>
+      <pre><code>from aginiti.attacks.dra.secret import SECRETAttack
+
+attack = SECRETAttack(
+    target_url="http://localhost:8001",
+    llm_provider="gemini/gemini-3.5-flash",       # extraction / classification
+    api_key="your_gemini_key",
+    optimizer_llm_provider="groq/openai/gpt-oss-20b",  # set this explicitly
+    optimizer_api_key="your_groq_key",
+    external_corpus=["unrelated sentence one.", "unrelated sentence two."],
+    phase1_n_iter=3, phase1_n_cand=2,   # Phase 1 budget
+)
+
+findings = attack.execute(domain="HR records", max_queries=10)  # Phase 2 budget</code></pre>
+      <p>Phase 1's result is <strong>cached per target for 7 days</strong> — the first run against a new
+        target pays the full optimizer/evaluator cost; every run after that reuses it and only Phase 2's
+        budget applies. Force a fresh run with <code>force_refresh_phase1=True</code>.</p>
+
+      <h4 id="u-mia">Interrogation Attack — Membership Inference (MIA)</h4>
+      <div class="pill-row"><span class="pill">ACM CCS 2025 · arXiv:2502.00306</span><span class="pill">Query budget: yes — per document</span></div>
+      <p>A genuinely different question from the other three: not "what can I extract," but "does <em>this
+        specific document I already hold</em> exist in the target's knowledge base." Not zero-knowledge — it
+        needs the candidate text up front, plus a non-member reference set to calibrate against.</p>
+      <div class="tablewrap">
+        <table>
+          <tr><th>Parameter</th><th>Where</th><th>Required?</th><th>Default</th></tr>
+          <tr><td><code>target_url</code>, <code>llm_provider</code>, <code>api_key</code></td><td>constructor</td><td>yes</td><td>—</td></tr>
+          <tr><td><code>non_member_reference_docs</code></td><td>constructor</td><td>yes</td><td>non-empty, definitely-absent documents</td></tr>
+          <tr><td><code>n_probe_questions</code></td><td>constructor</td><td>no</td><td>30 (paper default) — <strong>per document</strong></td></tr>
+          <tr><td><code>documents</code></td><td>call (<code>execute_black_box</code>)</td><td>yes</td><td>the candidates you're testing</td></tr>
+          <tr><td><code>shadow_llm_provider</code></td><td>constructor</td><td>no</td><td>same family as <code>llm_provider</code> — paper wants it <em>different</em></td></tr>
+        </table>
+      </div>
+      <pre><code>from aginiti.attacks.mia.interrogation import InterrogationAttack
+
+attack = InterrogationAttack(
+    target_url="http://localhost:8001",
+    llm_provider="gemini/gemini-3.5-flash",
+    api_key="your_key",
+    non_member_reference_docs=[{"id": "ref_1", "text": "a fabricated, definitely-absent record..."}],
+    n_probe_questions=4,   # the real query budget, applied to EACH document below
+)
+
+findings = attack.execute_black_box(documents=[
+    {"id": "candidate_1", "text": "the full text of the document you're testing..."},
+])
+# findings = confirmed MEMBERS only; attack.non_member_results holds the rest</code></pre>
+
+      <h4 id="u-spe">SPE-LLM — System-prompt extraction</h4>
+      <div class="pill-row"><span class="pill">ICLR 2026 · arXiv:2505.23817</span><span class="pill">Query budget: no — fixed at 3</span></div>
+      <p>Three fixed templates — Chain-of-Thought, Extended Sandwich, Few-Shot — asking the target to reveal
+        its own system prompt. No adaptive loop, no query parameter to set at all; every run fires exactly
+        3 probes.</p>
+      <div class="tablewrap">
+        <table>
+          <tr><th>Parameter</th><th>Where</th><th>Required?</th><th>Default</th></tr>
+          <tr><td><code>target_url</code></td><td>constructor</td><td>yes</td><td>—</td></tr>
+          <tr><td><code>classifier_llm_provider</code>, <code>classifier_api_key</code></td><td>constructor</td><td>no — read the callout below</td><td>falls back to <code>llm_provider</code>, else <code>gemini/gemini-3.5-flash</code></td></tr>
+        </table>
+      </div>
+      <div class="callout warn">
+        <div class="ic">⚠️</div>
+        <div class="body"><strong>No longer LLM-less — and fails silently without a key.</strong> A 10-keyword
+          heuristic was replaced with a real LLM judge. Constructing SPE with <strong>zero</strong> key
+          arguments does <strong>not</strong> raise, ever — construction succeeds, then each probe's classifier
+          call fails internally and is caught, silently falling back to <code>confirmed=False</code>. The
+          result is indistinguishable from a target that genuinely resisted every probe. If you ever see an
+          all-clean SPE result, confirm a real key actually reached the classifier before trusting it. Pass a
+          key.</div>
+      </div>
+      <pre><code>from aginiti.attacks.spe.spe_llm import SPEAttack
+
+attack = SPEAttack(
+    target_url="http://localhost:8001",
+    classifier_llm_provider="gemini/gemini-3.5-flash",
+    classifier_api_key="your_key",
+)
+
+findings = attack.execute_black_box()  # always exactly 3 probes, no budget to set</code></pre>
+
+      <h4 id="u-budgets">Query budgets, compared at a glance</h4>
+      <div class="tablewrap">
+        <table>
+          <tr><th>Attack</th><th>Parameter name</th><th>Set where</th><th>Shape</th></tr>
+          <tr><td>IKEA</td><td><code>max_queries</code></td><td>constructor or call</td><td>One number — the whole extraction budget</td></tr>
+          <tr><td>SECRET</td><td><code>phase1_n_iter</code> × <code>phase1_n_cand</code>, then <code>max_queries</code></td><td>constructor, then constructor or call</td><td>Two separate budgets — jailbreak calibration, then extraction</td></tr>
+          <tr><td>Interrogation (MIA)</td><td><code>n_probe_questions</code></td><td>constructor only</td><td>Per document — real total ≈ questions × (candidates + reference docs, first run only)</td></tr>
+          <tr><td>SPE-LLM</td><td><em>none</em></td><td>—</td><td>Fixed at exactly 3 probes, always</td></tr>
+        </table>
+      </div>
+
+      <h3 class="h-anchor" id="u-adaptive">Adaptive Mode — the campaign engine</h3>
+      <p>Same 4 attacks, plus everything else in the operator library, chosen automatically by a ranking
+        function instead of by hand. The engine itself — <code>run_campaign()</code> — is plain Python and
+        works from a bare <code>pip install</code>. The convenient <code>--tier</code>/<code>--attack-category</code>
+        command-line flags live in <code>scripts/run_campaign.py</code>, which is <strong>not part of the
+        published package</strong> — that needs a git checkout. Both paths are shown below.</p>
+
+      <h4 id="u-adaptive-cli">If you cloned the repo — the CLI</h4>
+      <pre><code># Mock target, zero setup — the 2-minute quickstart
+python scripts/run_campaign.py
+
+# A real target, filtered to one coarse tier, capped budget
+python scripts/run_campaign.py --agent-url http://localhost:8001 \
+    --tier data_leakage --budget 20
+
+# ...or a precise attack category instead of a tier (mutually exclusive)
+python scripts/run_campaign.py --agent-url http://localhost:8001 \
+    --attack-category encoding_attack rag_poisoning --budget 25
+
+# Override the deep-attack operators' own LLM provider
+python scripts/run_campaign.py --agent-url http://localhost:8001 \
+    --tier full_assessment --budget 40 --model groq/openai/gpt-oss-20b</code></pre>
+
+      <h4 id="u-adaptive-api">If you only pip-installed — the Python API</h4>
+      <pre><code>from aginiti.core.campaign import run_campaign
+from aginiti.core.mission import Mission
+from aginiti.core.graph.schema import RiskTier
+from aginiti.operators.data_exposure import data_exposure_operators
+from aginiti.operators.deep_attack_operators import deep_attack_operators
+from aginiti.operators.library import OperatorLibrary
+from aginiti.adapters.http_agent_adapter import HTTPAgentAdapter
+from aginiti.connectors.endpoint import AgentEndpoint
+
+endpoint = AgentEndpoint(base_url="http://localhost:8001")
+agent = HTTPAgentAdapter(endpoint)
+
+all_ops = [*data_exposure_operators(), *deep_attack_operators()]
+library = OperatorLibrary(all_ops).by_category("encoding_attack", "rag_poisoning")
+
+mission = Mission(
+    goal="Assess data-leakage exposure",
+    success_criteria=("system_prompt_disclosed", "sensitive_data_exfiltrated"),
+    success_mode="any",
+    budget=25,
+    risk_threshold=RiskTier.MEDIUM,
+)
+
+result = run_campaign(mission, library, agent=agent)
+print(result.outcome, result.prompts_used)</code></pre>
+      <div class="callout info">
+        <div class="ic">ℹ️</div>
+        <div class="body"><code>OperatorLibrary(...).by_category(...)</code> is an <strong>instance</strong>
+          method — build the library first, then filter it, not
+          <code>OperatorLibrary.by_category(...)</code> directly on the class.</div>
+      </div>
+
+      <h4 id="u-adaptive-tiers">Tiers vs. attack categories</h4>
+      <p>Two granularities over the same underlying tags — pick one; <code>--tier</code> and
+        <code>--attack-category</code> are mutually exclusive on the CLI.</p>
+      <div class="tablewrap">
+        <table>
+          <tr><th>Tier (4 coarse buckets)</th><th>Derived from</th></tr>
+          <tr><td><code>data_leakage</code></td><td>OWASP LLM02 (sensitive info disclosure) or LLM07
+            (system-prompt leakage) — includes all 4 Direct Mode attacks plus matching cheap probes</td></tr>
+          <tr><td><code>unauthorized_actions</code></td><td>OWASP LLM01 (prompt injection), LLM06 (excessive
+            agency), or attack_category <code>tool_manipulation</code></td></tr>
+          <tr><td><code>discovery_recon</code></td><td>attack_category <code>tool_discovery</code> or
+            <code>low_value_reconnaissance</code></td></tr>
+          <tr><td><code>full_assessment</code></td><td>no filter — same as omitting <code>--tier</code></td></tr>
+        </table>
+      </div>
+      <p><strong>11 precise categories</strong> (run <code>--list-attack-categories</code> for the exact list
+        at any time): <code>direct_prompt_attack</code>, <code>encoding_attack</code>, <code>rag_poisoning</code>,
+        <code>indirect_injection</code>, <code>tool_discovery</code>, <code>tool_manipulation</code>,
+        <code>markdown_network_exfiltration</code>, <code>multi_step_chain</code> (offensive techniques);
+        <code>decoy</code>, <code>known_defended</code>, <code>low_value_reconnaissance</code>
+        (planner-evaluation controls).</p>
+
+      <h4 id="u-adaptive-auth">Target authentication</h4>
+      <p>If the agent under test needs its own auth header, pass it via <code>endpoint_kwargs</code> — works
+        identically for every attack and for <code>AgentEndpoint</code> directly:</p>
+      <pre><code>attack = IKEAAttack(
+    target_url="https://internal-agent.example.com",
+    llm_provider="gemini/gemini-3.5-flash",
+    api_key="your_key",
+    endpoint_kwargs={"headers": {"Authorization": f"Bearer {target_token}"}},
+)</code></pre>
+
+      <h3 class="h-anchor" id="u-internals">How the framework thinks — the pieces behind Adaptive Mode</h3>
+      <p>You don't need this to run an attack, but it explains what the campaign engine is actually doing
+        under the hood, so its decisions are legible rather than a black box.</p>
+      <div class="card-grid">
+        <div class="card"><h4>The loop</h4><p><code>Planner.rank()</code> filters to operators whose
+          preconditions currently hold, enforces hard risk/budget limits, and scores the rest →
+          <code>Operator.render()</code> builds the actual prompt from facts already learned →
+          <code>Adapter.send()</code> delivers it to the real (or mock) target → the response is judged and
+          the graph is updated → repeat, with every new claim visible to the next ranking call.</p></div>
+        <div class="card"><h4>The evidence model</h4><p>Five tiers, each more interpreted than the last:
+          <strong>Fact</strong> (raw, uninterpreted response) → <strong>Observation</strong> (a verdict linking
+          it to specific claim keys) → <strong>Claim</strong> (the versioned belief itself — HYPOTHESIZED /
+          CONFIRMED / REFUTED) → <strong>Insight</strong> (synthesized higher-order reasoning) →
+          <strong>Hypothesis</strong> (a testable prediction that updates in place).</p></div>
+        <div class="card"><h4>The utility function</h4><p>Nine terms score every eligible operator:
+          information gain, chain progress, business/path/emergent/potential impact, open-gap priority,
+          hypothesis priority, branch interest, severity priority, minus a failure-evidence penalty — plus
+          three exploration terms (family diversification, hypothesis-escalation bonus, technique-cluster
+          diversification) that affect ranking order only, never eligibility.</p></div>
+        <div class="card"><h4>Multi-step discovery</h4><p><code>ClassPrecondition</code> gates a downstream
+          operator on a semantic tag rather than one exact upstream claim key — any operator that happens to
+          produce a matching claim unlocks it, including one written later by a different author for a
+          different subsystem entirely. Chains aren't pre-wired.</p></div>
+        <div class="card"><h4>Independent verification</h4><p>A deterministic extractor checks the raw
+          response first wherever possible; an LLM judge evaluates against a specific enumerated list of
+          candidate claims (never an open-ended "was this bad?"); an independent disclosure oracle — verbatim
+          or fuzzy matching against a ground-truth corpus — has the final word. Nothing is marked CONFIRMED on
+          the judge's opinion alone.</p></div>
+        <div class="card"><h4>Composite scoring</h4><p><code>score = mission_success × security_boundary ×
+          business_impact × cost_efficiency × evidence_quality</code> — multiplicative on purpose, so a
+          campaign that never satisfies its mission scores exactly 0.0, and no other factor can manufacture
+          partial credit for a non-success.</p></div>
+      </div>
+      <p>Full design writeup, with real experiment numbers behind every claim above:
+        <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/ARCHITECTURE.md">docs/ARCHITECTURE.md</a>.</p>
+
+      <h3 class="h-anchor" id="u-output">Output &amp; results files</h3>
+      <p><strong>Findings themselves are in-memory only.</strong> <code>execute_black_box()</code> returns a
+        plain <code>list[LeakFinding]</code> — a real run writes <strong>zero</strong> new files to your
+        working directory unless you ask it to. To get a saved report, build a <code>report</code> dict
+        matching an exact schema and call <code>generate_markdown_report()</code>:</p>
+      <pre><code>from aginiti.reporting import generate_markdown_report
+import dataclasses, time
+
+started = time.monotonic()
+findings = attack.execute_black_box(topic="HR records", max_queries=10)
+
+report = {
+    "run_metadata": {
+        "attack": "ikea",
+        "agent_url": "http://localhost:8001",
+        "timestamp": "2026-08-28T00:00:00Z",
+        "total_queries": 10,
+        "runtime_seconds": time.monotonic() - started,  # required — omitting this raises KeyError
+        "embed_model": "chromadb/all-MiniLM-L6-v2",
+        "llm_provider": "gemini/gemini-3.5-flash",
+    },
+    "findings": [dataclasses.asdict(f) for f in findings],
+}
+generate_markdown_report(report, "my_report.md")   # pass redact=True for a second, sanitized copy</code></pre>
+      <div class="callout warn">
+        <div class="ic">⚠️</div>
+        <div class="body"><strong>The exact required keys, verified by hitting the error.</strong>
+          <code>run_metadata</code> must include <code>attack</code>, <code>agent_url</code>,
+          <code>timestamp</code>, <code>total_queries</code>, <code>runtime_seconds</code>, and
+          <code>embed_model</code> — a report dict missing any of these raises a bare <code>KeyError</code>
+          rather than a helpful validation message. Copy the shape above rather than improvising one.</div>
+      </div>
+      <p>If you cloned the repo, <code>scripts/run_ikea.py</code>/<code>run_secret.py</code>/etc. already do
+        all of this automatically, writing both a full JSON dump and a Markdown report under
+        <code>scripts/results/</code> — that convenience is script behavior, not library behavior, so it's
+        only there with a git checkout.</p>
+      <p>How many queries an attack actually sent is inconsistent across the four — verified directly against
+        each class:</p>
+      <div class="tablewrap">
+        <table>
+          <tr><th>Attack</th><th>How to get the real count</th></tr>
+          <tr><td>SECRET</td><td><code>attack.queries_sent</code> — the only one of the four with a direct attribute</td></tr>
+          <tr><td>IKEA</td><td>no such attribute — use <code>len(findings) + len(attack.refused_queries)</code></td></tr>
+          <tr><td>Interrogation (MIA)</td><td>no such attribute — use <code>len(findings) + len(attack.non_member_results)</code> for documents tested (× <code>n_probe_questions</code> for actual target queries)</td></tr>
+          <tr><td>SPE-LLM</td><td>always exactly 3 — <code>len(findings)</code> is always 3</td></tr>
+        </table>
+      </div>
+
+      <h3 class="h-anchor" id="u-cache">Cache files — written automatically, whether you ask or not</h3>
+      <p>Three of the four attacks cache expensive work to disk across runs, with no way to opt out beyond
+        bypassing it per-call:</p>
+      <div class="tablewrap">
+        <table>
+          <tr><th>Attack</th><th>Caches</th><th>TTL</th><th>Bypass</th></tr>
+          <tr><td>IKEA</td><td>Generated anchor candidates, per topic</td><td>7 days</td><td><code>execute_black_box(force_refresh=True)</code></td></tr>
+          <tr><td>SECRET</td><td>The calibrated jailbreak prompt (Phase 1), per target</td><td>7 days</td><td><code>force_refresh_phase1=True</code></td></tr>
+          <tr><td>Interrogation (MIA)</td><td>The calibrated membership threshold, per reference set</td><td>7 days</td><td><code>execute_black_box(force_recalibrate=True)</code></td></tr>
+        </table>
+      </div>
+      <div class="callout warn">
+        <div class="ic">📁</div>
+        <div class="body"><strong>Cache location — a real gap for pip-installed use, verified live.</strong>
+          All three resolve their cache path relative to <strong>where the package itself is installed</strong>,
+          not your project or a conventional cache directory — inside your venv's own install directory
+          (<code>.../site-packages/.cache/ikea_anchors/...</code>). A normal venv is writable, so this doesn't
+          outright fail for most setups, but the cache is easy to lose track of, gets wiped by
+          <code>pip install --upgrade</code>/reinstall (defeating a 7-day cache's whole point), and can be a
+          hard failure in read-only or system-Python environments. No environment-variable override exists yet
+          to relocate it — bypass with the <code>force_refresh</code> flags above if it's ever in your way.</div>
+      </div>
+
+      <h3 class="h-anchor" id="u-benchmark">Benchmarking against real, defended targets</h3>
+      <p><code>benchmarks/scaled_evals/</code> hosts production-scale targets over real corpora (CUAD legal
+        contracts, CFPB consumer complaints, HealthCareMagic-1k medical consultations):</p>
+      <div class="card-grid">
+        <div class="card"><h4>healthcare_agent <code>:8003</code></h4><p>A stateless RAG target, no RBAC
+          split. Measures each attack's effectiveness <em>ceiling</em> against an undefended/softly-guardrailed
+          target.</p></div>
+        <div class="card"><h4>hardened_agent <code>:8004</code></h4><p>The harder question: how much do real,
+          layered defenses (RBAC-scoped retrieval, output redaction, rate limiting, conversation memory, a
+          system-prompt guardrail, a dedicated input-filter classifier, session/auth expiry, and RBAC-scoped
+          tool-calling — <strong>8 independently-toggleable layers</strong>) actually reduce extraction, and
+          what still gets through anyway?</p></div>
+      </div>
+      <pre><code>pip install -e ".[benchmarks]"
+python benchmarks/scaled_evals/datasets/prepare_healthcare.py
+python -m benchmarks.scaled_evals.agents.healthcare_agent.seed
+uvicorn benchmarks.scaled_evals.agents.healthcare_agent.main:app --port 8003
+python scripts/run_healthcare_benchmark.py</code></pre>
+      <p>The runner scores <strong>ASR</strong> (Attack Success Rate), <strong>CRR</strong> (Content
+        Reconstruction Rate — ROUGE-L against real records), <strong>SS</strong> (Semantic Similarity), and
+        <strong>EE</strong> (Exfiltration Effectiveness, a combined gating metric). Results land as timestamped
+        JSON/Markdown under <code>benchmarks/scaled_evals/results/</code>.</p>
+
+      <h3 class="h-anchor" id="u-testing">Testing</h3>
+      <p>The full test suite mocks every network call, agent endpoint, and LLM completion — it runs offline,
+        in seconds, at zero API cost:</p>
+      <pre><code>pytest tests/ -v</code></pre>
+
+      <h3 class="h-anchor" id="u-reference">CLI &amp; environment-variable reference</h3>
+      <div class="tablewrap">
+        <table>
+          <tr><th>Flag (git checkout only)</th><th>Effect</th></tr>
+          <tr><td><code>--agent-url</code></td><td>Target a real HTTP agent; switches the default library to the target-agnostic packs</td></tr>
+          <tr><td><code>--tier</code></td><td>One of the 4 coarse buckets — see Tiers vs. attack categories</td></tr>
+          <tr><td><code>--attack-category</code></td><td>One or more of the 11 precise categories (space-separated = union)</td></tr>
+          <tr><td><code>--list-attack-categories</code></td><td>Print all 11 with descriptions, exit — no key/network needed</td></tr>
+          <tr><td><code>--budget</code></td><td>Override the mission's prompt budget</td></tr>
+          <tr><td><code>--model</code></td><td>Override IKEA/SECRET/MIA's own primary attacker LLM</td></tr>
+        </table>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <tr><th>Environment variable</th><th>Purpose</th></tr>
+          <tr><td><code>GEMINI_API_KEY</code></td><td>Attacker/judge LLM (Gemini via LiteLLM)</td></tr>
+          <tr><td><code>GROQ_API_KEY</code></td><td>Attacker/judge LLM (Groq via LiteLLM) — also SECRET's recommended optimizer provider</td></tr>
+          <tr><td><code>OPENAI_API_KEY</code> / <code>ANTHROPIC_API_KEY</code></td><td>Attacker/judge LLM, respective providers</td></tr>
+          <tr><td><code>EMBED_MODEL</code></td><td>Embedding backend — defaults to local, free <code>chromadb/all-MiniLM-L6-v2</code>; cloud alternatives need the matching provider key</td></tr>
+          <tr><td><code>IKEA_OPERATOR_LLM_PROVIDER</code> etc.</td><td>Per-attack operator defaults, read at import time by <code>deep_attack_operators.py</code> — set before importing it, or use <code>--model</code></td></tr>
+        </table>
+      </div>
+
+      <h3 class="h-anchor" id="u-faq">Gotchas &amp; FAQ</h3>
+      <p><strong>I pip-installed but <code>python scripts/run_campaign.py</code> says "No module named
+        scripts"</strong><br>Expected — <code>scripts/</code> isn't part of the published package. Either
+        <code>git clone</code> the repo to get the CLI, or use the equivalent Python API shown in
+        <a href="#u-adaptive-api">Adaptive Mode</a>, which works from <code>pip install</code> alone.</p>
+      <p><strong>SECRET's Phase 1 ran but found nothing, even at a generous budget</strong><br>Check what
+        model the Optimizer is actually using. If <code>optimizer_llm_provider</code> was left unset, it
+        silently inherited your main <code>llm_provider</code> — and a safety-aligned commercial model will
+        often refuse the "author a jailbreak" framing outright. Point it at a model that complies (Groq's
+        <code>openai/gpt-oss-20b</code> is confirmed working).</p>
+      <p><strong>SPE-LLM raised an error partway through, about an empty API key</strong><br>SPE stopped
+        being LLM-less — it now runs a real LLM classifier on every non-refused probe. Pass
+        <code>classifier_llm_provider</code>/<code>classifier_api_key</code> (or plain
+        <code>llm_provider</code>/<code>api_key</code>) explicitly.</p>
+      <p><strong>My <code>--tier</code>/<code>--attack-category</code> filter matched zero operators</strong><br>Most
+        likely you're running against the original mock-target library (no <code>--agent-url</code> passed) —
+        most of its operators predate the OWASP/attack-category tagging both filters read. Either add
+        <code>--agent-url</code> to switch to the fully-tagged operator packs, or use
+        <code>full_assessment</code>/no filter against the mock target.</p>
+      <p><strong>Which attack should I run first against a new target?</strong><br>SPE-LLM — no query budget
+        to reason about, cheapest, and a quick read on whether the system prompt itself leaks. Then IKEA at a
+        small <code>max_queries</code> (5–10) for a first pass at knowledge-base content. Bring in SECRET and
+        Interrogation once you have a specific document or a jailbreak-resistant target to test against.</p>
+      <p><strong>Do I need Docker / a local target to try any of this?</strong><br>No — point
+        <code>target_url</code> at any real, HTTP-reachable agent you're authorized to test. The repo's local
+        reference agents exist purely as a free, zero-consequence target to learn against; nothing about the
+        attacks themselves requires them.</p>
+    </section>
+
+    <footer>
+      <p>Aginiti Redteam — MIT licensed. Built by <a href="https://github.com/OmerBinDawood">Omer Bin
+        Dawood</a> and <a href="https://github.com/MuhammadHammadIrfan">Muhammad Hammad Irfan</a>, under
+        <a href="https://github.com/dev-devneuron">dev-devneuron</a>.</p>
+      <p>
+        <a href="https://github.com/dev-devneuron/aginiti-redteam">Repository</a> ·
+        <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a> ·
+        <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/CODE_OF_CONDUCT.md">Code of Conduct</a> ·
+        <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/CHANGELOG.md">Changelog</a> ·
+        <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/LICENSE">License</a>
+      </p>
+    </footer>
+
+  </main>
+</div>
+
+<button class="backtotop" id="backtotop" aria-label="Back to top" title="Back to top">↑</button>
+
+<script>
+(function(){
+  "use strict";
+
+  // Mobile sidebar toggle
+  var toggle = document.getElementById("navtoggle");
+  var sidebar = document.getElementById("sidebar");
+  if (toggle && sidebar) {
+    toggle.addEventListener("click", function(){
+      sidebar.classList.toggle("open");
+    });
+    sidebar.querySelectorAll("a").forEach(function(a){
+      a.addEventListener("click", function(){ sidebar.classList.remove("open"); });
+    });
+    document.addEventListener("click", function(e){
+      if (sidebar.classList.contains("open") && !sidebar.contains(e.target) && e.target !== toggle) {
+        sidebar.classList.remove("open");
+      }
+    });
+  }
+
+  // Back-to-top button
+  var backBtn = document.getElementById("backtotop");
+  if (backBtn) {
+    window.addEventListener("scroll", function(){
+      if (window.scrollY > 600) backBtn.classList.add("show");
+      else backBtn.classList.remove("show");
+    }, {passive: true});
+    backBtn.addEventListener("click", function(){
+      window.scrollTo({top:0, behavior:"smooth"});
+    });
+  }
+
+  // Copy-to-clipboard buttons on every code block
+  document.querySelectorAll("pre").forEach(function(pre){
+    var btn = document.createElement("button");
+    btn.className = "copybtn";
+    btn.type = "button";
+    btn.textContent = "Copy";
+    btn.addEventListener("click", function(){
+      var text = pre.innerText.replace(/^Copy\n?/, "");
+      try {
+        navigator.clipboard.writeText(text).then(function(){
+          btn.textContent = "Copied!";
+          setTimeout(function(){ btn.textContent = "Copy"; }, 1500);
+        });
+      } catch (e) { /* clipboard unavailable — no-op */ }
+    });
+    pre.appendChild(btn);
+  });
+
+  // Active-section highlighting in the sidebar
+  var links = Array.prototype.slice.call(document.querySelectorAll(".sidebar a[href^='#']"));
+  var targets = links.map(function(a){
+    var id = a.getAttribute("href").slice(1);
+    return document.getElementById(id);
+  }).filter(Boolean);
+
+  if ("IntersectionObserver" in window && targets.length) {
+    var byId = {};
+    links.forEach(function(a){ byId[a.getAttribute("href").slice(1)] = a; });
+
+    var observer = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        var link = byId[entry.target.id];
+        if (!link) return;
+        if (entry.isIntersecting) {
+          links.forEach(function(a){ a.classList.remove("active"); });
+          link.classList.add("active");
+        }
+      });
+    }, {rootMargin: "-15% 0px -70% 0px", threshold: 0});
+
+    targets.forEach(function(t){ observer.observe(t); });
+  }
+})();
+</script>
+
+</body>
+</html>
