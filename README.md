@@ -2,7 +2,7 @@
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)]()
-[![Tests](https://img.shields.io/badge/tests-1827%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-1857%20passing-brightgreen.svg)]()
 [![Attack Categories](https://img.shields.io/badge/attack%20categories-11-blueviolet.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)]()
 
@@ -21,9 +21,10 @@ Two things live in this repo, and you can use either independently:
    Fact → Observation → Claim evidence, and repeats. This is the actual novel part of the
    project — see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design.
 2. **A standalone attack library** (`aginiti/attacks/`) — IKEA and SECRET (two independent
-   Data Reconstruction Attacks), and an Interrogation/Membership-Inference attack — each
-   runnable directly against one target via its own script, or wrapped as planner-selectable
-   `Operator`s so the engine above can decide *when* they're worth their budget.
+   Data Reconstruction Attacks), an Interrogation/Membership-Inference attack, and SPE-LLM
+   (System Prompt Extraction) — each runnable directly against one target via its own
+   script, or wrapped as planner-selectable `Operator`s so the engine above can decide
+   *when* they're worth their budget.
 
 Every real target is probed through the same evidence pipeline: raw responses are judged
 (deterministically where possible, by an LLM otherwise) **and** cross-checked against an
@@ -46,10 +47,10 @@ baselines and an industry-standard scanner, on real, independently-built targets
   plus real, confirmed findings (live tool exfiltration, network egress) that a
   REST-only scanner is structurally unable to see at all.
 - **11 named attack methodologies**, from direct prompt injection to RAG poisoning to
-  multi-step MCP tool-chain composition, grounded in **9+ published, cited research
+  multi-step MCP tool-chain composition, grounded in **10+ published, cited research
   papers** — ArtPrompt, Crescendo, PAIR, CipherChat/MetaCipher, the Interrogation Attack,
-  IKEA, SECRET, InjecAgent, and STAC among them.
-- **1,827 tests, fully offline** — every LLM and network call mocked, full suite in
+  IKEA, SECRET, SPE-LLM, InjecAgent, and STAC among them.
+- **1,857 tests, fully offline** — every LLM and network call mocked, full suite in
   under 30 seconds, zero API cost.
 
 Full methodology, numbers, and citations: [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md).
@@ -122,8 +123,8 @@ Python via `OperatorLibrary.by_category("encoding_attack", ...)`
 just this script. See `scripts/run_campaign.py`'s own module docstring for the full flag
 reference.
 
-**Want to run one specific attack technique on its own** (IKEA, SECRET, or the Interrogation
-attack), rather than letting the planner decide? See [§ Standalone attack library](#-standalone-attack-library-ikea--secret--interrogation-mia) below.
+**Want to run one specific attack technique on its own** (IKEA, SECRET, Interrogation, or
+SPE-LLM), rather than letting the planner decide? See [§ Standalone attack library](#-standalone-attack-library) below.
 
 **Windows users:** native `onnxruntime` (used by the default local embedding backend) can hit
 DLL-loading issues on native Windows. Running inside **WSL2** or Docker
@@ -153,12 +154,18 @@ aginiti-redteam/
 │   │                             #   see docs/ARCHITECTURE.md for the full catalog
 │   ├── adapters/                 # One BaseAdapter subclass per real/mock target — the only
 │   │                             #   place target-specific transport (HTTP, stdio, a gateway) lives
+│   ├── adaptive/                 # Stateful, multi-step search engines (encoding/framing discovery,
+│   │                             #   Crescendo, many-shot, ...) — generate candidates at runtime
 │   ├── attacks/
 │   │   ├── base.py                    # BaseAttack & the LeakFinding schema
 │   │   ├── dra/                       # Data Reconstruction Attacks: IKEA, SECRET
-│   │   └── mia/                       # Interrogation Attack (Membership Inference)
-│   ├── connectors/                # HTTP client for target agents; local/cloud embedding routing
-│   └── reporting/                 # Markdown/PDF report generation
+│   │   ├── mia/                       # Interrogation Attack (Membership Inference)
+│   │   └── spe/                       # SPE-LLM (System Prompt Extraction)
+│   ├── connectors/                # HTTP client for the target agent under test
+│   ├── providers/                 # Aginiti's own LLM/embedding provider clients (LiteLLM-backed)
+│   ├── reporting/                 # Markdown/PDF report generation
+│   ├── static_analysis/           # Zero-LLM-cost static checks (e.g. system-prompt defense scanning)
+│   └── transforms/                # Composable prompt-encoding pipeline (base64/hex/ROT13/...)
 ├── benchmarks/
 │   ├── dev_fixtures/             # Lightweight mock targets used in unit tests & local dev
 │   └── scaled_evals/             # Production-scale targets: hardened_agent (RBAC + 8 independently
@@ -170,7 +177,7 @@ aginiti-redteam/
 │   ├── run_ikea.py / run_secret.py / run_interrogation.py   # Standalone single-attack runners
 │   └── run_healthcare_benchmark.py  # Preset benchmark against the HealthCareMagic-1k corpus
 ├── docs/                         # ARCHITECTURE.md, BENCHMARKS.md, ROADMAP.md
-└── tests/                        # 1,827 tests, fully offline (every LLM/HTTP call mocked)
+└── tests/                        # 1,857 tests, fully offline (every LLM/HTTP call mocked)
 ```
 
 ---
@@ -224,11 +231,11 @@ Quickstart above, or the standalone-attack section below).
 
 ---
 
-## 🎯 Standalone attack library (IKEA · SECRET · Interrogation/MIA)
+## 🎯 Standalone attack library
 
-Each of these is independently runnable against one target with its own script — the right
+IKEA · SECRET · Interrogation/MIA · SPE-LLM. Each is independently runnable against one target with its own script — the right
 tool when you want to measure one specific technique's effectiveness in isolation, with
-output directly comparable to that technique's own paper. (The same three attacks are also
+output directly comparable to that technique's own paper. (The same four attacks are also
 available as planner-selectable `Operator`s — see `aginiti/operators/deep_attack_operators.py`
 — when you'd rather let the campaign engine decide whether they're worth the budget relative
 to everything else it could try.)
@@ -247,6 +254,10 @@ to everything else it could try.)
   knowledge base via calibrated yes/no probing. See
   [`aginiti/attacks/mia/README.md`](aginiti/attacks/mia/README.md) — a genuinely different
   threat model from DRA.
+* **SPE-LLM — System Prompt Extraction:** ICLR 2026 (arXiv:2505.23817). Three fixed,
+  zero-optimization probe templates (Chain-of-Thought, Extended Sandwich, Few-Shot) asking
+  the target to reveal its own system prompt — no query budget to set, always exactly 3
+  probes. See [`aginiti/attacks/spe/README.md`](aginiti/attacks/spe/README.md).
 
 ```bash
 # Against the Tier 1 black-box reference agent started above:
@@ -305,7 +316,7 @@ offline, in seconds, at zero API cost:
 pytest tests/ -v
 ```
 
-1,827 tests currently pass on a clean checkout.
+1,857 tests currently pass on a clean checkout.
 
 ---
 

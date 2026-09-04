@@ -38,7 +38,7 @@ pytest tests/ -v
 
 See the root `README.md` for the full local-development setup, including
 seeding vector stores and starting the reference agents, and
-`docs/benchmarking.md` for the optional full-benchmark workflow (which
+`docs/BENCHMARKS.md` for the optional full-benchmark workflow (which
 does need a real `GEMINI_API_KEY` and costs a small amount of API spend).
 
 ## Code standards

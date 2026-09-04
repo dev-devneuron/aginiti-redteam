@@ -9,6 +9,47 @@ changes.
 
 ## [Unreleased]
 
+### Added — GitHub Pages documentation site
+
+- Published a single-page framework documentation site (`docs/index.html`,
+  live at the repository's GitHub Pages URL), split into a contributor
+  guide and a framework-user guide covering installation, configuration,
+  every attack's parameters, the adaptive campaign engine, and a full
+  gotchas/FAQ reference.
+
+### Fixed — documentation accuracy pass
+
+- SPE-LLM (System Prompt Extraction) was a fully shipped, tested fourth
+  attack that had never been added to the top-level narrative docs after
+  landing — `README.md`'s standalone-attack-library section and repo
+  tree, `docs/ARCHITECTURE.md`'s attack catalog and repo layout,
+  `docs/BENCHMARKS.md`'s citation table, `docs/ROADMAP.md`'s shipped
+  list, `docs/index.html`, and `CLAUDE.md`'s attack module registry /
+  build status all only described three attacks (IKEA, SECRET,
+  Interrogation). Added throughout.
+- Corrected the test-count claim (stale "1,827") to the actual current
+  1,857 across `README.md`, `README_pypi.md`, `docs/BENCHMARKS.md`, and
+  `docs/index.html`, and the cited-paper count ("9+") to "10+" to include
+  SPE-LLM's paper.
+- `README_pypi.md`'s IKEA example passed a retired Groq model string
+  (`llama-3.3-70b-versatile`, confirmed 404 on Groq's current catalog —
+  see `aginiti/providers/llm.py`'s own default-model rationale) and a
+  `target_url` with a `/chat` suffix that `AgentEndpoint` already appends
+  itself (would have resolved to `/chat/chat`) — both fixed.
+- `aginiti/providers/embedding.py` is the canonical home of `embed_texts`
+  since the open-source-readiness reorg; `CLAUDE.md`'s locked-decisions
+  section and build-status table still pointed at the old
+  `aginiti/connectors/embedding.py` path (now a backward-compatible
+  shim, not the canonical location) — corrected.
+- `docs/benchmarking.md` was renamed to `docs/BENCHMARKS.md` during the
+  open-source readiness pass; `CLAUDE.md` and `CONTRIBUTING.md` still
+  linked the old, now-nonexistent filename — corrected.
+- README.md's "Standalone attack library" heading's auto-generated GitHub
+  anchor was fragile (broke the moment the heading text changed, taking
+  its own in-page cross-reference down with it) — simplified the heading
+  so its anchor no longer depends on the exact attack-name list in the
+  parenthetical.
+
 ### Changed — open-source readiness pass
 
 Directory reorganization and documentation work to bring the codebase up

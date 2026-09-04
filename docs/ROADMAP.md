@@ -23,6 +23,8 @@ explicitly marked as in progress — nothing here is claimed on architecture alo
   operators and as standalone runners with paper-comparable output.
 - **Membership Inference** — the Interrogation Attack, live-verified with clean signal
   separation between corpus members and held-out documents.
+- **System-Prompt Extraction** — SPE-LLM's three fixed probe templates, live-verified
+  against a hardened, RBAC-authenticated target.
 - **Multi-turn escalation** — Crescendo, Deceptive Delight, and many-shot jailbreaking,
   each a genuinely different mechanism, all real-turn-driven against the live target.
 - **A production-realism hardened target** — 8 independently-toggleable defense layers,
