@@ -1,6 +1,6 @@
 """Real, live hardening controls for the AnythingLLM benchmark target --
-built 2026-08-09 at explicit user request, to prepare (NOT yet run) a
-harder, more realistic enterprise-grade target for the next experiment.
+built at explicit user request, to prepare a
+harder, more realistic enterprise-grade target for benchmarking.
 
 This package implements the controls a real enterprise AI agent deployment
 would have, at whichever layer can genuinely enforce each one:
@@ -11,7 +11,7 @@ would have, at whichever layer can genuinely enforce each one:
   - URL allowlist / network egress restriction / tool argument validation
     for the agent's own outbound web-scraping tool: enforced SERVER-SIDE,
     directly in the live AnythingLLM collector service (patched, restarted,
-    and live-verified 2026-08-09 -- see the collector's own urlPolicy.js).
+    and live-verified -- see the collector's own urlPolicy.js).
     AnythingLLM had ZERO native restriction here before this patch --
     confirmed by reading web-scraping.js and the collector's pre-patch
     handlers directly.

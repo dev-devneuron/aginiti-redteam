@@ -1,8 +1,8 @@
 """IndependentFinding -- the general, target-agnostic extension point that
 lets an adapter report evidence a target's real response actually contains,
 INDEPENDENT of whatever a specific operator's own narrow extractor (or LLM
-judge) concluded from that same text. Added 2026-08-14 in direct response
-to a real, live-diagnosed gap (exp23): `HardenedAgentAdapter` already
+judge) concluded from that same text. Built in direct response
+to a real, live-diagnosed gap: `HardenedAgentAdapter` already
 carried a deterministic, non-LLM `FuzzyDisclosureIndex`/
 `VerbatimDisclosureIndex` capable of catching a genuine content disclosure
 an operator's own extractor missed, but that oracle was wired ONLY into

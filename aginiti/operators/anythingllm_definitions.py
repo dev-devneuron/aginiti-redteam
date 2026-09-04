@@ -149,7 +149,7 @@ def build_anythingllm_library(canary: str) -> OperatorLibrary:
                 # fires just as readily for "the query didn't retrieve the chunk at all" as for
                 # "it retrieved the chunk but declined to follow the embedded instruction." The
                 # raw_signal Fact is always available to tell the two apart on inspection.
-                # failure_diagnosis=NOT_RETRIEVED (2026-08-12, Issue 4) is the single most
+                # failure_diagnosis=NOT_RETRIEVED is the single most
                 # directly-justified retrofit of this taxonomy in the whole repo -- the category
                 # exists specifically to formalize this EXACT, already-documented ambiguity as a
                 # real, non-generalizable planner-readable fact (see aginiti/graph/

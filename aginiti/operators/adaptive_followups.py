@@ -1,5 +1,5 @@
-"""Target-agnostic, `ClassPrecondition`-gated follow-up operators -- added
-2026-08-14 as the concrete "genuine attack-chain construction" deliverable:
+"""Target-agnostic, `ClassPrecondition`-gated follow-up operators -- built
+as the concrete "genuine attack-chain construction" deliverable:
 a downstream probe that becomes eligible from WHATEVER upstream operator
 happens to produce a matching semantic claim, not one specific,
 hand-wired predecessor. Composes onto ANY OperatorLibrary the same way

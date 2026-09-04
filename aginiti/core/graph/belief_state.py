@@ -1,13 +1,13 @@
 """CampaignBeliefState -- a lightweight, planner-facing CACHE of derived
 understanding, not a new source of truth. SecurityStateGraph (Fact/
-Observation/Claim/Insight/Hypothesis, aginiti/graph/ssg.py) remains the
+Observation/Claim/Insight/Hypothesis, aginiti/core/graph/ssg.py) remains the
 sole authoritative evidence store; everything in this file is, by design,
 reconstructable from it. That is the acid test for whether something
 belongs here: if it can't be recomputed from ssg's own append-only log
 plus a bounded number of LLM calls, it does not belong in this file.
 
-Two hygiene rules this module exists to enforce (2026-08-07 design review,
-directly in response to the concern "six months later you'll have Claims /
+Two hygiene rules this module exists to enforce, directly in response to
+the concern "six months later you'll have Claims /
 Hypotheses / Insights / BeliefState / PlannerState / MissionState /
 CampaignState and nobody knows where truth lives"):
 
@@ -89,8 +89,8 @@ class BranchBelief:
 
     @property
     def exploration_signal(self) -> float:
-        """What AginitiPlanner.branch_interest() actually reads (2026-08-08,
-        "planner consumes CampaignBeliefState"): the same interest/
+        """What AginitiPlanner.branch_interest() actually reads
+        ("planner consumes CampaignBeliefState"): the same interest/
         confidence shape as `priority`, deliberately WITHOUT the risk
         subtraction -- risk stays a hard constraint elsewhere in the
         planner (risk_tier vs. mission.risk_threshold), never folded into
@@ -102,7 +102,7 @@ class BranchBelief:
 @dataclass(frozen=True)
 class BranchSignal:
     """The ONLY view of branch-level belief anything OUTSIDE this module
-    should read (2026-08-08 design tightening) -- aginiti/planner/
+    should read -- aginiti/core/planner/
     aginiti_planner.py's branch_interest() reads this, never
     CampaignBeliefState.branches or a BranchBelief directly. This is what
     "the belief state exposes planner-facing signals while keeping its
@@ -165,7 +165,7 @@ class CampaignBeliefState:
     reasoned_cursor: str | None = None
 
     def branch_signal(self, branch: str | None) -> BranchSignal:
-        """The encapsulated read path (2026-08-08): everything outside
+        """The encapsulated read path: everything outside
         this module -- the planner, future reporting code -- calls THIS,
         never `self.branches[...]` directly. `branch=None` (an untagged
         operator) and an unknown/never-seen branch both return the same
@@ -215,18 +215,17 @@ _CROSS_BRANCH_INTEREST_BOOST = 1.0  # half of own-branch: a same-category patter
 _RISK_STEP = 1.0
 _INTEREST_DECAY = 0.9  # retained fraction per step -- see _decay_interest()'s docstring
 
-# Cap on `interest` (2026-08-09 fix -- a real bug found by a live full-system
+# Cap on `interest` (a real bug found by a live full-system
 # dry run, not a theoretical worry): interest grows +_OWN_BRANCH_INTEREST_BOOST
 # per same-branch confirmation and decays by _INTEREST_DECAY per step with NO
 # cap, so its steady-state ceiling under repeated same-branch confirmations is
 # _OWN_BRANCH_INTEREST_BOOST / (1 - _INTEREST_DECAY) = 2.0 / 0.1 = 20.0 -- roughly
 # 5x every OTHER term's own deliberately-bounded max (gap_priority/
-# hypothesis_priority both cap at IMPORTANCE_WEIGHT["high"] = 4.0-4.2). This sat
-# completely latent for the whole project's life because branch_interest was
-# confirmed EXACTLY 0.0 across every one of exp15's 150 real trials (missions
-# too short/shallow to ever accumulate same-branch momentum) -- only surfaced
-# once a genuinely deeper live campaign (8 operators, several sharing one
-# branch) actually exercised it: BayesianBanditPlanner's alpha reached 19.9 for
+# hypothesis_priority both cap at IMPORTANCE_WEIGHT["high"] = 4.0-4.2). This can sit
+# completely latent across many short/shallow missions (too little same-branch
+# momentum to accumulate) and only surface
+# once a genuinely deeper live campaign (several operators sharing one
+# branch) actually exercises it: BayesianBanditPlanner's alpha once reached 19.9 for
 # an untried operator purely from this one term, before any real evidence on
 # it at all. Capped at the SAME ceiling as gap_priority/hypothesis_priority
 # (IMPORTANCE_WEIGHT["high"], schema.py's single canonical scale) rather than a
@@ -237,7 +236,7 @@ _MAX_BRANCH_INTEREST = IMPORTANCE_WEIGHT["high"]
 
 
 def _decay_interest(belief: CampaignBeliefState) -> None:
-    """Lifecycle for `interest` (2026-08-08 design question: "if interest
+    """Lifecycle for `interest` (design question: "if interest
     increases after a confirmation, when does it decay or get retired? I
     don't want stale evidence permanently biasing the planner"). Answer:
     exponential recency decay, applied to EVERY known branch at the start
@@ -442,8 +441,7 @@ def apply_reasoning_verdict(ssg: "SecurityStateGraph", library: "OperatorLibrary
         OpenQuestion(
             topic=insight.statement.split(":", 1)[0].strip(),
             # Branch-scoped via the SAME related_probe_id a gap already
-            # carries (2026-08-08 -- previously always None, a real gap
-            # closed here, not a new mechanism: the operator a gap points
+            # carries -- not a new mechanism: the operator a gap points
             # at already tells us which branch it's about). Stays None
             # only when related_probe_id itself is None ("the operator
             # library has no way to test this yet" -- see insights.py) or

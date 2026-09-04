@@ -14,9 +14,9 @@ class AgentEndpoint:
     project's own reference agents and any target that speaks the same
     simple flat-JSON contract.
 
-    ``headers``/``send_fn`` (added 2026-07-23, additive — both default
-    ``None`` and every existing call site's behavior is unchanged) exist to
-    support targets that don't fit that contract: an authenticated target
+    ``headers``/``send_fn`` (additive — both default ``None`` and every
+    existing call site's behavior is unchanged) exist to support targets
+    that don't fit that contract: an authenticated target
     (API key / Bearer token) or one whose request/response shape isn't a
     flat ``{key: str}`` pair (e.g. an Ollama-style ``messages`` array
     request, or a stateful create-session-then-send-message flow). Neither
@@ -25,9 +25,9 @@ class AgentEndpoint:
     includes authenticated ones. See ``benchmarks/scaled_evals/agents/onyx_target/connector.py``
     for the first real caller of both.
 
-    ``rate_limit_wait_seconds`` (added 2026-08-08, additive, default keeps
-    prior behavior's *shape* but closes a real gap): a target that rate-
-    limits (429) is a realistic defense — ``benchmarks/scaled_evals/agents/hardened_agent``
+    ``rate_limit_wait_seconds`` (additive, default keeps prior behavior's
+    *shape* but closes a real gap): a target that rate-limits (429) is a
+    realistic defense — ``benchmarks/scaled_evals/agents/hardened_agent``
     is the first one this project actually has — and until now, a 429 was
     treated identically to every other 4xx: raised immediately, no retry
     ("4xx errors are the caller's fault"). That's correct for 400/401/403/404,

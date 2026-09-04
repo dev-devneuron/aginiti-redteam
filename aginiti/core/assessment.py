@@ -5,14 +5,14 @@ sweep over many-shot jailbreak shot counts, aginiti/adaptive/framing_
 discovery.py's sweep over structurally different pretexts + escalation into
 aginiti/adaptive/refinement.py's PAIR-style feedback-driven rewriting +
 aginiti/adaptive/crescendo.py's multi-turn escalation) are each real,
-tested, and genuinely adaptive -- and, until 2026-08-14, NEVER INVOKED
+tested, and genuinely adaptive -- but before this module, NEVER INVOKED
 against a real live target. `experiments/exp20_discovery_arm.py` is the
 only caller anywhere in this codebase for the two mechanisms that predate
 this module, and it runs against the OLD hardened AnythingLLM mock target,
 not `hardened_agent`/`healthcare_agent` (confirmed by a direct grep before
-writing this module). Every live campaign against a real target (exp21,
-exp23) only ever used `run_campaign()` + `AginitiPlanner` over the STATIC
-operator library -- a fixed set of single-shot attempts, never the
+writing this module). Every live campaign against a real target before
+this module only ever used `run_campaign()` + `AginitiPlanner` over the
+STATIC operator library -- a fixed set of single-shot attempts, never the
 adaptive search/rewrite/escalation loops this project already built and
 validated.
 
@@ -129,8 +129,8 @@ class FullAssessmentResult:
         """SUCCESS if `run_full_assessment()` actually stopped early on a
         GROUND-TRUTH-CORROBORATED discovery success (see `_corroborated()`
         and its own docstring for why an engine's bare `.succeeded` flag
-        is deliberately NOT trusted on its own here -- 2026-08-14 exp25
-        live postmortem: a single LLM judge call misclassified an explicit
+        is deliberately NOT trusted on its own here -- a live postmortem
+        once found a single LLM judge call misclassifying an explicit
         refusal as compliance, on more than one trial, even after the
         judge prompt itself was tightened in direct response to the first
         occurrence). Otherwise falls through to the campaign phase's own
@@ -146,8 +146,8 @@ class FullAssessmentResult:
 
 def _corroborated(agent: BaseAdapter, engine_succeeded: bool, phase_name: str, detail: str) -> bool:
     """A discovery engine's own `.succeeded` verdict comes from a single
-    LLM judge call on that one trial -- live-confirmed (2026-08-14, exp25
-    postmortem) to be genuinely imperfect even after tightening the judge
+    LLM judge call on that one trial -- live-confirmed to be genuinely
+    imperfect even after tightening the judge
     prompt in direct response to the first occurrence: an identical
     decode-then-explicitly-refuse response pattern was judged correctly on
     some trials and incorrectly on others in the SAME live run. Requiring

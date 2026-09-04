@@ -229,8 +229,8 @@ _SECRET_SEMANTIC_SHIFT_LLM_PROVIDER = os.environ.get(
     "SECRET_OPERATOR_SEMANTIC_SHIFT_LLM_PROVIDER", _SECRET_LLM_PROVIDER
 )
 # Phase 1's OPTIMIZER/EVALUATOR LLM -- deliberately NOT _SECRET_LLM_PROVIDER
-# (Gemini). Root-caused 2026-08-22 auditing exp32: EVERY Phase 1 call in
-# that entire run failed to parse candidates -- not a parsing bug, a
+# (Gemini). Root-caused directly: a live run once had EVERY Phase 1 call
+# fail to parse candidates -- not a parsing bug, a
 # refusal. OPTIMIZER_PROMPT (jailbreak_optimizer.py, near-verbatim from the
 # paper) literally asks the LLM to write instructions "while bypassing
 # [the target's] safety restrictions" -- reproduced live: gemini/gemini-
@@ -276,7 +276,7 @@ _MIA_TIMEOUT_SECONDS = 600.0
 
 # SPE's classifier LLM -- see aginiti/operators/deep_attack_operators.py's
 # identical _SPE_LLM_PROVIDER for the full context: SPE is no longer LLM-
-# less as of 2026-08-22, its old 10-keyword heuristic replaced by a real
+# less, its old 10-keyword heuristic replaced by a real
 # classifier (spe_llm.py's _call_classifier).
 _SPE_LLM_PROVIDER = os.environ.get("SPE_OPERATOR_LLM_PROVIDER", "gemini/gemini-3.5-flash")
 _SPE_TIMEOUT_SECONDS = 120.0  # 3 fixed HTTP round trips + up to 3 classifier LLM calls
@@ -288,8 +288,8 @@ def _build_ikea_attack(endpoint: AgentEndpoint) -> IKEAAttack:
     call time instead (same separation of concerns as
     deep_attack_operators.py's own `_build_ikea_attack`).
 
-    `endpoint_kwargs={"headers": endpoint.headers}` (added 2026-08-22,
-    live-run bug fix -- see `_build_secret_attack`'s own comment for the
+    `endpoint_kwargs={"headers": endpoint.headers}` (a live-run bug fix --
+    see `_build_secret_attack`'s own comment for the
     full root-cause writeup) is passed alongside `endpoint=endpoint` on
     ALL FOUR factories in this module, defensively, even though IKEA's own
     `execute_black_box` (ikea.py:1607, `self.endpoint or AgentEndpoint(...)`)
@@ -310,25 +310,23 @@ def _build_ikea_attack(endpoint: AgentEndpoint) -> IKEAAttack:
 
 
 def _build_secret_attack(endpoint: AgentEndpoint) -> SECRETAttack:
-    """CONFIRMED LIVE BUG, found and fixed 2026-08-22 during exp32's first
-    live run (trial 1, hardened_secret_exfiltration): `SECRETAttack.
+    """CONFIRMED LIVE BUG, found and fixed: `SECRETAttack.
     execute_black_box`'s own direct HTTP calls DO correctly reuse
     `self.endpoint` (secret.py's own `self.endpoint or AgentEndpoint(...)`
     pattern) -- but Phase 1 (`_ensure_jailbreak_artifact`) internally
     builds its OWN separate `JailbreakOptimizer(target_url=self.target_url,
-    ..., endpoint_kwargs=self._endpoint_kwargs)` (secret.py ~line 790) --
+    ..., endpoint_kwargs=self._endpoint_kwargs)` --
     NEVER receives `self.endpoint` itself (JailbreakOptimizer has no
     `endpoint=` param at all, only `endpoint_kwargs`, per its own
-    docstring). Since our factory used to pass ONLY `endpoint=endpoint`
-    and never `endpoint_kwargs=`, `self._endpoint_kwargs` stayed `{}`, so
+    docstring). Do not pass ONLY `endpoint=endpoint` and skip
+    `endpoint_kwargs=` here: `self._endpoint_kwargs` would then stay `{}`, so
     JailbreakOptimizer's own internal `AgentEndpoint(base_url=target_url)`
-    carried NO Authorization header at all -- every Phase 1 query against
-    hardened_agent (an authenticated target) got a bare 401 within ~2
-    seconds of Phase 1 starting, before a single real jailbreak-
-    optimization query could complete. Live evidence: `experiments/results/
-    runs_exp32_rq1_hardened_agent_with_deep_attacks/exp32_run.log`,
-    2026-08-22 05:00:08 -- `HTTPError: 401 Client Error: Unauthorized for
-    url: http://localhost:8004/chat`, ~2s after "n_iter=3 n_cand=2" logged.
+    would carry NO Authorization header at all -- every Phase 1 query against
+    hardened_agent (an authenticated target) would get a bare 401 within a
+    couple seconds of Phase 1 starting, before a single real jailbreak-
+    optimization query could complete (live-confirmed:
+    `HTTPError: 401 Client Error: Unauthorized for
+    url: http://localhost:8004/chat`, seconds after "n_iter=3 n_cand=2" logged).
     Fix: also pass `endpoint_kwargs={"headers": endpoint.headers}` so
     JailbreakOptimizer's own internally-built AgentEndpoint carries the
     SAME bearer token (a separate HTTP session from `endpoint` itself, so

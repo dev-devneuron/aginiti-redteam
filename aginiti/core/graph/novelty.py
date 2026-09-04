@@ -1,7 +1,7 @@
 """Family-level diversification: a deterministic, modular scoring function
 answering "have I already effectively learned what THIS attack family has
 to teach, and if so, is there a genuinely untried family worth pivoting
-to instead." Added 2026-08-14, directly operationalizing the pattern
+to instead." Directly operationalizes the pattern
 named explicitly in this project's own architectural direction:
 
     "direct disclosure refused -> likely direct-disclosure guardrail ->
@@ -34,8 +34,8 @@ later (e.g. embedding-based prompt similarity) without touching
 AginitiPlanner's own code, the same way `Operator.extractor` is a
 swappable strategy rather than baked into ObservationAdapter.
 
-**2026-08-14 addition: `PROACTIVE_COVERAGE_BONUS`, closing a real gap
-found via a live postmortem (exp28, `docs/EXP26_RESULTS.md`'s successor
+**`PROACTIVE_COVERAGE_BONUS`, closing a real gap
+found via a live postmortem (`docs/EXP26_RESULTS.md`'s successor
 analysis) -- not a "backwards" mechanism, a genuinely MISSING one.**
 `looks_saturated` requires >=2 CONFIRMED outcomes with ZERO successes --
 correct and unchanged: a family that has produced even one real finding
@@ -97,7 +97,7 @@ from aginiti.core.graph.target_belief import TargetBeliefState
 SATURATION_PENALTY_PER_EXTRA_ATTEMPT = 2.0
 MAX_SATURATION_PENALTY = 3.0
 DIVERSIFICATION_BONUS = 2.5
-# The 2026-08-14 addition (see module docstring). Deliberately smaller
+# (see module docstring). Deliberately smaller
 # than DIVERSIFICATION_BONUS -- see the reasoning above for why the two
 # are not, and should not be, the same magnitude.
 PROACTIVE_COVERAGE_BONUS = 1.0
@@ -112,8 +112,8 @@ def family_diversification_term(attack_category: str | None, belief: TargetBelie
     already looks saturated (a real reason to prefer it over sticking with
     a technique that keeps failing), otherwise the smaller `PROACTIVE_
     COVERAGE_BONUS` (untried families have standalone breadth value even
-    when nothing has failed yet -- see module docstring's 2026-08-14
-    addition); 0.0 otherwise -- a true no-op for an untagged operator or a
+    when nothing has failed yet -- see module docstring's
+    `PROACTIVE_COVERAGE_BONUS` section); 0.0 otherwise -- a true no-op for an untagged operator or a
     family that's neither untried nor saturated, matching every other
     term's "only ever helps or is silent, never surprises" discipline."""
     if attack_category is None:
@@ -140,22 +140,22 @@ def family_diversification_term(attack_category: str | None, belief: TargetBelie
 
 def operator_family_diversification(operator, belief: TargetBeliefState) -> float:
     """Convenience wrapper reading the operator's own predicted family via
-    aginiti/graph/attack_category.py's `operator_primary_family()` -- the
+    aginiti/core/graph/attack_category.py's `operator_primary_family()` -- the
     ONE canonical place that "success effect's tag first, else a failure
-    effect's" rule lives (2026-08-14: previously duplicated inline here)."""
+    effect's" rule lives, not duplicated inline here."""
     from aginiti.core.graph.attack_category import operator_primary_family
 
     return family_diversification_term(operator_primary_family(operator), belief)
 
 
 # ============================================================================
-# 2026-08-14, second addition this same day: technique_cluster_diversification
-# -- a FINER-grained sibling of family_diversification_term, closing a
+# technique_cluster_diversification -- a FINER-grained sibling of
+# family_diversification_term, closing a
 # SEPARATE gap the PROACTIVE_COVERAGE_BONUS fix above cannot touch.
 #
 # Root-caused directly from `hardened_agent`'s real operator declarations
-# (aginiti/operators/hardened_agent_definitions.py), not guessed: exp28's
-# `aginiti` condition tried `hardened_cross_boundary_probe` then FIVE
+# (aginiti/operators/hardened_agent_definitions.py), not guessed: a live
+# `aginiti` condition once tried `hardened_cross_boundary_probe` then FIVE
 # `hardened_authority_claim_probe_*` variants back to back before anything
 # else. This is NOT the same bug PROACTIVE_COVERAGE_BONUS fixes (that one
 # is about CROSS-family breadth) -- all six of these operators share the

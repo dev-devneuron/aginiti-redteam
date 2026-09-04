@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # suppression flag — does not affect retry behavior or error handling.
 litellm.suppress_debug_info = True
 
-# Rate-limit retry (added 2026-07-13). litellm normalizes every provider's
+# Rate-limit retry. litellm normalizes every provider's
 # rate-limit response into litellm.RateLimitError regardless of underlying
 # provider (Gemini, Groq, OpenAI, Anthropic, ... — verified: it subclasses
 # openai.RateLimitError, which is litellm's common exception hierarchy for
@@ -32,7 +32,7 @@ litellm.suppress_debug_info = True
 # survive that, so this wraps litellm.completion with real sleep-based
 # backoff on top.
 #
-# Revised 2026-07-13 (same day, second pass): a live run hit a Groq **TPD**
+# A live run once hit a Groq **TPD**
 # (tokens-per-day) limit, not RPM/TPM — its "try again in ..." hints were
 # multi-minute (7m12s, 2m4.416s, 4m19.2s, ...), and the OLD version of this
 # regex/cap combo failed in two ways: (1) the regex only captured a single
@@ -117,13 +117,13 @@ class LeakFinding:
     trace_span_id: str     # "" if not applicable
     recommendation: str
     severity: str          # "critical" / "high" / "medium" / "low"
-    # Added 2026-07-13 for LLM-as-judge leak classification (aginiti/attacks/
+    # For LLM-as-judge leak classification (aginiti/attacks/
     # dra/ikea.py's _classify_leak). Additive only — all three default, so
     # every pre-existing LeakFinding(...) call site keeps working unchanged.
     full_response: str = ""    # complete agent response, for analyst review
                                 # (leaked_content holds only the evidence quote)
     leak_type: str = "unknown"  # "none"/"schema"/"pii"/"sensitive_data"/"verbatim"/"unknown"/
-                                 # "membership" (added 2026-07-30 for MIA/InterrogationAttack —
+                                 # "membership" (for MIA/InterrogationAttack —
                                  # aginiti/attacks/mia/interrogation.py; a confirmed membership
                                  # verdict, distinct from DRA's content-extraction leak types —
                                  # see plans/mia-interrogation-attack.md §3)
@@ -136,7 +136,7 @@ class BaseAttack(ABC):
                  fallback_llm_provider: Optional[str] = None,
                  fallback_api_key: Optional[str] = None,
                  endpoint: Optional[AgentEndpoint] = None):
-        # fallback_llm_provider/fallback_api_key added 2026-07-13 (additive,
+        # fallback_llm_provider/fallback_api_key (additive,
         # both default None — every existing call site keeps working
         # unchanged). See _init_llm's docstring for when the fallback is used.
         self.target_url = target_url
@@ -144,7 +144,7 @@ class BaseAttack(ABC):
             llm_provider, api_key, fallback_llm_provider, fallback_api_key
         )
         self.otel = otel_ingester
-        # endpoint added 2026-08-20 (Phase 2 Slice B, plans/
+        # endpoint (Phase 2 Slice B, plans/
         # phase2-operator-wrapping.md — additive, defaults to None, every
         # existing call site keeps working unchanged). Lets a caller inject
         # an EXISTING AgentEndpoint (e.g. the one HTTPAgentAdapter is
@@ -186,7 +186,7 @@ class BaseAttack(ABC):
         #   "gemini/gemini-3.5-flash", "openai/gpt-4o", "ollama/llama3"
         # LiteLLM routes to the correct provider automatically.
         #
-        # fallback_llm_provider/fallback_api_key (added 2026-07-13): a second
+        # fallback_llm_provider/fallback_api_key: a second
         # LiteLLM model string tried when the PRIMARY provider reports a
         # rate-limit wait so long (>= _RATE_LIMIT_FAILOVER_THRESHOLD_SECONDS,
         # e.g. a Groq TPD/daily-quota message) that blocking inline isn't
@@ -197,7 +197,7 @@ class BaseAttack(ABC):
         # simple and never leaves the object stuck on a fallback it might not
         # need once the primary recovers.
         #
-        # api_keys (added 2026-08-12): optional list of MULTIPLE keys for the
+        # api_keys: optional list of MULTIPLE keys for the
         # SAME llm_provider — e.g. several free-tier Groq keys, to spread
         # rate limits across accounts instead of waiting them out or failing
         # over to a different model. Takes precedence over the singular
@@ -229,7 +229,7 @@ class BaseAttack(ABC):
             return response.choices[0].message.content
 
         def _call(messages: list[dict], **kwargs) -> str:
-            # num_retries=0 (changed 2026-07-13, was 3): litellm's own retry
+            # num_retries=0 (not litellm's default of 3): litellm's own retry
             # applies uniformly to every retryable exception, RateLimitError
             # included — but retrying a rate-limited call *immediately*
             # (litellm's internal backoff is sub-second, nowhere near a real
@@ -250,8 +250,8 @@ class BaseAttack(ABC):
             kwargs.setdefault("num_retries", 0)
             kwargs.setdefault("timeout", 60)
 
-            # Rate-limit retry (2026-07-13, revised same day for TPD-scale
-            # waits — see the module comment above _RATE_LIMIT_WAIT_HINT_RE):
+            # Rate-limit retry (see the module comment above
+            # _RATE_LIMIT_WAIT_HINT_RE for the TPD-scale-wait rationale):
             # short waits (< failover threshold) are slept through with
             # escalating backoff, same as before. A wait AT OR ABOVE the
             # threshold is not slept through at all — it's treated as "this
@@ -264,7 +264,7 @@ class BaseAttack(ABC):
             last_exc: Optional[Exception] = None
             wait_s = 0.0
             for attempt in range(_RATE_LIMIT_MAX_RETRIES + 1):
-                # Key-rotation pass (2026-08-12): try every key in the
+                # Key-rotation pass: try every key in the
                 # rotation, starting from the sticky current index, before
                 # counting this as one "attempt" for the wait/backoff loop
                 # below. With a single key (the default — api_keys not

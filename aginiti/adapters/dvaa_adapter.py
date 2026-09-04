@@ -293,7 +293,7 @@ class DVAAAdapter:
 
     def _sandbox_exfil_confirmed(self) -> bool:
         """Independent ground truth from DVAA's own exfiltration ledger,
-        confirmed reliable via a live validation pass (2026-08-08): every
+        confirmed reliable via a live validation pass: every
         real ToolBot fetch_url/send_email call during the composition
         experiment showed up here with the ACTUAL exfiltrated value
         intact. This is the strongest evidence-chain link this project can
@@ -328,8 +328,8 @@ class DVAAAdapter:
 
     def _api_dvaa_exfil_confirmed(self) -> bool:
         """Ground truth from DVAA's own per-response diagnostic block
-        (see _send_api) -- confirmed reliable via a live isolation test
-        (2026-08-08): running ONLY rag_knowledge_base_exfiltrated (no
+        (see _send_api) -- confirmed reliable via a live isolation test:
+        running ONLY rag_knowledge_base_exfiltrated (no
         ToolBot involved, no VULNERABLE marker in RagBot's response text
         either) showed ground_truth_mission_achieved staying False before
         this check existed, and turning True after it, purely from this

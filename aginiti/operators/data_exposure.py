@@ -1,6 +1,6 @@
 """A target-agnostic operator pack for Aginiti's primary product direction:
 AI/agent DATA-EXPOSURE assessment, not generic network pentesting (see the
-2026-08-07 architecture review). Every operator here is `channel="direct"`
+architecture review). Every operator here is `channel="direct"`
 and carries no Payroll/GitHub/Helpdesk-specific vocabulary, so it composes
 onto ANY OperatorLibrary against ANY BaseAdapter-backed target with a
 text-in/text-out interface -- the mock target today, DVAA/DVLA or a future
@@ -96,7 +96,7 @@ def data_exposure_operators() -> list[Operator]:
                             attack_category=DIRECT_PROMPT_ATTACK, mitre_atlas_technique=DIRECT_PROMPT_INJECTION),
             ),
             effects_failure=(
-                # failure_diagnosis=ACTIVELY_REFUSED (2026-08-12, Issue 4): KEY_DESCRIPTIONS'
+                # failure_diagnosis=ACTIVELY_REFUSED: KEY_DESCRIPTIONS'
                 # own definition of this key ("The assistant explicitly declines...") is a
                 # judge-read explicit refusal of THIS specific request, not evidence of a
                 # systemic/structural boundary -- exactly the non-generalizable category this

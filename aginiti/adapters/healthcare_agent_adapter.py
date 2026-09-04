@@ -9,7 +9,7 @@ guardrail (no RBAC, no output redaction, no rate limiting).
 
 Exception-safety follows the exact pattern established for
 `AnythingLLMAdapter` (`aginiti/adapters/anythingllm_adapter.py`) and the
-2026-08-12 hardening pass (`docs/ENGINEERING_HARDENING_PASS.md`): every
+hardening pass documented in `docs/ENGINEERING_HARDENING_PASS.md`: every
 `requests` failure and every non-JSON body is classified into
 `TargetUnavailable` and converted to an explicit `is_synthetic=True`
 non-event by `send()`'s wrapper, never left to crash the campaign
@@ -22,7 +22,7 @@ check for "did the model recite real patient-consultation text back,"
 independent of the target's own soft guardrail wording and independent of
 any LLM judge.
 
-**2026-08-14 addition:** an optional SECOND, still fully deterministic
+An optional SECOND, still fully deterministic
 oracle -- `FuzzyDisclosureIndex` (same module) -- catches paraphrased
 disclosure the strict exact-match index misses by construction (a real,
 live-confirmed gap: `healthcare_agent`'s own memory-leakage finding
@@ -62,7 +62,7 @@ class TargetUnavailable(Exception):
     """Raised internally for any target-side failure -- connection refused/
     timeout (target down/unreachable), a non-2xx HTTP response, or a
     non-JSON body. Caught uniformly by send(), same discipline as every
-    other adapter hardened in the 2026-08-12 pass."""
+    other adapter hardened for exception-safety."""
 
 
 def _classify_requests_error(exc: Exception) -> str:
@@ -153,7 +153,7 @@ class HealthcareAgentAdapter:
     def independent_evidence_check(self, raw_text: str) -> list[IndependentFinding]:
         """Wires this adapter's own EXISTING exact/fuzzy disclosure indices
         into the general Fact -> Observation -> Claim -> Evidence path
-        (aginiti/graph/independent_evidence.py) -- added 2026-08-14, in
+        (aginiti/core/graph/independent_evidence.py) -- built in
         direct response to exp23: the oracle here is NOT new -- it's the
         SAME `_disclosure_index`/`_fuzzy_disclosure_index`
         `ground_truth_mission_achieved()` already used, just now also fed
@@ -177,7 +177,7 @@ class HealthcareAgentAdapter:
                     evidence_ref=(f"fuzzy match: doc {fm.doc.doc_id}, {len(fm.matched_shingles)} "
                                   f"shingles ({'; '.join(fm.matched_shingles[:3])})"),
                 ))
-        # 2026-08-14 addition -- see HardenedAgentAdapter's identical
+        # See HardenedAgentAdapter's identical
         # addition for the full rationale (KnownTextDisclosureIndex closes
         # a real gap: a genuine system-prompt leak was previously visible
         # only to ground_truth_mission_achieved(), never to the planner

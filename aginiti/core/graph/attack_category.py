@@ -1,4 +1,4 @@
-"""Attack-surface / methodology taxonomy, added 2026-08-12 at explicit
+"""Attack-surface / methodology taxonomy, built at explicit
 user direction to organize Aginiti's operator library around the named
 categories the tool needs to be strong (and demonstrably intelligent) at:
 direct prompt attacks, encoding attacks, RAG poisoning, indirect injection,
@@ -88,11 +88,11 @@ def operator_primary_family(operator) -> str | None:
     """The single `attack_category` an operator itself represents: its own
     declared SUCCESS effect's tag if one is set, else its own declared
     FAILURE effect's tag, else None -- the ONE canonical place this rule
-    lives. Added 2026-08-14 to close a real, live duplication risk: this
+    lives. Closes a real, live duplication risk: this
     exact "success effect's tag first, else a failure effect's" logic was
-    independently inlined in THREE places (aginiti/graph/novelty.py's
-    `operator_family_diversification`, aginiti/graph/target_belief.py's
-    `_operator_family_map`, and now aginiti/adapter/observation_adapter.py's
+    independently inlined in THREE places (aginiti/core/graph/novelty.py's
+    `operator_family_diversification`, aginiti/core/graph/target_belief.py's
+    `_operator_family_map`, and aginiti/core/observation_adapter.py's
     independent-evidence attribution) before this existed -- exactly the
     "MUST mirror" duplication pattern schema.py's own IMPORTANCE_WEIGHT
     consolidation comment warns against silently drifting apart. Takes a

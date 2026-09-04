@@ -2,9 +2,9 @@
 can potentially discover chains, rather than merely fire a static encoding
 payload."
 
-Where this sits relative to what already existed (2026-08-12): garak's
-`encoding` probe module, and Aginiti's own `encoding_variants.py`
-(built earlier this session), both work the same way -- enumerate a FIXED
+Where this sits relative to what already existed: garak's
+`encoding` probe module, and Aginiti's own `encoding_variants.py`,
+both work the same way -- enumerate a FIXED
 list of encodings/pipelines and fire each one once. That is strictly
 broader than the original single-encoding `encoding_evasion_probe`, but it
 is still static: the list is decided in advance and never reacts to what
@@ -134,7 +134,7 @@ def _pipeline_to_operator(pipeline: ConverterPipeline, override_instruction: str
         ),
         preconditions=(),
         effects_success=(
-            # Per-effect description required (2026-08-12 architecture-review fix): these claim
+            # Per-effect description required: these claim
             # keys are pipeline-name-generated (f-string), so they can never live in the global
             # KEY_DESCRIPTIONS dict a hand-authored operator's static key can -- without this, the
             # judge falls back to the bare key as the only signal for what "success" means (see

@@ -1,5 +1,5 @@
-"""Composable prompt-transformation pipeline (added 2026-08-12 after exp19's
-Aginiti-vs-garak comparison). See aginiti/transforms/converters.py's module
+"""Composable prompt-transformation pipeline, built after exp19's
+Aginiti-vs-garak comparison. See aginiti/transforms/converters.py's module
 docstring for the full rationale and provenance."""
 from __future__ import annotations
 

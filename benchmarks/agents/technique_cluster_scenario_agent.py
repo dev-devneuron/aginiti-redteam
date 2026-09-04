@@ -1,8 +1,8 @@
 """TechniqueClusterScenarioAgent -- a small, fully deterministic, zero-LLM
-synthetic target purpose-built to validate the 2026-08-14 `technique_
-cluster_diversification_term` fix (`aginiti/graph/novelty.py`) OFFLINE,
+synthetic target purpose-built to validate the `technique_
+cluster_diversification_term` fix (`aginiti/core/graph/novelty.py`) OFFLINE,
 before spending any live budget -- directly modeling the SECOND real gap
-found in exp28's postmortem (the first, cross-family gap, is validated by
+found in a live run's postmortem (the first, cross-family gap, is validated by
 `benchmarks/agents/family_coverage_scenario_agent.py`; this one is a
 DIFFERENT, finer-grained gap that fix does not touch).
 
@@ -20,7 +20,7 @@ crossing = potential weight 8) over other SAME-FAMILY techniques like
 (weight=3 each) -- so nothing before this fix ever gave the planner a
 reason to stop re-asking the SAME already-answered question in favor of
 a genuinely DIFFERENT, lower-weight technique still sitting untried in
-the SAME family. `aginiti/graph/novelty.py`'s family-level `family_
+the SAME family. `aginiti/core/graph/novelty.py`'s family-level `family_
 diversification_term` cannot see this at all: all of these operators
 share ONE `attack_category` (`direct_prompt_attack`), so it goes neutral
 for every one of them the moment the first is tried.

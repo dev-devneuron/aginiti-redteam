@@ -1,4 +1,4 @@
-"""Security boundary classification (L0-L5) -- added 2026-08-09 at explicit
+"""Security boundary classification (L0-L5) -- built at explicit
 user request: "not all successful attacks are equal... Aginiti should
 classify findings by boundary crossed." Real, live-tested grounding: the
 exp17 automatic/markdown exfiltration chains and the exp17 single-step

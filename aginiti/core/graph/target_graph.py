@@ -24,8 +24,8 @@ START = "start"
 
 Graph = dict[str, set[str]]
 
-# Class-precondition hub nodes (added 2026-08-12 alongside
-# aginiti/operators/library.py's ClassPrecondition) -- what makes a
+# Class-precondition hub nodes (alongside
+# aginiti/operators/base.py's ClassPrecondition) -- what makes a
 # SEMANTICALLY-gated downstream operator (one that names a claim CLASS,
 # not one specific antecedent key) genuinely reachable by graph traversal,
 # not merely eligible via preconditions_met()'s scan. A hub is a synthetic
@@ -176,8 +176,8 @@ def shortest_distances(graph: Graph, start: str = START) -> dict[str, int]:
     annotation, not an operator execution); every other edge costs 1, one
     real prompt. Degenerates to exactly plain BFS whenever the graph has
     no hub nodes at all (every edge costs 1, deque behaves identically to
-    a plain FIFO queue) -- every pre-2026-08-12 caller/test is completely
-    unaffected."""
+    a plain FIFO queue) -- every caller/test predating class hubs is
+    completely unaffected."""
     distances = {start: 0}
     dq: deque[str] = deque([start])
     while dq:

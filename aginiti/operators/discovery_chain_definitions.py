@@ -1,4 +1,4 @@
-"""A genuinely emergent multi-step attack-path pack -- added 2026-08-12 at
+"""A genuinely emergent multi-step attack-path pack -- built at
 explicit user direction, to close a real, named gap: every chain in this
 project before this one (anythingllm_rag_*, anythingllm_automatic_*,
 anythingllm_markdown_*, anythingllm_multitool_*) is wired with EXACT-KEY

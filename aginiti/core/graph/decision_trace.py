@@ -1,7 +1,7 @@
 """DecisionTrace -- a structured record answering "why did the planner
 choose THIS operator, right now, given what just happened" using ONLY
 values already computed by AginitiPlanner.rank() and TargetBeliefState.
-from_ssg() -- never a generated LLM sentence. Added 2026-08-14 in direct
+from_ssg() -- never a generated LLM sentence. Built in direct
 response to the explicit instruction: "Do not rely on a vague LLM
 explanation. The underlying state/ranking should support the explanation."
 

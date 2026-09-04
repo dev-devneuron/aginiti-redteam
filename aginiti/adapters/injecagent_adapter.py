@@ -26,7 +26,7 @@ aginiti/adapters/injecagent_pool_adapter.py for pooling several real test
 cases into ONE shared campaign so a planner faces genuine multi-candidate
 branching across them.
 
-2026-08-09 fix: the agent under test is genuinely offered its own tool
+The agent under test is genuinely offered its own tool
 PLUS the attacker's declared target tool(s), matching InjecAgent's real
 `evaluate_prompted_agent.py` methodology exactly (verified directly
 against the upstream source, not assumed) -- see _available_tool_schemas'
@@ -179,7 +179,7 @@ def _available_tool_schemas(user_case: dict, attacker_case: dict, catalog: dict[
     -- the agent under test is genuinely offered BOTH its own legitimate
     tool AND the attacker's declared target tool(s) as callable functions.
 
-    REAL BUG FOUND AND FIXED HERE (2026-08-09): this adapter previously
+    REAL BUG FOUND AND FIXED HERE: this adapter previously
     only ever built a schema for the user's own tool (_infer_tool_schema
     alone), which structurally made 1,053/1,054 real test cases (99.9% --
     every case where the attacker's declared tool differs from the user's,
@@ -233,7 +233,7 @@ class InjecAgentAdapter:
         self.user_case = test_case["user_case"]
         self.attacker_case = test_case["attacker_case"]
         self.seed = seed
-        # 2026-08-09 fix: the agent is now genuinely offered its own tool
+        # The agent is offered its own tool
         # PLUS the attacker's declared target tool(s), matching the real
         # upstream methodology exactly -- see _available_tool_schemas'
         # own docstring for the bug this closes and the live evidence for
@@ -295,7 +295,7 @@ class InjecAgentAdapter:
                 self.history.append({
                     "role": "tool", "tool_call_id": tc.id, "name": name, "content": result_text,
                 })
-        # is_synthetic=True (2026-08-08, evidence-provenance fix): Aginiti's
+        # is_synthetic=True (evidence-provenance fix): Aginiti's
         # own budget-cutoff message, not the target's -- see
         # aginiti/adapters/base.py's SendResult docstring.
         return SendResult(final_text="[max tool-call rounds reached]", tool_trace=trace, is_synthetic=True)

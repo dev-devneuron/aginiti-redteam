@@ -1,6 +1,6 @@
 """Output-filter (redaction) evasion via response reformatting -- a
 genuinely distinct attack surface from everything else in this project's
-operator library. Added 2026-08-14, closing a real, named gap: `encoding_
+operator library. Built to close a real, named gap: `encoding_
 variants.py`/`encoding_discovery.py` encode the INPUT payload to test
 whether filtering happens before or after DECODING an instruction; nothing
 anywhere in this codebase tests the OTHER half of that same idea -- asking
@@ -134,7 +134,7 @@ def output_filter_evasion_operators() -> list[Operator]:
                 "content even after accounting for the requested format."
             ),
             target_label="system prompt",
-            # 2026-08-14: 5 near-duplicate reformatting WRAPPERS around the
+            # 5 near-duplicate reformatting WRAPPERS around the
             # SAME question ("does an output-side filter fall for a
             # transformed shape of the system prompt") -- see aginiti/
             # graph/novelty.py's technique_cluster_diversification_term().

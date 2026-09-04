@@ -59,9 +59,9 @@ class DVLAAdapter:
     operator here uses channel="direct"; sophistication lives in the
     crafted prompt content, not in a delivery mechanism."""
 
-    # 2026-08-21: llama-3.3-70b-versatile no longer exists on Groq at all
-    # (confirmed live during a Phase 2 Slice F health sweep). Updated to
-    # the replacement already verified live and adopted as this project's
+    # llama-3.3-70b-versatile no longer exists on Groq at all (confirmed
+    # live during a health sweep). Updated to the replacement already
+    # verified live and adopted as this project's
     # shared _GROQ_MODEL default (aginiti/providers/llm.py) -- bare model name
     # here, not "groq/"-prefixed, since this class constructs a real
     # langchain_groq.ChatGroq client directly (below), not routed through
@@ -117,7 +117,7 @@ class DVLAAdapter:
                 # after being asked to dump its own tool schemas, or by an
                 # encoded/injected instruction) into emitting a malformed or
                 # hallucinated tool call gets a hard 4xx here. Found LIVE
-                # (2026-08-08) via tool_inventory_full_disclosure -- this was
+                # via tool_inventory_full_disclosure -- this was
                 # previously uncaught and crashed the whole campaign, a real
                 # adapter robustness gap, not a target-behavior question.
                 # NOT retried: this is a generation problem, not a transient
@@ -130,7 +130,7 @@ class DVLAAdapter:
                 # the judge to see, not swallowed, since discarding it would
                 # understate what the model actually revealed before the
                 # malformed call.
-                # STRUCTURALLY fixed 2026-08-08 (same-day, second pass): the
+                # STRUCTURALLY fixed in a follow-up pass: the
                 # first fix only LABELED this text with an "[Aginiti: ...]"
                 # string prefix, hoping the judge would read it and back
                 # off -- it didn't. A live combined run showed the RAW

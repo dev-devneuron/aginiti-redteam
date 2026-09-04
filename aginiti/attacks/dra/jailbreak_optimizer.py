@@ -540,8 +540,9 @@ class JailbreakOptimizer:
         """
         Evaluator call (``f_e``) — see ``_parse_score`` for failure handling.
 
-        ``temperature=0.0`` (added 2026-08-12, found missing during the
-        first live run against ``reference_agent_blackbox``): the
+        ``temperature=0.0`` must stay wired through to every completion call
+        below -- a first live run against ``reference_agent_blackbox`` once
+        caught it missing. The
         methodology doc's §5 hyperparameter table states "Sampling
         temperature | 0.0 | Deterministic decoding throughout" — this is a
         stated paper fact, not an ambiguous value like ``alpha``/``tau``,
@@ -615,13 +616,14 @@ class JailbreakOptimizer:
             candidates = _parse_candidates(raw)
             if candidates:
                 return candidates
-            # raw[:200] added 2026-08-22 -- exp32's audit found EVERY Phase 1
-            # call failing this way with no raw text ever logged, so root-
-            # causing it (the optimizer LLM refusing OPTIMIZER_PROMPT's own
-            # "bypassing safety restrictions" framing, not a parser bug)
-            # required a live, out-of-band reproduction instead of just
-            # reading the log. Same truncated-raw-on-failure discipline
-            # _parse_score already had a few lines above this.
+            # Log raw[:200] on every failure here, not just a bare "no
+            # candidates" message -- without it, root-causing a Phase 1
+            # call that fails this way (e.g. the optimizer LLM refusing
+            # OPTIMIZER_PROMPT's own "bypassing safety restrictions"
+            # framing, not a parser bug) requires a live, out-of-band
+            # reproduction instead of just reading the log. Same
+            # truncated-raw-on-failure discipline _parse_score already had
+            # a few lines above this.
             logger.warning(
                 "[OPTIMIZER] No <answer>...</answer> candidates parsed "
                 "(attempt %d/3) — retrying. Raw (truncated): %r",
@@ -842,7 +844,7 @@ class JailbreakOptimizer:
 
         # Don't cache a total failure (score=0.0, i.e. even the unoptimized
         # seed prompt never beat a flat refusal AND no candidate ever
-        # scored above it either) -- found 2026-08-22 auditing exp32: a
+        # scored above it either): a
         # score=0.0 artifact (caused by the optimizer LLM refusing
         # OPTIMIZER_PROMPT outright, see this module's own provider-choice
         # docstrings in aginiti/operators/{deep_attack_operators,hardened_

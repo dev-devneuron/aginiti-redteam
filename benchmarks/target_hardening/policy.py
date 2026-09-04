@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 # 1. URL allowlist / egress restriction / tool-argument validation.
 #
 # Mirrors, deliberately verbatim, the SAME allowlist enforced server-side in
-# the live AnythingLLM collector (collector/urlPolicy.js, patched 2026-08-09)
+# the live AnythingLLM collector (collector/urlPolicy.js, patched upstream)
 # -- this gateway's own check on /document/upload-link is defense-in-depth
 # for the ONE upload path that reaches AnythingLLM directly from Aginiti's
 # adapter rather than through the agent's own tool call (which the
@@ -250,11 +250,11 @@ def requires_approval(path: str) -> bool:
 # ---------------------------------------------------------------------------
 # 6. Adaptive defense -- suspicion tracking + escalating lockout.
 #
-# Added 2026-08-09: AnythingLLMAdapter had ZERO target-side adaptation --
+# AnythingLLMAdapter had ZERO target-side adaptation --
 # confirmed by checking aginiti/adapters/base.py's own BaseAdapter Protocol,
 # which documents record_suspicious_event() as an OPTIONAL extension
 # AnythingLLMAdapter simply never implements. Every prior AnythingLLM
-# benchmark (exp16, exp17) therefore ran against a target that behaves
+# benchmark therefore ran against a target that behaves
 # IDENTICALLY on trial 1 and trial 25 -- unrealistic for a production
 # deployment, and unable to test whether a planner can adapt its own
 # behavior to a target that is ALSO adapting.
@@ -308,7 +308,7 @@ class SuspicionTracker:
 # ---------------------------------------------------------------------------
 # 7. Volumetric rate limiting.
 #
-# Added 2026-08-11 -- closing a genuine, confirmed gap: AnythingLLM has NO
+# Closes a genuine, confirmed gap: AnythingLLM has NO
 # native API rate limiting at all (confirmed by reading its own live
 # GET /api/v1/system response directly -- every "*Limit"/"*Threshold"
 # setting present is model-token-related, none is request-rate-related).
@@ -353,7 +353,7 @@ class RateLimiter:
 # ---------------------------------------------------------------------------
 # 8. Request size limits.
 #
-# Added 2026-08-11 -- same "genuinely missing, real production gateways
+# Same "genuinely missing, real production gateways
 # always have this" reasoning as rate limiting. Deliberately generous
 # (covers a legitimate large document plant, e.g. the multitool pack's
 # summarization-forcing document) while still ruling out an absurd

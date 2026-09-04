@@ -1,11 +1,11 @@
 """Synthetic, in-process mock targets used by tests/experiments/campaigns
-(design doc Section 21.1 et al.) -- DemoAgent plus the deterministic,
-zero-LLM scenario agents added 2026-08-14 to validate specific planner
-fixes offline (FamilyCoverageScenarioAgent, HiddenStateAgent,
-MultiFamilyAgent, TechniqueClusterScenarioAgent).
+(design doc Section 21.1 et al.) -- DemoAgent plus deterministic, zero-LLM
+scenario agents that validate specific planner fixes offline
+(FamilyCoverageScenarioAgent, HiddenStateAgent, MultiFamilyAgent,
+TechniqueClusterScenarioAgent).
 
-Relocated here from `aginiti/target/` on 2026-08-20 (integration Slice C,
-see plans/integration-plan.md and plans/PLAN.md): these are dev/benchmark
+Relocated here from `aginiti/target/` (integration Slice C, see
+plans/integration-plan.md and plans/PLAN.md): these are dev/benchmark
 fixtures, not shipped library code -- `pyproject.toml`'s
 `[tool.setuptools.packages.find]` only includes `aginiti*`, so a real
 `pip install aginiti-redteam` never ships this package. This mirrors the

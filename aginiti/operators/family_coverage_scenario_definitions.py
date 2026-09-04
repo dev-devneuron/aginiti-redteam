@@ -1,6 +1,6 @@
 """Operator library for `benchmarks/agents/family_coverage_scenario_agent.py`
 -- see that module's own docstring for the full scenario and why it's the
-right offline test of the 2026-08-14 `PROACTIVE_COVERAGE_BONUS` fix
+right offline test of the `PROACTIVE_COVERAGE_BONUS` fix
 specifically. Every operator uses a deterministic extractor (no LLM judge,
 no network), matching the target's own canned-response markers -- the
 whole scenario runs in milliseconds.

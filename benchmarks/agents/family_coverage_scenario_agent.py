@@ -1,7 +1,7 @@
 """FamilyCoverageScenarioAgent -- a small, fully deterministic, zero-LLM
-synthetic target purpose-built to validate the 2026-08-14 `PROACTIVE_
-COVERAGE_BONUS` fix (`aginiti/graph/novelty.py`) OFFLINE, at zero cost,
-before spending any live budget -- directly modeling the real shape exp28
+synthetic target purpose-built to validate the `PROACTIVE_
+COVERAGE_BONUS` fix (`aginiti/core/graph/novelty.py`) OFFLINE, at zero cost,
+before spending any live budget -- directly modeling the real shape a live run
 found live against `hardened_agent`, not a generic stand-in for it.
 
 **The real shape being reproduced, and why it's the right test of THIS

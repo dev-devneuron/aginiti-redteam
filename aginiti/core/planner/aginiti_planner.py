@@ -7,7 +7,7 @@ subject to: risk(a) <= mission.risk_threshold
             budget_feasible(a) -- see budget_feasible()'s own docstring
             risk_tier(a) == destructive => human_approved(a)
 
-budget_feasible(a) -- added 2026-08-09, live-diagnosed on branching_chat_rag:
+budget_feasible(a) -- exists because of a real gap live-diagnosed on branching_chat_rag:
 `cost(a) <= budget_remaining` alone only checks THIS operator's own cost,
 not whether the rest of the chain it starts can still fit -- AginitiPlanner
 repeatedly spent its LAST prompt starting a 2-step RAG-poisoning chain's
@@ -21,8 +21,8 @@ PROVABLY unwinnable within budget even in the best case, never a false
 negative.
 
 PoP(a) -- potential progress -- POTENTIAL-BASED REWARD SHAPING (Ng, Harada
-& Russell 1999), added 2026-08-08 to close a real gap in PP/EP themselves:
-build_graph() (aginiti/graph/target_graph.py) only includes an edge once its
+& Russell 1999), closing a real gap in PP/EP themselves:
+build_graph() (aginiti/core/graph/target_graph.py) only includes an edge once its
 operator's success is CONFIRMED, but eligible_operators() lets an operator
 become a candidate once its precondition is merely met (often HYPOTHESIZED,
 a strictly weaker bar). In that window -- precondition satisfied, but the
@@ -71,7 +71,7 @@ and (notably) the only term in this whole formula that reads library
 structure alone, never ssg -- a constant per operator for a fixed library,
 by design.
 
-BI(a) -- branch interest -- added 2026-08-08, closing a gap a live trace
+BI(a) -- branch interest -- closing a gap a live trace
 proved was real: three prior milestones (CampaignBeliefState, deterministic
 branch propagation, the gated Reasoning Layer) all correctly populated
 ssg.belief, and NONE of it changed a single ranking decision, because
@@ -87,7 +87,7 @@ outweigh a dangerous action, which is the wrong behavior).
 
 alpha_t decays and beta_t rises across the campaign (Section 12.1, Figure
 12.1) -- Phase 0 originally used prompts-used-as-fraction-of-budget as the
-ONLY step signal. **Changed 2026-08-07**, directly in response to the
+ONLY step signal. **Changed** directly in response to the
 mock-target RQ1 finding (docs/EVIDENCE_AND_EVALUATION.md Section 0):
 elapsed-budget-fraction alone kept Aginiti exploring broadly for most of a
 campaign even after effectively finding a working path, while
@@ -99,22 +99,22 @@ docstring for the exact priority and reasoning.
 
 PP(a) -- path progress -- is what makes this genuine graph reasoning rather
 than flat claim-key ranking: it asks a real BFS shortest-path question over
-aginiti/graph/target_graph.py's currently-CONFIRMED subgraph -- "if this
+aginiti/core/graph/target_graph.py's currently-CONFIRMED subgraph -- "if this
 operator succeeds, does it shorten (or newly create) the known path to any
 mission target" -- not just "does its key match an unmet criterion."
 
 EP(a) -- emergent impact -- is the same BFS question asked against a BROADER
 target set: every claim key ANY operator in the library tags as a
 CATEGORY_MISSION_OUTCOME-shaped compromise, not only the specific ones a
-human wrote into Mission.success_criteria in advance. Added 2026-08-07 after
-experiments/exp7_consequence_propagation_gap.py demonstrated directly that
+human wrote into Mission.success_criteria in advance. Motivated by
+experiments/exp7_consequence_propagation_gap.py, which demonstrated directly that
 without it, a real stepping-stone toward an unnamed-but-recognized
 compromise gets identical utility to a genuine dead end -- the concrete gap
 behind "chain findings together into realistic attack paths" (see
 docs/ROADMAP.md Phase 4). PP(a) and EP(a) stay separate, individually
 testable terms rather than one merged concept, same pattern as GP/HP below.
 
-CV(a) -- chain value -- added 2026-08-09, closing a gap experiments/
+CV(a) -- chain value -- closing a gap experiments/
 exp17_hardened_target.py demonstrated live: PoP's Phi is purely
 topological (-hop-distance-to-target), so it credits every "one hop
 closer" edge identically regardless of what's actually at the far end --
@@ -159,13 +159,13 @@ from aginiti.core.policies.base import eligible_operators
 
 # Kept equal to IMPORTANCE_WEIGHT["high"] (schema.py), honoring this constant's
 # own original stated intent ("same scale as a high importance gap") -- moved
-# from 2.0 to 4.0 in lockstep with that 2026-08-09 rescale, not independently
+# from 2.0 to 4.0 in lockstep with that rescale, not independently
 # re-guessed.
 _HYPOTHESIS_WEIGHT = IMPORTANCE_WEIGHT["high"]
 
 # Discount applied to a plant operator's borrowed downstream value in
 # chain_value() (see that method's own docstring). Deliberately set to
-# Hypothesis's own default prior_confidence=0.5 (aginiti/graph/hypothesis.py)
+# Hypothesis's own default prior_confidence=0.5 (aginiti/core/graph/hypothesis.py)
 # -- this project's EXISTING "maximally uncertain, no evidence yet"
 # convention, reused here rather than independently guessed: reaching a
 # plant's own downstream trigger is exactly that kind of not-yet-evidenced
@@ -192,7 +192,7 @@ _SEVERITY_WEIGHT_PER_LEVEL = 0.2
 # as intended -- the penalty should inform, not veto.
 _FAILURE_PENALTY_WEIGHT = 1.0
 
-# hypothesis_escalation_bonus()'s magnitude -- added 2026-08-14 (Issue: "make
+# hypothesis_escalation_bonus()'s magnitude (Issue: "make
 # genuine attack-chain construction VISIBLE in ranking, not merely possible").
 # Deliberately larger than severity_priority/failure_evidence_penalty's 1.0
 # ceiling: this fires only in the specific moment a ClassPrecondition-gated
@@ -230,8 +230,8 @@ class RankedCandidate:
 
 
 class AginitiPlanner:
-    """`info_gain_normalization` -- ablation added 2026-08-09 in response to
-    a real, user-raised hypothesis grounded in exp12-14's finding that
+    """`info_gain_normalization` -- ablation added in response to
+    a real, user-raised hypothesis, grounded in a finding that
     declared claim weights could overwhelm potential_progress: raw
     `sum(effect.weight for unresolved effects)` gives an operator that
     happens to declare MANY predicted effects a structural info_gain
@@ -271,7 +271,7 @@ class AginitiPlanner:
                  enable_hypothesis_escalation_bonus: bool = False,
                  enable_technique_cluster_diversification: bool = False) -> None:
         """`enable_family_diversification`/`enable_hypothesis_escalation_
-        bonus` -- added 2026-08-14, both default False so an unparameterized
+        bonus` -- both default False so an unparameterized
         `AginitiPlanner()` is BYTE-IDENTICAL in ranking behavior to every
         version of this class before this pair existed (config "A" in the
         ablation this pair exists to support -- see experiments/
@@ -345,7 +345,7 @@ class AginitiPlanner:
         """alpha/beta start from the original time-based default (explore
         early, exploit late as budget is consumed) but are overridden by
         DISCOVERY events -- added in direct response to the mock-target RQ1
-        finding (2026-08-07, docs/EVIDENCE_AND_EVALUATION.md Section 0):
+        finding (docs/EVIDENCE_AND_EVALUATION.md Section 0):
         Aginiti kept exploring broadly for most of a campaign's budget even
         after effectively finding a working path, because elapsed-budget-
         fraction was the ONLY signal driving explore/exploit balance --
@@ -364,7 +364,7 @@ class AginitiPlanner:
             emergent_impact's same reasoning) pushes moderately (0.4/0.6).
           - Otherwise, the original time-based schedule, unchanged.
 
-        RECENCY FIX (2026-08-09, internal-audit finding): the original v1
+        RECENCY FIX: the original v1
         simplification -- "any CONFIRMED claim in this category, EVER" --
         was a monotonic, history-free check, documented as a known but
         deliberately-accepted gap. Now scoped to claims confirmed within
@@ -514,9 +514,9 @@ class AginitiPlanner:
         that depends purely on library structure, not campaign state --
         a constant per operator for a fixed library and mission.
 
-        SELF-REVIEW FIX (2026-08-08, same day as this term was added):
-        the first version of this method scoped `targets` to
-        mission.success_criteria ONLY -- but emergent_impact exists
+        SELF-REVIEW FIX: do not scope `targets` to
+        mission.success_criteria ONLY -- an earlier version of this method
+        did, but emergent_impact exists
         precisely because a stepping-stone toward an UNNAMED, library-
         recognized compromise is exactly as real a target as a named one
         (experiments/exp7_consequence_propagation_gap.py), and that gap
@@ -553,7 +553,7 @@ class AginitiPlanner:
     def chain_value(self, operator: Operator, mission: Mission, ssg: SecurityStateGraph,
                      library: OperatorLibrary) -> float:
         """Value-informed extension of potential-based reward shaping --
-        added 2026-08-09 in direct response to a real, live-diagnosed
+        added in direct response to a real, live-diagnosed
         finding (experiments/exp17_hardened_target.py): potential_progress's
         Phi is PURELY topological (-hop-distance-to-nearest-target). It
         treats every "one hop closer" edge as worth exactly the same
@@ -630,8 +630,8 @@ class AginitiPlanner:
 
     def budget_feasible(self, operator: Operator, mission: Mission, library: OperatorLibrary,
                          budget_remaining: int) -> bool:
-        """Hard feasibility pruning (2026-08-09) -- closes a real,
-        live-diagnosed gap: `eligible_operators()` (aginiti/policies/
+        """Hard feasibility pruning -- closes a real,
+        live-diagnosed gap: `eligible_operators()` (aginiti/core/policies/
         base.py) already excludes an operator whose OWN cost exceeds
         remaining budget, but nothing anywhere checked whether the REST of
         a multi-step chain that operator starts can still fit. Confirmed
@@ -698,8 +698,8 @@ class AginitiPlanner:
         the importance bucket -- schema.py's Insight docstring) when a
         caller set one, falling back to the coarse 3-bucket lookup exactly
         as before when it's None -- true for every insight the Reasoning
-        Layer forms today, so that pathway is completely unaffected. Added
-        2026-08-09 to fix a live-diagnosed collapse: aginiti/graph/
+        Layer forms today, so that pathway is completely unaffected. Fixes
+        a live-diagnosed collapse: aginiti/core/graph/
         priors.py's cold-start seeding could put a KNOWN, always-defended
         trap operator in the exact same bucket ("medium") as a real,
         reliably-working operator, making AginitiPlanner's very first pick
@@ -734,8 +734,8 @@ class AginitiPlanner:
         return total
 
     def branch_interest(self, operator: Operator, ssg: SecurityStateGraph) -> float:
-        """The fix for a gap a live trace proved was real (2026-08-08):
-        aginiti/graph/belief_state.py's deterministic branch propagation
+        """The fix for a gap a live trace proved was real:
+        aginiti/core/graph/belief_state.py's deterministic branch propagation
         and gated Reasoning Layer both correctly populate
         ssg.belief.branches, but nothing in this planner read any of it --
         a full campaign produced an identical operator sequence to the
@@ -748,7 +748,7 @@ class AginitiPlanner:
         Layer's own judgment calls (milestone 3's branch_signal).
 
         Reads ssg.belief.branch_signal() -- CampaignBeliefState's
-        encapsulated accessor (2026-08-08 design tightening), never
+        encapsulated accessor, never
         `.branches[...]` directly. That keeps BranchBelief's internal
         fields and update rules free to change shape later without this
         method needing to change too, and it's what makes
@@ -764,13 +764,13 @@ class AginitiPlanner:
         return ssg.belief.branch_signal(operator.branch).exploration_signal
 
     def severity_priority(self, operator: Operator, ssg: SecurityStateGraph) -> float:
-        """Added 2026-08-09 -- closes a real, named gap: this planner had
+        """Closes a real, named gap: this planner had
         NO awareness whatsoever of finding severity. Every term above asks
         "does this resolve something unknown" or "does this satisfy the
         mission" -- none of them ask "if this succeeds, how serious is
         what it would prove," so a planner facing two comparably-likely,
         comparably-costed options with no other tiebreaker had literally
-        nothing to prefer the more consequential one with. See aginiti/
+        nothing to prefer the more consequential one with. See aginiti/core/
         graph/security_boundary.py for the L0 (model behavior) through L5
         (confirmed exfiltration) taxonomy this reads.
 
@@ -812,9 +812,8 @@ class AginitiPlanner:
         return _SEVERITY_WEIGHT_PER_LEVEL * best_rank
 
     def failure_evidence_penalty(self, operator: Operator, ssg: SecurityStateGraph) -> float:
-        """Added 2026-08-12 at explicit user direction (Issue 4 of that
-        day's architectural directive: "give the planner better feedback
-        from failure"): "A failure shouldn't simply mean 'attack failed.'
+        """Added at explicit user direction ("give the planner better
+        feedback from failure"): "A failure shouldn't simply mean 'attack failed.'
         It should produce structured evidence... Then the planner should
         ask: given what I just learned, what attack path is now more
         promising?"
@@ -924,7 +923,7 @@ class AginitiPlanner:
         just opened up from a claim confirmed RECENTLY -- see this class's
         __init__ docstring for the full motivation. 0.0 for any operator
         with no precondition_classes at all (every operator predating
-        2026-08-12's ClassPrecondition mechanism, and most still today),
+        the ClassPrecondition mechanism, and most still today),
         or when disabled -- a true no-op either way."""
         if not self.enable_hypothesis_escalation_bonus:
             return 0.0
@@ -1001,19 +1000,19 @@ class AginitiPlanner:
                 continue  # provably can't complete this chain within remaining budget -- see budget_feasible()
             core_utility, fdiv, heb, tcdiv, terms = self._score(op, mission, ssg, library, alpha, beta,
                                                                    belief, recency_window)
-            # STRUCTURAL invariant (2026-08-14 fix, exp23 postmortem):
-            # the feasibility gate below reads ONLY core_utility -- the
-            # evidence-grounded terms -- never fdiv/heb. Before this fix,
-            # `utility <= 0: continue` tested the FULL sum including fdiv/
-            # heb, so family_diversification's saturation penalty (bounded
-            # at -3.0) could push an otherwise-viable candidate's total
+            # STRUCTURAL invariant: the feasibility gate below must read
+            # ONLY core_utility -- the evidence-grounded terms -- never
+            # fdiv/heb. Do not go back to testing the FULL sum including
+            # fdiv/heb here: `utility <= 0: continue` on the full sum lets
+            # family_diversification's saturation penalty (bounded
+            # at -3.0) push an otherwise-viable candidate's total
             # below zero and SILENTLY REMOVE IT from the ranked list --
             # exactly what novelty.py's own docstring says this term must
             # never do ("informs, never vetoes... a candidate with a
             # genuinely large advantage can still outrank a demoted one").
-            # Live-confirmed cause of exp23's SEARCH_EXHAUSTED-with-budget-
-            # remaining failure (3/3 D_full_adaptive hardened_agent
-            # campaigns, 15-16 of 24 operators still untried each time):
+            # Live-confirmed cause of a real SEARCH_EXHAUSTED-with-budget-
+            # remaining failure (repeated across multiple hardened_agent
+            # campaigns, most operators still untried each time):
             # once two families looked saturated, every member of both
             # dropped below zero here and vanished, not merely demoted.
             #
@@ -1046,7 +1045,7 @@ class AginitiPlanner:
     def diagnose(self, library: OperatorLibrary, ssg: SecurityStateGraph, mission: Mission,
                  prompts_used: int, executed_ids: frozenset[str] = frozenset()) -> list:
         """Read-only accounting over EVERY operator in `library` (not just
-        what survived into `rank()`'s own output) -- added 2026-08-14 at
+        what survived into `rank()`'s own output) -- built at
         explicit direction: "If an operator is intentionally excluded,
         record exactly why." Shares `_score()` with `rank()`, so this can
         never silently disagree with what actually got ranked -- it only

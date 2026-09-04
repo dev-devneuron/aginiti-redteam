@@ -1,5 +1,5 @@
 """Access-control-LAYER discovery -- a genuinely new, target-agnostic
-capability added 2026-08-14 in direct response to the user's explicit
+capability built in direct response to the user's explicit
 request to research and implement a GENERALIZED technique for bypassing
 RBAC on well-built agents, grounded in current published research, not
 reverse-engineered from any one target.
@@ -11,7 +11,7 @@ Pinecone's own RAG-access-control guidance names this exact distinction:
 itself -- denied documents never enter the candidate set the LLM sees) vs
 "post-filter" (the system retrieves top-K by similarity FIRST, THEN
 removes documents the caller isn't authorized for). Pre-filter is what
-`hardened_agent` actually does (confirmed 2026-08-14 by reading
+`hardened_agent` actually does (confirmed by reading
 `personas.py`/`agent.py` -- the `where` filter is passed directly into
 `collection.query()`) and is why this project's own live testing has never
 once crossed its RBAC boundary: a pre-filter system has NOTHING to leak,

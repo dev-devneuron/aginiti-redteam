@@ -35,7 +35,7 @@ Two mechanisms guide query generation:
 2. **Trust Region Directed Mutation (TRDM, Sec 3.4):** after a productive
    response, generates new anchor concepts inside a cosine-similarity trust
    region around the response embedding, steering toward unexplored nearby
-   knowledge. **Mutation prompt rewritten 2026-07-2x** to prefer drilling
+   knowledge. **Mutation prompt rewritten** to prefer drilling
    into specific facts/entities the response actually revealed (a named
    individual, case, diagnosis, measurement) over drifting to new,
    unrelated territory — see the `_MUTATION_PROMPT`/
@@ -117,7 +117,7 @@ and can be overridden at construction time.
 | `delta_o` | 0.7 | Table 5 | Similarity threshold triggering the outlier penalty |
 | `delta_u` | 0.7 | Table 5 | Similarity threshold triggering the unrelated penalty |
 | `beta` | 1.0 | Table 5 | ERS softmax temperature |
-| `gamma` | 0.5 | Table 5 | TRDM trust region scale factor. **Instrumented but not recalibrated for MiniLM** (2026-07-2x) — `[TRDM-TRUST]` DEBUG logging added to both `_trdm_mutate`/`_mutate_and_generate_query` (same pattern as `theta_anchor`'s recalibration), but the default is intentionally left unchanged pending real measured data — see `docs/how-it-works.md` §8.2 |
+| `gamma` | 0.5 | Table 5 | TRDM trust region scale factor. **Instrumented but not recalibrated for MiniLM** — `[TRDM-TRUST]` DEBUG logging added to both `_trdm_mutate`/`_mutate_and_generate_query` (same pattern as `theta_anchor`'s recalibration), but the default is intentionally left unchanged pending real measured data — see `docs/how-it-works.md` §8.2 |
 | `tau_q` | 0.6 | Table 5 | TRDM stop: max query similarity in local chain |
 | `tau_y` | 0.6 | Table 5 | TRDM stop: max response similarity in local chain |
 | `theta_refusal` | 0.78 | *project judgment call* | Refusal-exemplar cosine similarity fallback threshold in `_is_refusal` (see below) |
@@ -145,10 +145,10 @@ two-stage approach in `_is_refusal`:
 A hardcoded phrase list alone cannot enumerate every way a target LLM might
 phrase a refusal — this two-stage check remains the fast, free, always-on
 first pass (used internally by `_er_sample`/`_trdm_stop` for algorithm
-steering, unchanged since before 2026-07-2x), but it does not fully solve
+steering), but it does not fully solve
 the generalization problem on its own.
 
-**LLM-as-judge upgrade, 2026-07-2x (Tier C1):** the *final*, user-facing
+**LLM-as-judge upgrade (Tier C1):** the *final*, user-facing
 classification (what actually becomes a finding vs. a refused query) now
 runs through `_classify_response`, which independently re-verifies refusal
 status via an LLM call for any response this two-stage check doesn't
@@ -164,7 +164,7 @@ LLM cost across repeated re-examination of the same history entries. See
 correction made during implementation to an earlier chat-discussed design
 that had a real generalization gap.
 
-**Measured limitation (2026-07-07):** a live run against
+**Measured limitation:** a live run against
 `benchmarks/dev_fixtures/datasets/ground_truth.json` found 8 refusals recorded as
 findings despite step 2 existing — measuring their actual cosine similarity
 showed 0.696–0.770, overlapping substantially with genuine informative
@@ -180,7 +180,7 @@ cost. Step 2 remains as a defense-in-depth fallback for genuinely novel
 phrasing, but step 1 (keywords) turned out to be the more reliable signal
 for this target's response style, not step 2.
 
-**Follow-up (2026-07-08):** a later run against the same target surfaced 2
+**Follow-up:** a later run against the same target surfaced 2
 more misses through *both* layers ("do not specify", "...do not include
 historical documentations...", embedding similarity 0.689/0.736 — still
 below `theta_refusal`). Added "do not specify"/"does not specify" and
@@ -236,7 +236,7 @@ against known ground truth (see `benchmarks/`):
 IKEA is designed for low CRR (~0.27–0.29 per the paper) and moderate-to-high
 SS — it extracts semantic knowledge, not verbatim text.
 
-**Precision, not F-measure, for EE (2026-07-2x):** EE's hit test uses Rouge-L
+**Precision, not F-measure, for EE:** EE's hit test uses Rouge-L
 precision — F-measure's recall term is computed against the whole
 ground-truth document's length, which structurally punishes a short (but
 accurate) extracted evidence quote against a much longer source document.
@@ -253,7 +253,7 @@ real count — `scripts/run_benchmark.py` and `scripts/run_ikea.py` both do
 this and record it (`queries_sent`, alongside `refused_queries` itself) in
 their output JSON and Markdown report.
 
-**CRR/SS scope, fixed 2026-07-2x:** both are averaged only over findings
+**CRR/SS scope:** both are averaged only over findings
 with `leak_type != "none"` — previously they averaged over *every*
 finding, including generic non-answers ("there is no information regarding
 X") that were never expected to match any ground-truth document, dragging
@@ -272,7 +272,7 @@ metrics have scored on real, live runs.
 
 ## Why IKEA was chosen first, over SECRET
 
-*(Moved here from `CLAUDE.md` §4 during a 2026-07-30 scoping pass — see
+*(Moved here from `CLAUDE.md` §4 during a scoping pass — see
 `CLAUDE.md`'s "Attack module registry" for why: this rationale is
 DRA-specific, not a framework-wide rule, and belongs in the module doc a
 reader actually consults when working on DRA, not in the project's
@@ -404,7 +404,7 @@ separately, not in this file.
 ### Two genuinely unresolved paper values
 
 The paper's official repo (`github.com/T0hsakar1n/Secret`) contains no
-source code as of this writing (re-verified 2026-08-08) — these are
+source code as of this writing — these are
 engineering judgment calls, not facts extracted from the paper:
 
 - **`phase1_alpha`** (Phase 1 early-stop score threshold) — no numeric value

@@ -1,6 +1,6 @@
 """HiddenStateAgent -- a small, fully deterministic, zero-LLM synthetic
-target purpose-built to TEST genuine adaptive multi-step discovery, added
-2026-08-14 per the explicit instruction: "create a deterministic synthetic/
+target purpose-built to TEST genuine adaptive multi-step discovery, built
+per the explicit instruction: "create a deterministic synthetic/
 local environment where the target has hidden state and different attack
 paths reveal different information."
 

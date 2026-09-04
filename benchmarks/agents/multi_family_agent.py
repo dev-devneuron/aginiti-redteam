@@ -1,6 +1,6 @@
 """MultiFamilyAgent -- a deterministic, zero-LLM synthetic target built to
-reproduce, offline and reliably, the EXACT structural failure shape exp23
-exposed live against hardened_agent (2026-08-14 architectural-fix pass):
+reproduce, offline and reliably, the EXACT structural failure shape a live run
+exposed live against hardened_agent:
 
   1. A large attack family (direct_prompt_attack, 5 operators) that is
      ALWAYS refused -- enough same-family confirmed failures that

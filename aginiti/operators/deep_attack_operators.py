@@ -289,7 +289,7 @@ def _build_secret_attack(endpoint: AgentEndpoint) -> SECRETAttack:
     lazy-construction contract as `_build_ikea_attack` (called fresh on
     every execution, never at import time).
 
-    `endpoint_kwargs={"headers": endpoint.headers}` added 2026-08-22 --
+    `endpoint_kwargs={"headers": endpoint.headers}` --
     same fix as `hardened_deep_attack_operators.py`'s own `_build_secret_
     attack` (see that module's docstring for the full root-cause writeup):
     Phase 1's internal `JailbreakOptimizer` never receives `self.endpoint`
@@ -453,11 +453,11 @@ def _build_interrogation_attack(endpoint: AgentEndpoint) -> InterrogationAttack:
 # ---------------------------------------------------------------------------
 # SPE-LLM (Slice G) -- the lightest of the four: 3 static templates (CoT,
 # Extended Sandwich, Few-Shot), no adaptive loop, so its cost_prompts stays
-# at the 3 real target queries below regardless. NO LONGER LLM-less as of
-# 2026-08-22: the confirmation step now goes through a real LLM classifier
+# at the 3 real target queries below regardless. NO LONGER LLM-less:
+# the confirmation step now goes through a real LLM classifier
 # (see spe_llm.py's own `_call_classifier`/`classifier_llm_provider`
-# docstrings) -- the original 10-keyword heuristic it replaced was found,
-# auditing exp32, to be too crude to trust (any ordinary answer mentioning
+# docstrings) -- the original 10-keyword heuristic it replaced was found
+# too crude to trust (any ordinary answer mentioning
 # one common word like "context" or "assist" would pass; a real disclosure
 # phrased without an exact keyword would not). `persona` is accepted for
 # interface parity with the hardened-target scripts but is inert against a

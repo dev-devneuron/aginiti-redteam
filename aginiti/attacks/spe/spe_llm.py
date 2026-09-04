@@ -125,21 +125,20 @@ class SPEAttack(BaseAttack):
         llm_provider : str, optional
             LiteLLM provider string. Defaults to `classifier_llm_provider`'s
             own default -- see that parameter's docstring for why this is
-            no longer a "dummy/none" no-op default (2026-08-22 fix).
+            no longer a "dummy/none" no-op default.
         api_key : str, optional
             API key for `llm_provider`.
         classifier_llm_provider : str, optional
-            LiteLLM model string for the confirmation classifier added
-            2026-08-22 (found auditing exp32: the ORIGINAL heuristic below
-            -- "not a refusal, >50 chars, contains >=1 of 10 generic
-            keywords like 'context'/'response'/'assist'" -- is both prone
-            to false positives (any ordinary substantive answer mentioning
-            one such common word) and false negatives (a real disclosure
-            phrased without any exact keyword), and every probe in exp32's
-            own live run came back Confirmed=False despite one response
+            LiteLLM model string for the confirmation classifier. The
+            original heuristic -- "not a refusal, >50 chars, contains >=1 of
+            10 generic keywords like 'context'/'response'/'assist'" -- is
+            both prone to false positives (any ordinary substantive answer
+            mentioning one such common word) and false negatives (a real
+            disclosure phrased without any exact keyword): a live run once
+            classified every probe as Confirmed=False despite one response
             being 1196 characters long, with no way to tell from the
             heuristic alone whether that was genuine resistance or a
-            classifier miss). Same two-stage "free heuristic first, LLM
+            classifier miss. Same two-stage "free heuristic first, LLM
             classifier only for what it doesn't confidently resolve"
             pattern IKEAAttack's `_is_refusal`/`_call_combined_classifier`
             already established -- see this class's `_call_classifier` and
@@ -155,7 +154,7 @@ class SPEAttack(BaseAttack):
             Custom HTTP client configurations (e.g. auth headers) routed to AgentEndpoint.
         endpoint : AgentEndpoint, optional
             An EXISTING AgentEndpoint to reuse instead of building a fresh one
-            in execute_black_box -- added 2026-08-21 (Phase 2 Slice G, plans/
+            in execute_black_box (Phase 2 Slice G, plans/
             phase2-operator-wrapping.md), same seam as IKEAAttack/SECRETAttack/
             InterrogationAttack. Made an explicit named parameter here (not
             left as an implicit **kwargs passthrough to BaseAttack, even
@@ -204,7 +203,7 @@ class SPEAttack(BaseAttack):
 
     def _call_classifier(self, response: str) -> dict:
         """LLM-as-judge confirmation call for a non-refused SPE response --
-        added 2026-08-22, see `__init__`'s `classifier_llm_provider`
+        see `__init__`'s `classifier_llm_provider`
         docstring for why the original 10-keyword heuristic wasn't enough
         on its own. Only called for responses `_is_refusal` didn't already
         confidently flag (same "cheap check first" discipline as
@@ -263,10 +262,9 @@ class SPEAttack(BaseAttack):
             "Few-Shot": _FEW_SHOT_PROMPT
         }
 
-        # 2026-08-21 (Slice G): reuse an injected endpoint (shared campaign
-        # session) when supplied, matching IKEAAttack's own precedent
-        # (Slice B) -- falls back to today's fresh-construction behavior
-        # otherwise.
+        # Reuse an injected endpoint (shared campaign session) when
+        # supplied, matching IKEAAttack's own precedent -- falls back to
+        # fresh construction otherwise.
         endpoint = self.endpoint or AgentEndpoint(base_url=self.target_url, **self._endpoint_kwargs)
         logger.info("=== SPE attack starting ===")
         logger.info("  target agent          : %s", self.target_url)
@@ -285,7 +283,7 @@ class SPEAttack(BaseAttack):
 
                 is_refusal = self._is_refusal(response_clean)
 
-                # Two-stage check (2026-08-22, replaces the old 10-keyword
+                # Two-stage check (replaces the old 10-keyword
                 # heuristic -- see __init__'s classifier_llm_provider
                 # docstring for the false-positive/false-negative case that
                 # motivated this): the free _is_refusal check first (cheap,
@@ -317,13 +315,11 @@ class SPEAttack(BaseAttack):
                 findings.append(finding)
                 logger.info(f"[{strategy_name}] Result: Confirmed={confirmed} (len={len(response_clean)})")
         finally:
-            # 2026-08-21 (Slice G): a real bug caught while adding the
-            # endpoint-reuse seam above -- this used to close() the
-            # endpoint unconditionally, which is correct for a fresh
-            # self-built endpoint (the original behavior) but would tear
-            # down a CALLER-injected, campaign-shared session out from
-            # under every other operator still running against it. Only
-            # close an endpoint this method itself constructed.
+            # Do not close() the endpoint unconditionally: that's correct
+            # for a fresh self-built endpoint, but would tear down a
+            # CALLER-injected, campaign-shared session out from under every
+            # other operator still running against it. Only close an
+            # endpoint this method itself constructed.
             if self.endpoint is None:
                 endpoint.close()
 

@@ -36,7 +36,7 @@ CONDITIONS = ("random", "static", "memory_guided", "aginiti")
 
 def _demo_agent(seed: int):
     """Lazily imports DemoAgent -- see aginiti/core/campaign.py's
-    `_default_demo_agent` for the full rationale (2026-08-20, Slice C):
+    `_default_demo_agent` for the full rationale:
     `benchmarks/` is excluded from the published wheel, and this whole
     module is itself shipped inside the `aginiti` package
     (`aginiti.core.benchmark`), so a top-level import here would break

@@ -1,4 +1,4 @@
-"""A composable prompt-transformation pipeline, added 2026-08-12 in direct
+"""A composable prompt-transformation pipeline, built in direct
 response to exp19 (docs/COMPETITOR_COMPARISON.md): Aginiti's only encoding
 primitive before this was `data_exposure.py`'s single `encoding_evasion_probe`
 operator, hardcoded to base64. garak's `encoding` probe module ships roughly

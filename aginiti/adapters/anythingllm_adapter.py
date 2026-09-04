@@ -45,7 +45,7 @@ against a target that doesn't ship its own flags. With no canaries
 registered, it always returns False, same disciplined "no oracle, say so"
 choice as leaving DVLA's system-prompt-adjacent claims judge-only.
 
-2026-08-08 (automatic-mode pass): two additions, both grounded in live
+Automatic-mode support: two additions, both grounded in live
 verification against the running instance before being written, not
 assumed from AnythingLLM's docs:
 
@@ -115,7 +115,7 @@ class TargetUnavailable(Exception):
     connection refused/DNS failure (target down/unreachable), a timeout, a
     non-rate-limit HTTP error, or a response body that isn't valid JSON.
 
-    2026-08-12 hardening-pass fix: before this, every one of those raised
+    A hardening-pass fix: before this, every one of those raised
     requests.exceptions.* / json.JSONDecodeError COMPLETELY UNCAUGHT,
     propagating through ObservationAdapter.execute() and run_campaign()
     with no classification at all -- contrast DVLAAdapter (aginiti/
@@ -205,7 +205,7 @@ class AnythingLLMAdapter:
                     json={"message": prompt, "mode": effective_mode},
                 )
             except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
-                # 2026-08-12 hardening-pass fix: previously uncaught -- a
+                # A hardening-pass fix: previously uncaught -- a
                 # genuinely down/unreachable/hung target crashed the whole
                 # campaign instead of being classified. NOT retried here
                 # (unlike the rate-limit branch below): a target that's
@@ -227,7 +227,7 @@ class AnythingLLMAdapter:
             try:
                 resp.raise_for_status()
             except requests.exceptions.HTTPError as e:
-                # 2026-08-12 hardening-pass fix: any HTTP error OTHER than
+                # A hardening-pass fix: any HTTP error OTHER than
                 # the specific rate-limit-retry pattern above (a genuine
                 # 4xx/5xx -- bad request, workspace not found, target-side
                 # crash) previously propagated uncaught. Not retried: a
@@ -236,7 +236,7 @@ class AnythingLLMAdapter:
             try:
                 return resp.json()
             except (ValueError, requests.exceptions.JSONDecodeError) as e:
-                # 2026-08-12 hardening-pass fix: a malformed/non-JSON body
+                # A hardening-pass fix: a malformed/non-JSON body
                 # (e.g. an HTML error page from a proxy in front of the
                 # target, or a truncated response) previously raised
                 # uncaught inside a dict-shaped call site, producing a
@@ -248,8 +248,8 @@ class AnythingLLMAdapter:
 
     def send(self, channel: str, prompt: str) -> SendResult:
         """Thin wrapper: the real dispatch is _send_impl(); this catches
-        TargetUnavailable (2026-08-12 hardening-pass fix) uniformly across
-        all three channels (plant/automatic/direct) and converts it into
+        TargetUnavailable uniformly across all three channels
+        (plant/automatic/direct) and converts it into
         an explicit is_synthetic=True SendResult instead of letting a
         target crash/timeout/malformed-response propagate uncaught and
         kill the whole campaign. is_synthetic=True is a hard instruction
@@ -276,8 +276,8 @@ class AnythingLLMAdapter:
             # channel rather than pretending a plant is a chat turn.
             resp = self._plant_document(prompt)
             final_text = str(resp)
-            # Evidence-provenance fix (2026-08-08, automatic-mode pass,
-            # caught live): deliberately NOT appended to _raw_responses.
+            # Evidence-provenance fix, caught live: deliberately NOT
+            # appended to _raw_responses.
             # AnythingLLM's own upload-confirmation response echoes the
             # planted content straight back in a `pageContent` field --
             # confirmed live by planting a canary and checking the plant
@@ -353,7 +353,7 @@ class AnythingLLMAdapter:
         and is itself a completely standard, expected document-ingestion
         path (a user/connector submitting a file), not a workaround.
 
-        2026-08-12 hardening-pass fix: previously let requests.exceptions.*
+        A hardening-pass fix: previously let requests.exceptions.*
         and a malformed-JSON body propagate uncaught, same gap as the old
         _post_chat -- now raises TargetUnavailable uniformly, caught by
         send()'s wrapper exactly like every other channel."""

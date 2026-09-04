@@ -9,7 +9,7 @@ Implements the attack described in:
 See ``aginiti/attacks/mia/ia-methodology.md`` for the full algorithm
 extraction this implementation is built from, and
 ``plans/mia-interrogation-attack.md`` for the design decisions and explicit
-sign-offs behind every mapping choice below (all resolved 2026-07-30).
+sign-offs behind every mapping choice below.
 
 Unlike IKEA (DRA — "what can I extract from this knowledge base"), the
 Interrogation Attack answers a narrower, different question: "does a
@@ -193,7 +193,7 @@ _YES_RE = re.compile(r"\byes\b", re.IGNORECASE)
 _NO_RE = re.compile(r"\bno\b", re.IGNORECASE)
 _UNK_RE = re.compile(r"i\s+don'?t\s+know|i\s+do\s+not\s+know", re.IGNORECASE)
 
-# Reported-speech fallback (added 2026-08-13, live-verified against a real
+# Reported-speech fallback, live-verified against a real
 # 100-document hardened_agent benchmark — see
 # aginiti/attacks/mia/README.md's "Verification status" section and
 # aginiti/reporting/interrogation_reparse.py, which recovers pre-fix
@@ -228,7 +228,7 @@ def _parse_yes_no_unk(text: str) -> str:
     malformed output, so this is a project judgment call, not something
     derived from the paper (methodology doc §4.6's resolved-finding note).
 
-    Reported-speech fallback (2026-08-13): before giving up as "unk", also
+    Reported-speech fallback: before giving up as "unk", also
     checks for an indirect reported-speech pattern ("X asserts/states/claims
     that <clause>") and reads the clause's own negation cues to decide
     yes/no — recovers a real, measured ~6.6% of probes against
@@ -261,7 +261,7 @@ def _parse_yes_no_unk(text: str) -> str:
 
 def _compose_query(s_star: str, probe_question: str) -> str:
     """
-    q_i = s* + " " + p_i (methodology doc §2.1/§6, RESOLVED 2026-07-30
+    q_i = s* + " " + p_i (methodology doc §2.1/§6, resolved
     against the literal Table 4 fixture — single space, no delimiter, no
     newline. See plans/mia-interrogation-attack.md §6 for the exact
     PageRank-survey worked example this was validated against, reused as
@@ -377,8 +377,8 @@ class InterrogationAttack(BaseAttack):
         API key for ``shadow_llm_provider``. Defaults to ``api_key``. Ignored
         if ``shadow_llm_api_keys`` is also given.
     shadow_llm_api_keys : list[str] or None
-        Optional list of MULTIPLE keys for ``shadow_llm_provider`` (added
-        2026-08-12) — e.g. several free-tier Groq keys, to spread rate
+        Optional list of MULTIPLE keys for ``shadow_llm_provider`` —
+        e.g. several free-tier Groq keys, to spread rate
         limits across accounts instead of waiting them out. Takes
         precedence over ``shadow_llm_api_key`` when given. On a rate limit,
         the shadow LLM rotates to the next key immediately (no sleep — see
@@ -450,7 +450,7 @@ class InterrogationAttack(BaseAttack):
         endpoint_kwargs: Optional[dict] = None,
         endpoint: Optional[AgentEndpoint] = None,
     ) -> None:
-        # endpoint added 2026-08-21 (Phase 2 Slice G, plans/
+        # endpoint (Phase 2 Slice G, plans/
         # phase2-operator-wrapping.md) -- same additive seam Slice B added
         # to IKEAAttack: lets a caller inject an EXISTING AgentEndpoint so
         # a wrapped deep-attack Operator shares ONE real HTTP session with
@@ -570,7 +570,7 @@ class InterrogationAttack(BaseAttack):
         """
         Stage B (methodology doc §2.2/§4.6) — ONE shadow-LLM call PER probe
         question, not batched, matching the paper's own reported cost
-        profile (RESOLVED 2026-07-30 — see
+        profile (resolved — see
         plans/mia-interrogation-attack.md §7; batching is a valid future
         cost optimization, explicitly deferred, not done here).
         """
@@ -642,11 +642,11 @@ class InterrogationAttack(BaseAttack):
         composed = [_compose_query(s_star, p) for p in probes]
         ground_truths = self._generate_ground_truth_answers(doc_text, probes)
 
-        # Per-query logging (added 2026-08-08, after a live smoke-test run
-        # against reference_agent_blackbox had zero visibility into
-        # individual target queries/responses while it was happening —
+        # Per-query logging: without it, a live smoke-test run
+        # against reference_agent_blackbox has zero visibility into
+        # individual target queries/responses while it's happening —
         # every other attack in this project logs its HTTP calls as they
-        # go, this one didn't. Matches IKEAAttack's "[HTTP->]" convention.
+        # go. Matches IKEAAttack's "[HTTP->]" convention.
         target_answers: list[str] = []
         target_responses: list[str] = []
         for i, q in enumerate(composed):
@@ -745,8 +745,7 @@ class InterrogationAttack(BaseAttack):
         idx = min(int(len(sorted_scores) * percentile), len(sorted_scores) - 1)
         threshold = sorted_scores[idx]
 
-        # Degenerate-distribution warning (added 2026-08-08, after a live
-        # smoke-test run reproduced exactly this case): a non-member
+        # Degenerate-distribution warning: a non-member
         # reference set that's too small, or a target that answers every
         # non-member probe cleanly (no hedging/UNK), can collapse the score
         # distribution to a single repeated value -- e.g. every non-member
@@ -802,8 +801,8 @@ class InterrogationAttack(BaseAttack):
     ) -> LeakFinding:
         """
         Maps a confirmed-membership verdict onto LeakFinding, per the
-        mapping resolved in plans/mia-interrogation-attack.md §3
-        (2026-07-30 sign-off). Only called for score > threshold (strict —
+        mapping resolved in plans/mia-interrogation-attack.md §3.
+        Only called for score > threshold (strict —
         see execute_black_box) — execute_black_box handles the non-member
         case separately via self.non_member_results.
         """
@@ -824,7 +823,7 @@ class InterrogationAttack(BaseAttack):
             probe_used=s_star,
             trace_span_id="",
             recommendation=_RECOMMENDATION,
-            # Fixed "medium" for v1 (RESOLVED 2026-07-30): MIA confirms
+            # Fixed "medium" for v1: MIA confirms
             # EXISTENCE, not CONTENT — categorically lower-severity than a
             # confirmed content leak by default, and this attack has no way
             # to know a specific document's real-world sensitivity (a
@@ -850,8 +849,7 @@ class InterrogationAttack(BaseAttack):
         """
         Runs Stage A->B->C against each document and returns its raw
         continuous score, with NO threshold decision applied and no use of
-        ``self.non_member_reference_docs``/calibration at all (added
-        2026-08-12).
+        ``self.non_member_reference_docs``/calibration at all.
 
         Different entry point than ``execute_black_box``: that method
         answers "is THIS specific document a confirmed member," calibrated
@@ -964,10 +962,10 @@ class InterrogationAttack(BaseAttack):
         logger.info("  shadow LLM          : %s", self._shadow_llm_provider)
         logger.info("  target agent        : %s", self.target_url)
 
-        # 2026-08-21 (Slice G): reuse an injected endpoint (shared campaign
+        # Reuse an injected endpoint (shared campaign
         # session) when supplied, matching IKEAAttack's own precedent
-        # (Slice B) -- falls back to today's fresh-construction behavior
-        # otherwise. NOTE this is deliberately scoped to execute_black_box
+        # -- falls back to fresh construction otherwise. NOTE this is
+        # deliberately scoped to execute_black_box
         # only, not score_documents() above (a separate public entry point
         # never called by ObservationAdapter._execute_deep_attack) -- that
         # method still always builds its own fresh AgentEndpoint.
@@ -992,8 +990,8 @@ class InterrogationAttack(BaseAttack):
                 score, s_star, detail = self._run_stage_abc_for_document(
                     endpoint, doc["text"], doc.get("title", "")
                 )
-                # Strict `>`, not `>=` (fixed 2026-08-08 after a live
-                # smoke-test run reproduced a real false positive: with a
+                # Strict `>`, not `>=`: a live smoke-test run once reproduced
+                # a real false positive under `>=` -- with a
                 # small/homogeneous non-member reference set, the
                 # calibrated threshold can sit exactly on the "clean
                 # denial" floor score (e.g. 0.0) that a genuinely
@@ -1010,13 +1008,13 @@ class InterrogationAttack(BaseAttack):
                         doc_id, score, threshold,
                     )
                 else:
-                    # Full audit trail retained here too (added 2026-08-08),
+                    # Full audit trail retained here too,
                     # not just the bare score — previously a non-member
                     # verdict discarded its entire per-question detail, so
                     # there was no way to inspect WHY afterward (exactly
-                    # the data needed to diagnose the 2026-08-08 threshold
-                    # boundary bug had to be reconstructed from live logs
-                    # instead of being available in the result). Matches
+                    # the data needed to diagnose the threshold
+                    # boundary bug above had to be reconstructed from live
+                    # logs instead of being available in the result). Matches
                     # LeakFinding.full_response's audit-trail role for
                     # confirmed members.
                     matches = sum(1 for d in detail if d["match"])
@@ -1032,11 +1030,10 @@ class InterrogationAttack(BaseAttack):
                         doc_id, score, threshold,
                     )
         finally:
-            # 2026-08-21 (Slice G): only close an endpoint this method
+            # Only close an endpoint this method
             # itself constructed -- never a caller-injected, campaign-
             # shared session (see the identical fix + full rationale in
-            # ikea.py's own execute_black_box, found during the same
-            # cross-attack audit).
+            # ikea.py's own execute_black_box).
             if self.endpoint is None:
                 endpoint.close()
 

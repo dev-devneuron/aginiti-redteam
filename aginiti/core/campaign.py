@@ -32,8 +32,8 @@ def _default_demo_agent(seed: int | None):
     """Lazily imports DemoAgent (benchmarks/agents/demo_agent.py) only when
     `run_campaign()` is actually called with no `agent=` supplied.
 
-    2026-08-20 fix (Slice C, plans/PLAN.md): DemoAgent used to be a
-    top-level import here, but it now lives under `benchmarks/`, which
+    Do not turn this back into a top-level import: DemoAgent
+    lives under `benchmarks/`, which
     `pyproject.toml`'s `[tool.setuptools.packages.find]` deliberately
     excludes from the published wheel (include = ["aginiti*"] only) --
     the same "core stays lean" principle already applied to fastapi/
@@ -152,9 +152,9 @@ def run_campaign(mission: Mission, library: OperatorLibrary, agent: BaseAdapter 
     policy = policy or AginitiPolicy()
     adapter = adapter or ObservationAdapter()
 
-    # Idempotency guard (2026-08-09, "cheap and fast" pass): a persistent graph
+    # Idempotency guard: a persistent graph
     # reused across sessions against the SAME target (the whole point of
-    # aginiti/graph/persistence.py -- "the graph outlives any single
+    # aginiti/core/graph/persistence.py -- "the graph outlives any single
     # campaign") should only ever pay for seed_target_priors' one LLM call
     # ONCE per graph, not once per resumed campaign. Any existing
     # KNOWLEDGE_GAP insight is treated as "already seeded, or the
@@ -167,7 +167,7 @@ def run_campaign(mission: Mission, library: OperatorLibrary, agent: BaseAdapter 
         from aginiti.core.graph.priors import seed_target_priors
         seed_target_priors(ssg, library, target_briefing, seed=seed)
 
-    # Resume backfill (2026-08-08 architecture audit finding): a graph
+    # Resume backfill: a graph
     # reloaded from disk already has a full claim history, but a fresh
     # CampaignBeliefState starts with cursor=None -- without this, branch
     # propagation would only ever see claims produced from THIS point

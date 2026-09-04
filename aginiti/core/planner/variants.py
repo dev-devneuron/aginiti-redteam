@@ -16,9 +16,10 @@ name: pure graph-structure reasoning (path_progress alone), isolating
 "does knowing which claims are still unresolved help" (information_gain)
 or "does knowing the mission's own unmet criteria help" (business_impact).
 
-All three explicitly zero `emergent_impact` (added to AginitiPlanner
-2026-08-07, after experiments/exp7_consequence_propagation_gap.py) and
-`branch_interest` (added 2026-08-08, "planner consumes CampaignBeliefState")
+All three explicitly zero `emergent_impact` (a later addition to
+AginitiPlanner's utility, motivated by experiments/
+exp7_consequence_propagation_gap.py) and
+`branch_interest` (a later addition, "planner consumes CampaignBeliefState")
 for the same reason they already zero gap_priority/hypothesis_priority:
 staying TRUE pure parameterizations of the formula as it existed when each
 was designed, not silently absorbing whatever new term gets added to the
@@ -28,7 +29,7 @@ but branch_interest is UNSCALED (added directly, same as gap_priority/
 hypothesis_priority) -- beta=0 does NOT zero it, so all three variants
 override it explicitly, including GreedyInfoGainPlanner.
 
-`potential_progress` (added 2026-08-08, potential-based reward shaping --
+`potential_progress` (potential-based reward shaping --
 see aginiti_planner.py's own module docstring) is BETA-SCALED, same group
 as path_progress/emergent_impact/business_impact -- so it follows
 emergent_impact's exact precedent, not branch_interest's: GreedyInfoGainPlanner
@@ -38,7 +39,7 @@ override it explicitly to stay pure parameterizations of the formula as it
 existed when each was designed, same reasoning as their emergent_impact
 overrides.
 
-`chain_value` (added 2026-08-09, value-informed potential-based reward
+`chain_value` (value-informed potential-based reward
 shaping -- see aginiti_planner.py's own module docstring and
 chain_value()'s docstring) is ALPHA-SCALED, same basket as information_gain
 -- the OPPOSITE grouping from potential_progress despite both being
@@ -57,7 +58,7 @@ explicit-purity reasoning it already applies to information_gain despite
 alpha=0 covering it mathematically.
 
 Same reasoning applies to `_schedule()`'s discovery-based overrides (also
-added 2026-08-07, after the mock-target RQ1 finding): all three variants
+motivated by the mock-target RQ1 finding): all three variants
 here already fully override `_schedule()` with a FIXED alpha/beta, so
 AginitiPlanner's new trust-edge/mission-outcome-triggered dynamic
 scheduling never applies to them -- deliberately, since these three exist
@@ -96,24 +97,23 @@ class GreedyInfoGainPlanner(AginitiPlanner):
         return 0.0  # unscaled additive term, same reasoning as gap_priority/hypothesis_priority above
 
     def failure_evidence_penalty(self, operator: Operator, ssg: SecurityStateGraph) -> float:
-        return 0.0  # unscaled additive term (added 2026-08-12, Issue 4) -- same "pure
+        return 0.0  # unscaled additive term -- same "pure
         # parameterization, never silently absorb a new base-class term" discipline as
-        # severity_priority immediately above. This override was MISSING for one full
-        # session after failure_evidence_penalty was added (found in the 2026-08-12
-        # hardening-pass audit) -- these three classes' whole reason to exist is staying
-        # true ablations of the formula as it existed when each was designed, so a new
-        # unscaled term silently leaking in defeats that purpose without ever raising an
-        # error, exactly the kind of "looks fine, quietly wrong" bug this pass exists to
-        # catch.
+        # severity_priority immediately above. Do not let this override lapse when
+        # failure_evidence_penalty changes -- these three classes' whole reason to exist is
+        # staying true ablations of the formula as it existed when each was designed, so a
+        # new unscaled term silently leaking in defeats that purpose without ever raising
+        # an error, exactly the kind of "looks fine, quietly wrong" bug worth guarding
+        # against explicitly.
 
     def family_diversification(self, operator, belief) -> float:
-        return 0.0  # unscaled additive term (added 2026-08-14) -- structurally already 0.0
+        return 0.0  # unscaled additive term -- structurally already 0.0
         # via enable_family_diversification defaulting False, but explicit here for the
         # SAME "never silently absorb a new base-class term" reason failure_evidence_
         # penalty's own comment names -- guards against a future default change.
 
     def hypothesis_escalation_bonus(self, operator, ssg, recency_window) -> float:
-        return 0.0  # unscaled additive term (added 2026-08-14) -- see family_diversification's
+        return 0.0  # unscaled additive term -- see family_diversification's
         # own comment immediately above for the reasoning.
 
 

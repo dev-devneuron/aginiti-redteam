@@ -1,6 +1,6 @@
 """New, benignly-framed `tool_discovery`/`tool_manipulation` probes against
 `hardened_agent`'s real `lookup_case_status` tool and its code-enforced
-persona RBAC -- built 2026-08-23 in direct response to exp34's finding
+persona RBAC -- built in direct response to a finding
 that the EXISTING generic operators for these two categories
 (`tool_inventory_full_disclosure`, `tool_parameter_override_probe`,
 `aginiti/operators/data_exposure.py`) confirmed ZERO findings across all

@@ -62,7 +62,7 @@ class OperatorLibrary:
         (attack_category.py -> this module has no reverse edge).
 
         An operator with no tagged attack_category at all (still common on
-        the older, pre-2026-08-12 DemoAgent mock library -- see this
+        the older, pre-attack_category DemoAgent mock library -- see this
         project's own scripts/run_campaign.py module docstring, 'Tier
         classification', for the same caveat stated about --tier)
         `operator_primary_family()` returns None for, and None can never

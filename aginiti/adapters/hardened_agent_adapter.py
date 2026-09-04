@@ -99,8 +99,8 @@ class HardenedAgentAdapter:
         self.timeout = timeout
         self._raw_responses: list[str] = []
         self._disclosure_index = disclosure_index
-        # 2026-08-14 addition -- see aginiti/adapters/scaled_evals_ground_
-        # truth.py's FuzzyDisclosureIndex docstring; None reproduces the
+        # See aginiti/adapters/scaled_evals_ground_truth.py's
+        # FuzzyDisclosureIndex docstring; None reproduces the
         # original exact-match-only behavior unchanged.
         self._fuzzy_disclosure_index = fuzzy_disclosure_index
         self._last_config: dict | None = None
@@ -255,7 +255,7 @@ class HardenedAgentAdapter:
     def independent_evidence_check(self, raw_text: str) -> list[IndependentFinding]:
         """Wires this adapter's own EXISTING exact/fuzzy disclosure indices
         into the general Fact -> Observation -> Claim -> Evidence path
-        (aginiti/graph/independent_evidence.py) -- added 2026-08-14, in
+        (aginiti/core/graph/independent_evidence.py) -- built in
         direct response to exp23's live finding: `ops`'s real fuzzy-
         confirmed disclosure AND RBAC boundary crossing (see
         `pivot_after_refusal`'s own live response) were only ever visible
@@ -292,7 +292,7 @@ class HardenedAgentAdapter:
                     evidence_ref=(f"{evidence_ref} -- source={doc_ref.source} ops_visible="
                                   f"{doc_ref.ops_visible}, out of scope for persona={self.persona}"),
                 ))
-        # 2026-08-14 addition, same "the SSG/planner never saw it" gap this
+        # Same "the SSG/planner never saw it" gap this
         # method was originally built to close -- applied to a THIRD
         # independent signal (see KnownTextDisclosureIndex's own docstring,
         # scaled_evals_ground_truth.py): a genuine system-prompt leak was

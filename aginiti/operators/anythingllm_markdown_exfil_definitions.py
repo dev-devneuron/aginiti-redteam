@@ -1,4 +1,4 @@
-"""AnythingLLM markdown-image exfiltration primitive (2026-08-09) --
+"""AnythingLLM markdown-image exfiltration primitive --
 grounded in real, current, well-documented research, not invented:
 
   - The original technique: Embrace The Red's 2023 ChatGPT/WebPilot

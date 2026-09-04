@@ -1,4 +1,4 @@
-"""InjecAgentPoolAdapter (2026-08-09) -- a genuinely NEW, additive
+"""InjecAgentPoolAdapter -- a genuinely NEW, additive
 extension of InjecAgentAdapter, not a modification of it, built to close
 a real structural gap: InjecAgentAdapter is deliberately scoped to ONE
 test case per instance (see its own module docstring -- "one adapter

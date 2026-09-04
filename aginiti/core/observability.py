@@ -1,6 +1,6 @@
-"""Structured logging for the aginiti library -- added 2026-08-09 to close
-a real production-readiness gap found by direct audit: `aginiti/` used
-Python's `logging` module NOWHERE. Operational signal existed only as
+"""Structured logging for the aginiti library. Closes a real production-
+readiness gap: `aginiti/` otherwise uses Python's `logging` module
+NOWHERE. Operational signal would otherwise exist only as
 `print()` (appropriate in experiments/*.py scripts, which are run
 interactively -- left untouched) and a single `warnings.warn()` call
 (`aginiti.providers.llm.warn_if_parse_error`, kept exactly as-is; it serves a

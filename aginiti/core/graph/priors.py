@@ -1,4 +1,4 @@
-"""Cold-start context seeding (2026-08-09) -- closes a real, precisely
+"""Cold-start context seeding -- closes a real, precisely
 diagnosed architectural gap: AginitiPlanner.rank() dumped directly against
 a fresh SSG showed EVERY candidate operator scoring the mathematically
 IDENTICAL utility at move 1 (info_gain/business_impact are uniform by
@@ -37,7 +37,7 @@ from aginiti.operators.library import OperatorLibrary
 
 _VALID_IMPORTANCE = set(IMPORTANCE_WEIGHT)
 
-# 2026-08-09: bucket weight/span now imported from schema.py rather than
+# Bucket weight/span imported from schema.py rather than
 # duplicated here -- this module previously kept its own copy with a "MUST
 # mirror aginiti_planner.py" comment as the only thing enforcing consistency;
 # an internal audit flagged that as a real drift risk (nothing stopped the two
@@ -129,7 +129,7 @@ def seed_target_priors(ssg: SecurityStateGraph, library: OperatorLibrary, target
     crash or a fabricated ordering.
 
     Candidates are presented to the model sorted by `op.id` -- DELIBERATELY
-    NOT in `library`'s own iteration order. Live-diagnosed 2026-08-09 as a
+    NOT in `library`'s own iteration order. Live-diagnosed as a
     real, causally-confirmed bug: campaigns build their operator library via
     a PER-TRIAL SEEDED SHUFFLE (for planner-fairness -- no policy should
     structurally always see candidates in the same order), and that same
@@ -163,8 +163,8 @@ def seed_target_priors(ssg: SecurityStateGraph, library: OperatorLibrary, target
         f"Candidate probes:\n{json.dumps(candidates, indent=2)}"
     )
     # max_tokens scales with library size, not chat_json's flat 400-token
-    # default (2026-08-09 fix, found auditing insights.py's own identical
-    # bug): the response grows with every candidate (a bucket label + a
+    # default (the same truncation bug also fixed in insights.py):
+    # the response grows with every candidate (a bucket label + a
     # rank slot + a one-sentence reasoning string each), so a fixed budget
     # that happens to fit today's 5-operator branching_chat_rag library
     # (empirically confirmed live: 0/8 real calls truncated at 400 tokens
