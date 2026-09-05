@@ -287,9 +287,9 @@
       <div class="badges">
         <span class="badge">Python 3.10+</span>
         <span class="badge">MIT License</span>
-        <span class="badge">1,827 tests · offline</span>
+        <span class="badge">1,857 tests · offline</span>
         <span class="badge">11 attack categories</span>
-        <span class="badge">9+ cited papers</span>
+        <span class="badge">10+ cited papers</span>
       </div>
       <div class="cta-row">
         <a class="cta-card" href="#contribute">
@@ -327,10 +327,10 @@
         </div>
         <div class="card">
           <h4>🎯 A standalone attack library</h4>
-          <p><code>aginiti/attacks/</code> — IKEA and SECRET (two independent Data Reconstruction Attacks) and
-            an Interrogation/Membership-Inference attack, each runnable directly against one target via its
-            own script, or wrapped as a planner-selectable <code>Operator</code> so the engine above can
-            decide <em>when</em> it's worth its query budget.</p>
+          <p><code>aginiti/attacks/</code> — IKEA and SECRET (two independent Data Reconstruction Attacks), an
+            Interrogation/Membership-Inference attack, and SPE-LLM (System Prompt Extraction), each runnable
+            directly against one target via its own script, or wrapped as a planner-selectable
+            <code>Operator</code> so the engine above can decide <em>when</em> it's worth its query budget.</p>
         </div>
       </div>
       <p>Every real target is probed through the same evidence pipeline: raw responses are judged
@@ -349,8 +349,8 @@
           <tr><td><strong>~5×</strong></td><td>fewer requests than fixed-order enumeration to reach the same ground-truth outcomes against a production-realistic target with 8 independently-toggleable defense layers</td></tr>
           <tr><td><strong>98%</strong></td><td>reduction in requests blocked by the target's own input filter — evidence the planner steers around dead ends, not around by brute volume</td></tr>
           <tr><td><strong>4/5</strong></td><td>attack categories where Aginiti and <a href="https://github.com/NVIDIA/garak">NVIDIA's garak</a> agreed exactly — plus real, confirmed findings (live tool exfiltration, network egress) a REST-only scanner cannot see at all</td></tr>
-          <tr><td><strong>11</strong></td><td>named attack methodologies, grounded in <strong>9+</strong> published, cited research papers — ArtPrompt, Crescendo, PAIR, CipherChat/MetaCipher, the Interrogation Attack, IKEA, SECRET, InjecAgent, and STAC among them</td></tr>
-          <tr><td><strong>1,827</strong></td><td>tests, fully offline — every LLM and network call mocked, full suite in under 30 seconds, zero API cost</td></tr>
+          <tr><td><strong>11</strong></td><td>named attack methodologies, grounded in <strong>10+</strong> published, cited research papers — ArtPrompt, Crescendo, PAIR, CipherChat/MetaCipher, the Interrogation Attack, IKEA, SECRET, SPE-LLM, InjecAgent, and STAC among them</td></tr>
+          <tr><td><strong>1,857</strong></td><td>tests, fully offline — every LLM and network call mocked, full suite in under 30 seconds, zero API cost</td></tr>
         </table>
       </div>
     </section>
@@ -424,7 +424,7 @@ cp .env.example .env
 
 # Run the full test suite — no API key required, every LLM/HTTP call is mocked
 pytest tests/ -v</code></pre>
-      <p>1,827 tests currently pass on a clean checkout, fully offline, in under 30 seconds.</p>
+      <p>1,857 tests currently pass on a clean checkout, fully offline, in under 30 seconds.</p>
 
       <p>To exercise real target agents locally (not required just to run the test suite):</p>
       <pre><code># Seed the local ChromaDB vector databases (computes embeddings offline, no API cost)
@@ -460,17 +460,20 @@ python scripts/run_campaign.py</code></pre>
 │   ├── attacks/
 │   │   ├── base.py                    # BaseAttack & the LeakFinding schema (locked)
 │   │   ├── dra/                       # Data Reconstruction Attacks: IKEA, SECRET
-│   │   └── mia/                       # Interrogation Attack (Membership Inference)
-│   ├── connectors/                # HTTP client for targets; embedding routing
-│   ├── providers/                 # LiteLLM-backed LLM client (Groq/Gemini/…)
-│   └── reporting/                 # Markdown/PDF report generation
+│   │   ├── mia/                       # Interrogation Attack (Membership Inference)
+│   │   └── spe/                       # SPE-LLM (System Prompt Extraction)
+│   ├── connectors/                # HTTP client for the target agent under test
+│   ├── providers/                 # Aginiti's own LLM/embedding provider clients (LiteLLM-backed)
+│   ├── reporting/                 # Markdown/PDF report generation
+│   ├── static_analysis/           # Zero-LLM-cost static checks
+│   └── transforms/                # Composable prompt-encoding pipeline
 ├── benchmarks/
 │   ├── dev_fixtures/             # Lightweight mock targets for unit tests & local dev
 │   └── scaled_evals/             # Production-scale targets over real document corpora
 ├── experiments/                  # Every live A/B experiment script + its results
 ├── scripts/                      # Entry points — run_campaign.py, run_ikea.py, …
 ├── docs/                         # ARCHITECTURE.md, BENCHMARKS.md, ROADMAP.md, USAGE.md
-└── tests/                        # 1,827 tests, fully offline</code></pre>
+└── tests/                        # 1,857 tests, fully offline</code></pre>
       <p>Every top-level <code>aginiti/</code> subdirectory ships its own <code>README.md</code> describing
         exactly what belongs there — read the relevant one before adding a new module.</p>
 

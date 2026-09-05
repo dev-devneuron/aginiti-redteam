@@ -12,7 +12,7 @@ speed.
 **Proven, not just architected:** benchmarked head-to-head against fixed-order
 enumeration (~5x fewer requests to the same outcomes) and validated against NVIDIA's
 garak (findings agreed exactly on every comparable category) on real, production-realistic
-targets. 11 attack methodologies, grounded in 9+ published research papers, 1,827 tests.
+targets. 11 attack methodologies, grounded in 10+ published research papers, 1,857 tests.
 Full numbers: [`docs/BENCHMARKS.md`](https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/BENCHMARKS.md).
 
 ---
@@ -59,8 +59,8 @@ from aginiti.attacks.dra.ikea import IKEAAttack
 
 # 1. Initialize the standalone attack
 attack = IKEAAttack(
-    target_url="http://localhost:8001/chat",  # Target agent chat endpoint
-    llm_provider="groq/llama-3.3-70b-versatile",
+    target_url="http://localhost:8001",  # base URL only -- AgentEndpoint appends /chat itself
+    llm_provider="gemini/gemini-3.5-flash",
     api_key="your_api_key"
 )
 

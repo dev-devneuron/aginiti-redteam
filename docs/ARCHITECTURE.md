@@ -146,6 +146,7 @@ external benchmark's own test case, or synthesized live by a search).
 | **Tool & agent exploitation** | Tool-inventory disclosure, parameter-override, MCP auth/registration-poisoning, real 2-step cross-tool composition attacks |
 | **Data reconstruction** | IKEA (embedding-space resampling) and SECRET (jailbreak-optimized, He et al., IEEE TIFS 2026, [arXiv:2510.02964](https://arxiv.org/abs/2510.02964)) — standalone or planner-selectable |
 | **Membership inference** | The Interrogation Attack (Naseh et al., ACM CCS 2025, [arXiv:2502.00306](https://arxiv.org/abs/2502.00306)) — confirms whether a specific document exists in a target's retrieval corpus via calibrated yes/no probing, no direct extraction needed |
+| **System-prompt extraction** | SPE-LLM (Das, Amini, Wu, ICLR 2026, [arXiv:2505.23817](https://arxiv.org/abs/2505.23817)) — three fixed, zero-optimization probe templates (Chain-of-Thought, Extended Sandwich, Few-Shot) — standalone or planner-selectable |
 | **RBAC & access-control probing** | Cross-persona authority claims, output-filter evasion, session-isolation, PII-redaction format gaps |
 
 Select any subset directly:
@@ -165,9 +166,12 @@ aginiti/
 ├── operators/       # Attack libraries — one module per target/technique family
 ├── adapters/        # One adapter per real/mock target — the only place transport lives
 ├── adaptive/        # Search-based discovery engines (encoding, framing, Crescendo, ...)
-├── attacks/         # Standalone attack implementations: IKEA, SECRET, Interrogation
-├── connectors/       # HTTP client + embedding routing
-└── reporting/        # Markdown/PDF report generation
+├── attacks/         # Standalone attack implementations: IKEA, SECRET, Interrogation, SPE-LLM
+├── connectors/       # HTTP client for the target agent under test
+├── providers/        # Aginiti's own LLM/embedding provider clients (LiteLLM-backed)
+├── reporting/        # Markdown/PDF report generation
+├── static_analysis/  # Zero-LLM-cost static checks (e.g. system-prompt defense scanning)
+└── transforms/        # Composable prompt-encoding pipeline
 benchmarks/
 ├── dev_fixtures/    # Lightweight mock targets for unit tests & local dev
 └── scaled_evals/    # Production-scale targets over real document corpora

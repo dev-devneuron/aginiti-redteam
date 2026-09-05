@@ -9,8 +9,8 @@ against an independent, non-LLM oracle before it counts.
 | **~5x** | fewer requests than fixed-order enumeration, same ground-truth outcomes |
 | **98%** | reduction in requests blocked by the target's own input filter |
 | **4/5** | attack categories where Aginiti and NVIDIA's garak agreed exactly |
-| **9+** | published, cited research papers implemented as real, working operators |
-| **1,827** | tests, fully offline, zero API cost |
+| **10+** | published, cited research papers implemented as real, working operators |
+| **1,857** | tests, fully offline, zero API cost |
 
 ---
 
@@ -116,6 +116,7 @@ implemented as described, in Aginiti's own code, never copied:
 | Interrogation Attack (membership inference) | Naseh et al., ACM CCS 2025 — [arXiv:2502.00306](https://arxiv.org/abs/2502.00306) |
 | IKEA (data reconstruction) | Wang et al., ICLR 2026 — [arXiv:2505.15420](https://arxiv.org/abs/2505.15420) |
 | SECRET (jailbreak-optimized DRA) | IEEE TIFS 2026 — [arXiv:2510.02964](https://arxiv.org/abs/2510.02964) |
+| SPE-LLM (system-prompt extraction) | Das, Amini, Wu, ICLR 2026 — [arXiv:2505.23817](https://arxiv.org/abs/2505.23817) |
 | InjecAgent (indirect injection benchmark) | Zhan et al., ACL Findings 2024 — [arXiv:2403.02691](https://arxiv.org/abs/2403.02691) |
 | STAC (tool-chain composition) | [arXiv:2509.25624](https://arxiv.org/abs/2509.25624) |
 
