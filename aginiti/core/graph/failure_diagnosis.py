@@ -1,5 +1,5 @@
-"""Structured failure-diagnosis taxonomy -- added 2026-08-12 at explicit
-user direction (Issue 4 of that day's architectural directive): "A failure
+"""Structured failure-diagnosis taxonomy -- built at explicit
+user direction: "A failure
 shouldn't simply mean 'attack failed.' It should produce structured
 evidence: 'this tool exists, but employee-level credentials cannot invoke
 it,' or 'the agent follows retrieved instructions, but the collector

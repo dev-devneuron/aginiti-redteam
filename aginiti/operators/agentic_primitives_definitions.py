@@ -1,5 +1,5 @@
-"""Two genuinely new, target-agnostic operator primitive TYPES -- added
-2026-08-12 (Issue 3 of that day's architectural directive: "make the
+"""Two genuinely new, target-agnostic operator primitive TYPES -- built
+at explicit direction: "make the
 target genuinely agentic... approval gates... tool outputs containing
 untrusted data" are explicitly named as dimensions no existing operator in
 this repo tests).

@@ -1,6 +1,6 @@
 """Adaptive prompt refinement -- a feedback-driven retry loop for a single
-Operator, added 2026-08-12 in direct response to the standing "adaptive
-planning under uncertainty -- Not proven yet" gap and exp19's own finding
+Operator, built in direct response to the standing "adaptive
+planning under uncertainty -- Not proven yet" gap and a real finding
 that Aginiti has no mechanism resembling garak's `atkgen`/`tap` probes or
 PyRIT's `RedTeamingOrchestrator`: every existing Aginiti operator sends ONE
 fixed (or template-substituted) prompt and stops, whether it succeeds or

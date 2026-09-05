@@ -16,7 +16,7 @@ three personas (see personas.py) via EITHER
 ``Authorization: Bearer <HARDENED_AGENT_{LEGAL,SUPPORT,OPS}_API_KEY>`` (the
 original long-lived static key, still fully supported) OR a short-lived
 session token minted via ``POST /auth/session`` (see agent.py's
-SessionStore docstring — 2026-08-22 addition) — a request with no/
+SessionStore docstring) — a request with no/
 unrecognized/expired credential gets 401, not a degraded-but-still-answered
 response.
 
@@ -48,7 +48,7 @@ addition), no code changes needed between runs:
                                                # change what gets answered) — toggle exists for
                                                # local dev/test convenience.
 
-Other production-realism additions (2026-08-22), not togglable ablations
+Other production-realism additions, not togglable ablations
 (they don't have an "off" state that makes sense to compare against):
     HARDENED_AGENT_SESSION_TTL_SECONDS=900    # session-token lifetime (POST/DELETE
                                                # /auth/session — see agent.py's SessionStore)

@@ -1,5 +1,5 @@
-"""Graduated-difficulty candidate pack -- added 2026-08-12 (Issue 2 of that
-day's architectural directive), closing exp16's own named weakness: "a
+"""Graduated-difficulty candidate pack -- built at explicit direction,
+closing a real named weakness: "a
 planner can look brilliant when Winner=100% and Trap=2% -- that's basically
 a classification problem." This pack is the user's own proposed shape,
 built directly:

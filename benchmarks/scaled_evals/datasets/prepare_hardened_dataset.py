@@ -14,7 +14,7 @@ This): a non-member set that's superficially different from the member set
 lets an attack "succeed" by detecting distribution shift, not real
 membership. See ``plans/vanilla-target-agent.md`` §1.3.
 
-Sources (both verified live, 2026-08-06 — not assumed from documentation):
+Sources (both verified live, not assumed from documentation):
 
 - **Legal / policy documents**: CUAD v1 (Contract Understanding Atticus
   Dataset) — 510 real commercial legal contracts, CC BY 4.0, via
@@ -115,7 +115,7 @@ def _load_cuad(target_unique: int, seed: int) -> list[dict]:
     # tensor-sharing code path imports torch, which this project explicitly
     # never depends on (CLAUDE.md's locked embedding architecture) and which
     # can fail to load its native DLLs on some Windows setups regardless —
-    # verified live 2026-08-06. Non-streaming load doesn't hit that path.
+    # verified live. Non-streaming load doesn't hit that path.
     ds = load_dataset(
         "theatticusproject/cuad-qa", split="train", revision="refs/convert/parquet"
     )
@@ -217,8 +217,8 @@ def _tag_ops_visibility(ingested: list[dict], fraction: float, seed: int) -> Non
 # Main
 # ---------------------------------------------------------------------------
 def prepare(force: bool = False) -> None:
-    # Idempotency guard (added 2026-08-07 — a real bug found running this in
-    # Docker Compose): unlike CUAD, CFPB's public API is a live, daily-
+    # Idempotency guard (a real bug found running this in Docker Compose):
+    # unlike CUAD, CFPB's public API is a live, daily-
     # updating feed, not a static snapshot — a re-run is NOT guaranteed to
     # reproduce the same sample even with the same _SEED, because the input
     # pool itself can differ. `seed.py` skips re-embedding if the ChromaDB

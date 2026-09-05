@@ -73,14 +73,13 @@ def save_ssg(ssg: SecurityStateGraph, path: str | Path) -> None:
         "operator_stats": {op_id: asdict(stats) for op_id, stats in ssg.operator_stats.items()},
         "claim_subgraph": ssg.claim_subgraph,
         "claim_category": ssg.claim_category,
-        # 2026-08-12 hardening-pass fix: these 4 dicts (added incrementally
-        # over several sessions -- security_boundary.py 08-09, owasp_llm_
-        # taxonomy.py/attack_category.py/mitre_atlas_refs.py 08-12,
-        # failure_diagnosis.py 08-12) were never added here, so any resumed
-        # campaign (scripts/generate_target_profile.py, exp5/exp6's
-        # understanding-loop experiments) silently lost every severity/
+        # These 4 dicts (security_boundary.py, owasp_llm_
+        # taxonomy.py/attack_category.py/mitre_atlas_refs.py,
+        # failure_diagnosis.py) must stay persisted here: without them, any
+        # resumed campaign (scripts/generate_target_profile.py, the
+        # understanding-loop experiments) silently loses every severity/
         # taxonomy/failure-diagnosis tag on reload -- NOT cosmetic:
-        # ClassPrecondition (aginiti/operators/library.py) reads
+        # ClassPrecondition (aginiti/operators/base.py) reads
         # claim_attack_category/claim_boundary directly to decide operator
         # eligibility, so a resumed campaign could make a genuinely-
         # confirmed, class-gated downstream operator permanently
@@ -145,7 +144,7 @@ def load_ssg(path: str | Path) -> SecurityStateGraph:
             importance=i.get("importance"),
             prior_belief=i.get("prior_belief"),
             related_probe_id=i.get("related_probe_id"),
-            priority_weight=i.get("priority_weight"),  # absent in graphs saved before 2026-08-09 -> None, safe default
+            priority_weight=i.get("priority_weight"),  # absent in a graph saved before this field existed -> None, safe default
             generated_at=datetime.fromisoformat(i["generated_at"]),
         )
         ssg.insights.append(insight)
@@ -169,8 +168,8 @@ def load_ssg(path: str | Path) -> SecurityStateGraph:
 
     ssg.claim_subgraph.update(data.get("claim_subgraph", {}))
     ssg.claim_category.update(data.get("claim_category", {}))
-    # .get(..., {}) defaults: a graph saved before 2026-08-12's fix (or
-    # before whichever dimension was added) simply has none of these keys
+    # .get(..., {}) defaults: a graph saved before a given taxonomy
+    # dimension existed simply has none of those keys
     # -- restoring nothing for them is the correct, safe behavior, not an
     # error, matching every other backward-compatible .get() read in this
     # function (e.g. priority_weight above).

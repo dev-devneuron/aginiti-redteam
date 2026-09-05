@@ -51,22 +51,22 @@ def campaign_result_to_dict(condition: str, trial: int, seed: int | None, result
         "final_claims": [
             {"key": c.key, "object": c.object, "status": c.status.value,
              "confidence": c.confidence.value, "id": c.id, "supersedes": c.supersedes,
-             # 2026-08-12, added ahead of the next benchmark run (severity is one of its
-             # named metrics): these 4 dimensions were fully wired into the SSG and the
-             # Target Profile/graph-export reports, but this trial-log serializer -- the
-             # one every experiment's own analysis script actually reads -- never carried
-             # them, so a saved trial file couldn't answer "how severe was this finding"
-             # without re-running the whole campaign against a live target to re-derive it.
+             # These 4 dimensions must stay serialized here: they're fully wired
+             # into the SSG and the Target Profile/graph-export reports, but if
+             # this trial-log serializer -- the one every experiment's own
+             # analysis script actually reads -- ever stops carrying them, a
+             # saved trial file can't answer "how severe was this finding"
+             # without re-running the whole campaign against a live target to
+             # re-derive it.
              "security_boundary": result.ssg.claim_boundary.get(c.key),
              "owasp_llm_category": result.ssg.claim_owasp_category.get(c.key),
              "attack_category": result.ssg.claim_attack_category.get(c.key),
              "mitre_atlas_technique": result.ssg.claim_atlas_technique.get(c.key),
-             # 2026-08-12 hardening-pass fix: failure_diagnosis (Issue 4, added
-             # earlier the same day) was never added here -- the exact same
-             # "new taxonomy dimension, old serializer" bug this file's own
-             # comment above already documents being fixed once for the other
-             # four dimensions. A saved trial file couldn't answer "why did
-             # this specific attempt fail" without re-running the campaign.
+             # failure_diagnosis must stay serialized here too -- the exact same
+             # "new taxonomy dimension, old serializer" risk the comment above
+             # already documents for the other four dimensions. Without it, a
+             # saved trial file can't answer "why did this specific attempt
+             # fail" without re-running the campaign.
              "failure_diagnosis": result.ssg.claim_failure_diagnosis.get(c.key)}
             for c in result.ssg.claims
         ],

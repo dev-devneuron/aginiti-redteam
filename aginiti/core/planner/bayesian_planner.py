@@ -1,5 +1,5 @@
-"""Bayesian bandit planner (2026-08-09) -- built in direct response to a
-self-conducted internal/external audit of AginitiPlanner (aginiti/planner/
+"""Bayesian bandit planner -- built in direct response to a
+self-conducted internal/external audit of AginitiPlanner (aginiti/core/planner/
 aginiti_planner.py), not a speculative rewrite. Two concrete, evidenced
 findings drove this:
 

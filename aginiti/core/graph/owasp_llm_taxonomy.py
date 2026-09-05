@@ -1,5 +1,5 @@
 """OWASP Top 10 for LLM Applications (2025 edition, v2.0, published
-2024-11-18) tagging -- added 2026-08-12 after exp19's real comparison
+2024-11-18) tagging -- built after a real comparison
 against garak surfaced a genuine gap: garak tags every probe with
 industry-standard taxonomy (AVID, OWASP LLM Top 10, CWE, a MISP-compatible
 `--taxonomy` flag); Aginiti's own L0-L5 security_boundary system (see

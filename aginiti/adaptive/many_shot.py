@@ -1,6 +1,6 @@
 """Many-shot jailbreaking -- Anil et al. (Anthropic, 2024, "Many-shot
 Jailbreaking," https://www.anthropic.com/research/many-shot-jailbreaking).
-Added 2026-08-14, closing a real, distinct capability gap: every jailbreak
+Closes a real, distinct capability gap: every jailbreak
 attempt anywhere else in this project's operator library is a SINGLE
 request/response turn (a direct ask, an encoded payload, a framed
 pretext). Many-shot jailbreaking is a different mechanism entirely -- it

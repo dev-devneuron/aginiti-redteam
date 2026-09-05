@@ -41,10 +41,9 @@ ADMIN_KEY = os.environ.get("ANYTHINGLLM_ADMIN_KEY", "5YAK747-MJ64GZW-HTSYBY7-HBF
 GATEWAY_PORT = int(os.environ.get("GATEWAY_PORT", "3002"))
 AUDIT_LOG_PATH = os.environ.get(
     "GATEWAY_AUDIT_LOG",
-    # 2026-08-12: moved off C:\...\Temp\claude\... (an ephemeral, session-
-    # scoped scratchpad that could vanish, and C: was down to 10.9GB free)
-    # onto E:\Aginiti-Extended\infra\logs -- this project's own permanent
-    # home, not a temp directory belonging to any one Claude session.
+    # Deliberately NOT an ephemeral, session-scoped scratchpad path that
+    # could vanish -- this project's own permanent log location, not a
+    # temp directory belonging to any one working session.
     r"E:\Aginiti-Extended\infra\logs\gateway_audit.log",
 )
 
@@ -120,12 +119,12 @@ def _enforce_gateway_key_and_approval():
                                   "in this automated context. Denied by policy."}),
             status=403, mimetype="application/json")
 
-    # Adaptive defense (2026-08-09) -- see policy.SuspicionTracker's own
+    # Adaptive defense -- see policy.SuspicionTracker's own
     # docstring. Checked AFTER the static tier/approval gates (those never
     # depend on history), BEFORE the route handler runs.
     workspace = _workspace_from_request()
     if workspace is not None:
-        # Volumetric rate limiting (2026-08-11) -- content-blind, checked
+        # Volumetric rate limiting -- content-blind, checked
         # before the content-aware suspicion/lockout gate below: a real
         # production rate limiter sits in front of, and is independent
         # from, an application-layer WAF.
@@ -144,7 +143,7 @@ def _enforce_gateway_key_and_approval():
                 status=403, mimetype="application/json")
         capability = required_capability(path)
         if capability == "upload_document" and _suspicion.is_escalated(workspace):
-            # Real bug found live (2026-08-09): once escalated, this branch
+            # Real bug found live: once escalated, this branch
             # short-circuits BEFORE the route handler runs -- which is
             # exactly where note_suspicious() used to live, so a workspace
             # that kept probing after escalation got stuck at the
@@ -234,8 +233,8 @@ def workspace_chat(slug: str):
     resp = requests.post(f"{TARGET_BASE_URL}/api/v1/workspace/{slug}/chat",
                           headers=_forward_headers(), json=body, timeout=180)
     if resp.status_code != 200:
-        # Resilience against a real, confirmed AnythingLLM crash class
-        # (2026-08-11, found live setting up garak): its own gemini/
+        # Resilience against a real, confirmed AnythingLLM crash class,
+        # found live setting up garak: its own gemini/
         # index.js:401 reads `result.output.choices[0].message.content`
         # without checking `.message` exists first -- when Gemini's
         # safety filter blocks a response (exactly what a DAN-style
@@ -260,7 +259,7 @@ def workspace_chat(slug: str):
         if resp.status_code == 500 and "Cannot read properties of undefined" in resp.text:
             _audit({"event": "target_crash_treated_as_refusal", "workspace": slug,
                     "upstream_status": 500, "upstream_body": resp.text[:300]})
-            # Live-caught refinement (2026-08-11): the first version of
+            # Live-caught refinement: the first version of
             # this synthesized text was "[response blocked or
             # unavailable]" -- garak's own mitigation.MitigationBypass
             # detector (which pattern-matches for a NATURAL-LANGUAGE

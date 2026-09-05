@@ -3,7 +3,7 @@ Data Element to Wrong Session"), a real, well-established vulnerability
 class distinct from everything else in this project's operator library:
 does an agent's conversation-memory feature ever surface content that
 belongs to a DIFFERENT session/conversation/user than the one currently
-talking to it? Added 2026-08-14 as part of the principal-engineer
+talking to it? Built as part of the principal-engineer
 architecture review's RBAC-focused pass (see hardened_agent_definitions.py's
 `_build_authority_claim_probes` docstring for the same review's other
 addition) -- this project's operator library had no operator testing
@@ -108,7 +108,7 @@ def _session_isolation_operator(variant_name: str, prompt: str) -> Operator:
         cost_prompts=1, risk_tier=RiskTier.LOW,
         graph_edge=("start", claim_key),
         branch="data_exposure",
-        # 2026-08-14: all 3 variants are near-duplicate WRAPPERS (different
+        # All 3 variants are near-duplicate WRAPPERS (different
         # pretexts) around the SAME underlying question -- does cross-
         # session memory leak at all -- not 3 independent hypotheses. See
         # aginiti/graph/novelty.py's technique_cluster_diversification_

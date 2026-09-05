@@ -1,5 +1,5 @@
 """Crescendo-style multi-turn escalation -- Russinovich, Salem & Eldan
-(2024, Microsoft Research, arXiv:2404.01833). Added 2026-08-14, closing a
+(2024, Microsoft Research, arXiv:2404.01833). Closes a
 gap `aginiti/adaptive/refinement.py`'s own docstring explicitly named as
 future, out-of-scope work: "escalation WITHIN one ongoing benign-seeming
 conversation, each turn a small, individually-innocuous step... flagged as
@@ -68,7 +68,7 @@ _ESCALATION_SYSTEM_PROMPT = (
     "Return ONLY the message text: no preamble, no explanation, no surrounding quotes."
 )
 
-# 2026-08-23: prefixes indicating the drafting model itself declined to
+# Prefixes indicating the drafting model itself declined to
 # draft (as opposed to producing real message text) -- checked in
 # ADDITION to plain emptiness. Found live: a genuinely non-empty but
 # USELESS completion ("I", "I'm sorry, but I") can pass a truthiness
@@ -126,7 +126,7 @@ def _default_generate_turn(final_goal: str, transcript: list[tuple[str, str]],
     on turn 1. Uses the target's own actual prior responses, never
     fabricated ones.
 
-    Retry-on-empty added 2026-08-23, found live: the escalation-drafting
+    Retry-on-empty: found live, the escalation-drafting
     model (aginiti.providers.llm.chat's own default, groq/openai/gpt-oss-20b --
     an OPEN-WEIGHT model, already the same one SECRET's Phase-1 optimizer
     was moved TO after Gemini refused its framing, see deep_attack_
@@ -253,7 +253,7 @@ def run_crescendo_escalation(
         try:
             prompt = generate_turn_fn(final_goal, transcript, turn_number, max_turns, seed)
         except _TurnDraftingFailed as exc:
-            # 2026-08-23 fix: never send a blank/undrafted message to the
+            # Never send a blank/undrafted message to the
             # real target -- that would waste a genuine query on nothing
             # and silently pollute the transcript with an empty turn (see
             # _default_generate_turn's own docstring for the live-found

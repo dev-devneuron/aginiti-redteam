@@ -24,8 +24,8 @@ from typing import Protocol
 class SendResult:
     final_text: str
     tool_trace: list[dict] = field(default_factory=list)
-    # 2026-08-08: the minimum clean provenance abstraction this architecture
-    # was missing -- found via a REAL false positive (DVLA's
+    # The minimum clean provenance abstraction this architecture was
+    # missing -- found via a REAL false positive (DVLA's
     # tool_inventory_full_disclosure): DVLAAdapter's own API-error-recovery
     # text got fed to a DIFFERENT operator's judge (system_prompt_extraction)
     # in the same campaign and was misread as a genuine system-prompt leak.
@@ -83,7 +83,7 @@ class BaseAdapter(Protocol):
 
     # independent_evidence_check(raw_text: str) -> list[IndependentFinding]
     # is ALSO deliberately NOT part of this Protocol, same optional-
-    # extension discipline (2026-08-14, aginiti/graph/independent_evidence.py
+    # extension discipline (aginiti/core/graph/independent_evidence.py
     # -- see that module's own docstring for the full motivation and the
     # Fact/Observation/Claim/Evidence pipeline it feeds). Implement it only
     # if your adapter has an independent, non-LLM oracle (a fuzzy/verbatim

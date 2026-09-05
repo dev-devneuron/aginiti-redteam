@@ -1,4 +1,4 @@
-"""AnythingLLM multi-tool COMPOSITION operator pack -- added 2026-08-09 in
+"""AnythingLLM multi-tool COMPOSITION operator pack -- built in
 direct response to a named gap: "multi-tool composition" was rated a real
 architectural weak point. Investigated first, not assumed: `Operator.
 preconditions` is a tuple already evaluated with AND semantics

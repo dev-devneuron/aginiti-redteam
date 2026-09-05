@@ -1,8 +1,8 @@
 """TargetBeliefState -- a stateful, campaign-level model of what Aginiti has
 actually learned about a target, built exclusively from the SSG's own
-append-only evidence (Claims + their existing taxonomy tags). Added
-2026-08-14 in direct response to a real architectural gap: `CampaignBeliefState`
-(`aginiti/graph/belief_state.py`) already tracks branch-level belief, but
+append-only evidence (Claims + their existing taxonomy tags). Built
+in direct response to a real architectural gap: `CampaignBeliefState`
+(`aginiti/core/graph/belief_state.py`) already tracks branch-level belief, but
 it is keyed by `Operator.branch` -- a coarse, per-LIBRARY tag (the mock
 target's "payroll"/"github"/"helpdesk" branches). Every target-agnostic
 operator pack this project has built since (`data_exposure.py`,
@@ -112,8 +112,8 @@ class TargetBeliefState:
     family_stats: dict[str, FamilyStats] = field(default_factory=dict)
     # Same shape as family_stats, ONE LEVEL FINER -- keyed by `Operator.
     # technique_cluster` (see that field's own docstring) rather than
-    # `attack_category`. Added 2026-08-14 alongside `technique_cluster` in
-    # direct response to the same exp28 postmortem: `attack_category` (11
+    # `attack_category`. Added alongside `technique_cluster` in
+    # direct response to a real live postmortem: `attack_category` (11
     # broad categories) cannot tell "5 near-duplicate wrapper templates
     # around the same underlying question" apart from "a genuinely
     # different technique that happens to share the same broad category" --

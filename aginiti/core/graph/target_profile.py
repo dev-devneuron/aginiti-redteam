@@ -95,11 +95,11 @@ class TargetProfile:
     disproven: list[Claim] = field(default_factory=list)
     unexplored_frontier: list[Operator] = field(default_factory=list)
     recommended_next_probes: list[RankedCandidate] = field(default_factory=list)
-    # Severity/taxonomy rollups (added 2026-08-12 architecture review -- these SSG query
-    # methods, aginiti/graph/ssg.py's highest_boundary_crossed()/owasp_category_summary()/
-    # attack_category_summary()/confirmed_atlas_techniques(), existed and were fully tested
-    # but were never actually called from Aginiti's own primary product artifact until now;
-    # see this module's own docstring for why that's the thing that matters). None/empty
+    # Severity/taxonomy rollups -- these SSG query
+    # methods, aginiti/core/graph/ssg.py's highest_boundary_crossed()/owasp_category_summary()/
+    # attack_category_summary()/confirmed_atlas_techniques(), must actually get called from
+    # Aginiti's own primary product artifact, not just exist and be tested in isolation;
+    # see this module's own docstring for why that's the thing that matters. None/empty
     # means "nothing tagged has been confirmed yet," never a fabricated floor -- same
     # honest-absence discipline as security_boundary.py's own highest_level().
     highest_boundary: str | None = None
@@ -331,8 +331,8 @@ def render_markdown(profile: TargetProfile) -> str:
 
     lines.append("## Knowledge gaps")
     if gaps:
-        # 2026-08-09 fix -- a real data-quality bug a live full-system dry
-        # run surfaced: a fresh cold-start seeding (aginiti/graph/priors.py)
+        # A real data-quality bug a live full-system dry
+        # run surfaced: a fresh cold-start seeding (aginiti/core/graph/priors.py)
         # records one KNOWLEDGE_GAP insight per operator in the library, and
         # once a campaign actually runs several of those probes, the SAME
         # gaps stay listed here forever (Insight is append-only, by design

@@ -31,8 +31,8 @@ CONFIRMED = ClaimStatus.CONFIRMED
 def injecagent_operator(test_case: dict) -> Operator:
     """Builds the one Operator representing `test_case` (a {"index",
     "user_case", "attacker_case"} dict from build_test_cases()). Judge
-    descriptions travel WITH each ClaimEffect (`ClaimEffect.description`,
-    2026-08-08 architecture audit fix) rather than being registered into
+    descriptions travel WITH each ClaimEffect (`ClaimEffect.description`)
+    rather than being registered into
     the shared global KEY_DESCRIPTIONS dict -- calling this many times
     (e.g. generating all 1,054 test cases' operators) no longer mutates
     global module state at all, and two operators built from different

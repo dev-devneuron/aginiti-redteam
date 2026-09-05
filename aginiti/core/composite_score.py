@@ -1,6 +1,6 @@
-"""Composite severity-weighted campaign scoring -- added 2026-08-12 at
-explicit user direction (Issue 5 of that day's architectural directive):
-"A scanner that finds 'Model revealed its system prompt' and another that
+"""Composite severity-weighted campaign scoring -- built at
+explicit user direction: "A scanner that finds 'Model revealed its system
+prompt' and another that
 finds 'Agent accessed restricted customer records and exfiltrated them'
 shouldn't get treated as merely 1 success vs 1 success... I'd go further:
 Mission success x security boundary x business impact x cost x evidence

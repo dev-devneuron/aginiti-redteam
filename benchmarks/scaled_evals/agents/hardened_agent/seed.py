@@ -40,8 +40,8 @@ _COLLECTION_NAME = "hardened_agent_benchmark"  # must match agent.py
 _DATASET = (
     Path(__file__).parent.parent.parent / "datasets" / "hardened_dataset_ingested.json"
 )
-# Canary records (added 2026-08-22, production-realism pass) -- a handful
-# of synthetic-but-realistic "planted secret" documents (fake API keys,
+# Canary records -- a handful of synthetic-but-realistic "planted secret"
+# documents (fake API keys,
 # fake webhook URLs, fake case PINs, an ops-exclusive fake credential),
 # each tagged `is_canary: true` and scoped across the SAME RBAC boundaries
 # as real documents (source=cuad/cfpb, ops_visible), so a successful

@@ -1,5 +1,5 @@
 """MITRE ATLAS (Adversarial Threat Landscape for Artificial-Intelligence
-Systems, atlas.mitre.org) technique-ID references, added 2026-08-12 in
+Systems, atlas.mitre.org) technique-ID references, added in
 direct response to "there are also other latest work done other than
 OWASP so we should see that too."
 
@@ -9,7 +9,7 @@ v5.1.0 (November 2025) and this project has not read the full matrix
 closely enough to responsibly tag against all of it. What follows are only
 the five technique IDs this project has independently verified (via live
 web search against startupdefense.io's ATLAS technique pages and MITRE's
-own site, 2026-08-12 -- not recalled from training data, which would risk
+own site -- not recalled from training data, which would risk
 citing a stale or renumbered ID the way owasp_llm_taxonomy.py's own
 docstring warns about for OWASP's 2023-vs-2025 LLM Top 10 renumbering).
 Every operator tag below cites one of these five; no operator anywhere in

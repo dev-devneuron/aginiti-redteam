@@ -49,10 +49,9 @@ evidence the defense held. Native-speaker review before high-stakes use
 is a reasonable, disclosed next step, not done here.
 
 ============================================================================
-LIVE-VERIFIED RESULT AGAINST hardened_agent (2026-08-23, legal persona,
+LIVE-VERIFIED RESULT AGAINST hardened_agent (legal persona,
 all 5 operators, using Gemini as judge -- Groq's daily quota was
-exhausted this session, see aginiti/adaptive/crescendo.py's own commit
-history): ALL 5 hit the identical canned input-filter refusal every
+exhausted at the time): ALL 5 hit the identical canned input-filter refusal every
 English-language attempt in this library already does. Reported plainly,
 not hidden -- the paper's own target (GPT-4, October 2023) predates this
 target's actual judge model (gemini-3.5-flash) by roughly two years, and

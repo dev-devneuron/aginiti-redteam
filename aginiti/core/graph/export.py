@@ -47,16 +47,15 @@ def _entry_get(entry, key: str, default=None):
     """Accepts EITHER a plain dict (the shape a saved-trial JSON's own
     `execution_log` already is, per experiments/*.py's own file-loading
     code) OR an ExecutionResult-like object (a live CampaignResult.
-    execution_log entry, aginiti/campaign.py's own `execution_log:
+    execution_log entry, aginiti/core/campaign.py's own `execution_log:
     list[ExecutionResult]` field) -- so a caller never has to remember to
-    normalize one into the other before calling this module. Found the
-    hard way, 2026-08-12 architecture review: this module's own docstring
-    said a live campaign result needs 'normalize ExecutionResult -> dict
-    first', and scripts/generate_graph_view.py had already hand-rolled
+    normalize one into the other before calling this module. Do not go
+    back to requiring callers to 'normalize ExecutionResult -> dict first'
+    on their own: scripts/generate_graph_view.py once hand-rolled
     that exact normalization TWICE (duplicated, not shared) rather than
-    having it live here once -- a dry run against a real live campaign
-    result (not a saved trial file) hit the AttributeError this was
-    silently relying on every caller to avoid on their own."""
+    having it live here once, and a real live campaign
+    result (not a saved trial file) hit the AttributeError that pattern
+    was silently relying on every caller to avoid on their own."""
     if isinstance(entry, dict):
         return entry.get(key, default)
     return getattr(entry, key, default)
@@ -127,13 +126,14 @@ def export_ssg_for_visualization(ssg: SecurityStateGraph, library: OperatorLibra
                     "category": ssg.claim_category.get(key, CATEGORY_CAPABILITY),
                     "object": claim.object,
                     "evidence": _evidence_for(ssg, key),
-                    # 2026-08-12 architecture-review fix: these 4 taxonomy dimensions
-                    # (aginiti/graph/security_boundary.py, owasp_llm_taxonomy.py,
-                    # attack_category.py, mitre_atlas_refs.py) were fully wired into the
-                    # SSG and tagged onto the operator library, but this export -- the
-                    # other real consumer surface besides target_profile.py -- never
-                    # carried any of them, so the interactive visualization couldn't
-                    # color/filter by severity or category either. None (not "unspecified"
+                    # These 4 taxonomy dimensions
+                    # (aginiti/core/graph/security_boundary.py, owasp_llm_taxonomy.py,
+                    # attack_category.py, mitre_atlas_refs.py) must stay carried here:
+                    # they're fully wired into the
+                    # SSG and tagged onto the operator library, and this export is the
+                    # other real consumer surface besides target_profile.py -- without
+                    # them, the interactive visualization can't
+                    # color/filter by severity or category. None (not "unspecified"
                     # placeholders) when a key was never tagged -- same honest-absence
                     # discipline every other query in this module already follows.
                     "security_boundary": ssg.claim_boundary.get(key),

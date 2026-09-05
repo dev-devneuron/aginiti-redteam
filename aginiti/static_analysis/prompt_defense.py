@@ -2,10 +2,10 @@
 system prompt / tool description contain defensive language against 12
 common attack-vector categories?
 
-Priority #4 of the 2026-08-08 architecture review ("selectively import
-mature components -- never entire frameworks"): the 12 DEFENSE_RULES
-below and the scanning algorithm in scan() are ADAPTED, not merely
-inspired by, Cisco's open-source mcp-scanner project --
+Built per this project's "selectively import mature components -- never
+entire frameworks" principle: the 12 DEFENSE_RULES below and the scanning
+algorithm in scan() are ADAPTED, not merely inspired by, Cisco's
+open-source mcp-scanner project --
 mcpscanner/core/analyzers/prompt_defense_analyzer.py, fetched 2026-08-08
 from https://github.com/cisco-ai-defense/mcp-scanner (Apache License 2.0,
 copyright Cisco Systems, Inc. and its affiliates -- license terms

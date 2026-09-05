@@ -313,7 +313,7 @@ def _build_candidates(operator: Operator) -> list[dict]:
         # A per-effect description (ClaimEffect.description) wins when set
         # -- e.g. a programmatically-generated operator pack that carries
         # its own grounded text rather than registering into the shared
-        # global KEY_DESCRIPTIONS dict (2026-08-08 architecture audit fix).
+        # global KEY_DESCRIPTIONS dict.
         # Every hand-authored operator still resolves through the dict
         # exactly as before, since `description` defaults to None for them.
         base = effect.description or KEY_DESCRIPTIONS.get(effect.key, effect.key)
@@ -371,14 +371,13 @@ def _judge(operator: Operator, raw_signal: str, seed: int | None = None) -> dict
         f"Agent's visible response:\n\"\"\"\n{raw_signal}\n\"\"\""
     )
     # max_tokens scales with candidate count, not chat_json's flat 400-token
-    # default (2026-08-09 fix -- audited after finding the identical bug
-    # actively truncating aginiti/graph/insights.py's Reasoning Layer calls).
+    # default -- the same truncation bug once actively affected
+    # aginiti/graph/insights.py's Reasoning Layer calls.
     # This is the ground-truth JUDGE for every benchmark this project has
     # run, so treated conservatively: live-tested with realistic multi-
-    # paragraph responses against every operator this session's benchmarks
-    # actually used and found 0/6 truncated at 400 tokens for those (1-2
-    # candidate effects each) -- so this specific project's PAST results are
-    # not implicated -- but the response length grows with candidate count
+    # paragraph responses against a representative set of operators (1-2
+    # candidate effects each) and found none truncated at 400 tokens for
+    # those -- but the response length grows with candidate count
     # AND with however verbose the model's own free-form `reasoning` field
     # gets (that field is deliberately left unbounded in the prompt above,
     # not touched here -- changing prompt WORDING risks altering judge
@@ -402,17 +401,17 @@ def _judge(operator: Operator, raw_signal: str, seed: int | None = None) -> dict
 class ObservationAdapter:
     @staticmethod
     def _send(agent: BaseAdapter, channel: str, prompt: str) -> SendResult:
-        """2026-08-12 hardening-pass fix -- the single choke point EVERY
-        operator execution passes through, and now the ONE place a target-
+        """The single choke point EVERY operator execution passes through,
+        and the ONE place a target-
         side failure (crash, timeout, connection refused, malformed
         response) is guaranteed to be caught, regardless of which adapter
         is in use.
 
-        Before this: `agent.send(...)` was called directly with no
-        exception handling at all. Individual adapters were left to
+        Do not call `agent.send(...)` directly elsewhere with no exception
+        handling of its own: individual adapters can't be trusted to
         protect themselves -- DVLAAdapter does (RateLimitError/
         APIStatusError/Exception, is_synthetic=True recovery text);
-        AnythingLLMAdapter didn't until this same pass (see that module's
+        AnythingLLMAdapter now does too (see that module's
         TargetUnavailable); DVAAAdapter and McpStdioAdapter, audited
         directly, still don't. That's a fragile, duplicated-responsibility
         pattern: every NEW adapter has to remember to reimplement the same
@@ -481,7 +480,7 @@ class ObservationAdapter:
 
         is_synthetic = getattr(send_result, "is_synthetic", False)
         if is_synthetic:
-            # Evidence-provenance gate (2026-08-08): this text is Aginiti's
+            # Evidence-provenance gate: this text is Aginiti's
             # OWN adapter code speaking on the target's behalf (an API-error
             # recovery message, a budget-cutoff notice, ...), not anything
             # the target itself said -- see SendResult.is_synthetic's
@@ -553,7 +552,7 @@ class ObservationAdapter:
                 if record_event is not None:
                     record_event()
 
-        # Independent-evidence integration (2026-08-14, aginiti/graph/
+        # Independent-evidence integration (aginiti/core/graph/
         # independent_evidence.py -- see that module's own docstring for
         # the full motivation, and this class's docstring above for why
         # this is a genuinely SEPARATE evidence path, not a replacement
@@ -710,31 +709,26 @@ class ObservationAdapter:
             # from data_exposure_operators()'s cheap probe having already
             # run) is preserved, not clobbered.
             category = CATEGORY_MISSION_OUTCOME if status == ClaimStatus.CONFIRMED else None
-            # security_boundary lookup added 2026-08-22, found missing
-            # during exp32's first live run (legal/aginiti trial:
-            # hardened_ikea_exfiltration CONFIRMED 3/8 findings and
-            # ground_truth_mission_achieved()==True, yet exp32's own
-            # _distinct_findings() -- which counts claims with a
-            # ssg.claim_boundary entry, same convention every ordinary
-            # operator's claim already gets via the `effect.security_
-            # boundary` branch a few lines above this one -- read 0). Root
-            # cause: this call never passed security_boundary at all, so
-            # ssg.claim_boundary[operator.claim_key] was silently never
-            # populated for ANY deep-attack claim, confirmed or not.
+            # Do not drop the security_boundary lookup below: without it,
+            # ssg.claim_boundary[operator.claim_key] is silently never
+            # populated for ANY deep-attack claim, confirmed or not -- a
+            # live run once confirmed a real disclosure
+            # (ground_truth_mission_achieved()==True) that display code
+            # counting claims via ssg.claim_boundary still read as zero,
+            # because this call never passed security_boundary at all.
             # Operator itself has no top-level `security_boundary` attr
             # (that field lives on ClaimEffect, one level down) -- pull it
             # from the effects_success entry matching this operator's own
             # claim_key, same tag every deep_attack Operator definition
             # already declares (e.g. hardened_deep_attack_operators.py's
-            # BOUNDARY_L5 on hardened_ikea_exfiltration) purely for
-            # planner-precondition/documentation purposes until now; never
-            # actually reaching the SSG. Beyond exp32's own display metric,
-            # ssg.claim_boundary also feeds AginitiPlanner's own candidate-
-            # scoring/diversification (aginiti_planner.py ~line 901/910)
-            # and target_graph.py/target_profile.py's boundary-coverage
-            # exports -- all silently blind to every deep-attack finding
-            # before this fix, generic to ANY caller of deep_attack_
-            # operators()/_execute_deep_attack, not hardened_agent-specific.
+            # BOUNDARY_L5 on hardened_ikea_exfiltration) for planner-
+            # precondition/documentation purposes -- it still has to reach
+            # the SSG itself, or ssg.claim_boundary also feeding
+            # AginitiPlanner's own candidate-scoring/diversification
+            # (aginiti_planner.py's rank()) and target_graph.py/
+            # target_profile.py's boundary-coverage exports stays silently
+            # blind to every deep-attack finding, for ANY caller of
+            # deep_attack_operators()/_execute_deep_attack.
             matching_effect = next(
                 (e for e in operator.effects_success if e.key == operator.claim_key), None
             )

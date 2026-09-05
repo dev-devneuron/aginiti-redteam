@@ -1,5 +1,5 @@
-"""Per-candidate exclusion accounting -- added 2026-08-14 at explicit
-direction following exp23's live hardened_agent findings: "If an operator
+"""Per-candidate exclusion accounting -- built at explicit
+direction following live hardened_agent findings: "If an operator
 is intentionally excluded, record exactly why."
 
 Before this, every reason an operator failed to appear in `AginitiPlanner.

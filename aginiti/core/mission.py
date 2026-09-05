@@ -22,8 +22,7 @@ class Mission:
     risk_threshold: RiskTier
     constraints: tuple[str, ...] = ("no_destructive_actions",)
     success_mode: str = "all"  # "all" (every criterion confirmed) | "any" (at least one)
-    # Real, live-observed bug fix (2026-08-22, found auditing exp33): a
-    # trial can have a GENUINE, independently-verified disclosure (see
+    # A trial can have a GENUINE, independently-verified disclosure (see
     # aginiti/core/observation_adapter.py's own independent-evidence
     # integration -- a deterministic verbatim/fuzzy oracle, deliberately
     # separate from any single operator's own LLM judge) while `is_
@@ -31,8 +30,8 @@ class Mission:
     # lands under its OWN claim key (`{operator_id}_independent_verbatim_
     # disclosure_confirmed` / `..._independent_fuzzy_disclosure_confirmed`)
     # -- never the operator's own headline claim key a caller's
-    # `success_criteria` list actually names. Live-caught case: exp33's
-    # support/random trial ran to BUDGET_EXHAUSTED even though the
+    # `success_criteria` list actually names. Live-caught case: a
+    # support/random trial once ran to BUDGET_EXHAUSTED even though the
     # independent oracle had already confirmed a real disclosure on
     # hardened_own_domain_verbatim_probe's own response -- the JUDGE just
     # never confirmed the matching `_disclosed` claim on that same

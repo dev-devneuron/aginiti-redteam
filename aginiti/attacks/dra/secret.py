@@ -459,7 +459,7 @@ class SECRETAttack(BaseAttack):
         API key for ``semantic_shift_llm_provider``. Defaults to ``api_key``.
     semantic_shift_api_keys : list[str] or None
         Optional list of MULTIPLE keys for ``semantic_shift_llm_provider``
-        (added 2026-08-19, same rotation mechanic as MIA's
+        (same rotation mechanic as MIA's
         ``shadow_llm_api_keys`` -- see ``BaseAttack._init_llm``'s
         ``api_keys`` docstring). Takes precedence over
         ``semantic_shift_api_key`` when given. Motivated by the same
@@ -587,7 +587,7 @@ class SECRETAttack(BaseAttack):
         endpoint_kwargs: Optional[dict] = None,
         endpoint: Optional[AgentEndpoint] = None,
     ) -> None:
-        # endpoint added 2026-08-21 (Phase 2 Slice G, plans/
+        # endpoint (Phase 2 Slice G, plans/
         # phase2-operator-wrapping.md) -- same additive seam Slice B added
         # to IKEAAttack: lets a caller inject an EXISTING AgentEndpoint so
         # a wrapped deep-attack Operator shares ONE real HTTP session with
@@ -839,10 +839,10 @@ class SECRETAttack(BaseAttack):
         """
         LE's trigger generation (methodology doc §4, Appendix B prompt).
 
-        ``temperature=0.0`` (added 2026-08-12) — the methodology doc's §5
-        table states "Sampling temperature | 0.0 | Deterministic decoding
-        throughout" for the SECRET pipeline; found missing here during the
-        same live-run pass that surfaced it missing on Phase 1's Optimizer/
+        ``temperature=0.0`` must stay wired through here too — the
+        methodology doc's §5 table states "Sampling temperature | 0.0 |
+        Deterministic decoding throughout" for the SECRET pipeline; a live
+        run once caught it missing here alongside Phase 1's Optimizer/
         Evaluator calls (see ``jailbreak_optimizer._score_response``'s
         docstring for the concrete evidence). Deliberately NOT applied to
         target-facing calls (``_EndpointTargetAdapter``/``_LLMTargetAdapter``
@@ -1036,10 +1036,9 @@ class SECRETAttack(BaseAttack):
             except Exception as e:
                 logger.warning("Failed to load checkpoint file (starting fresh): %s", e)
 
-        # 2026-08-21 (Slice G): reuse an injected endpoint (shared campaign
+        # Reuse an injected endpoint (shared campaign
         # session) when supplied, matching IKEAAttack's own precedent
-        # (Slice B) -- falls back to today's fresh-construction behavior
-        # otherwise.
+        # -- falls back to fresh construction otherwise.
         endpoint = self.endpoint or AgentEndpoint(base_url=self.target_url, **self._endpoint_kwargs)
 
         logger.info("=== SECRET attack starting ===")
@@ -1182,11 +1181,10 @@ class SECRETAttack(BaseAttack):
                     len(findings), len(self._extracted_segments), self._llm_call_count,
                 )
         finally:
-            # 2026-08-21 (Slice G): only close an endpoint this method
+            # Only close an endpoint this method
             # itself constructed -- never a caller-injected, campaign-
             # shared session (see the identical fix + full rationale in
-            # ikea.py's own execute_black_box, found during the same
-            # cross-attack audit).
+            # ikea.py's own execute_black_box).
             if self.endpoint is None:
                 endpoint.close()
 

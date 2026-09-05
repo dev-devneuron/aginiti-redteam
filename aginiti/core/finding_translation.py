@@ -16,7 +16,7 @@ IKEAAttack._make_finding that `confidence` is often DERIVED FROM severity
 threshold system built on it would really just be re-deriving severity
 under a different name.
 
-Empty-findings handling (Open Question 4, explicitly approved 2026-08-20):
+Empty-findings handling (Open Question 4, explicitly approved):
 asserts nothing (returns None) rather than defaulting to REFUTED.
 `IKEAAttack.execute_black_box` only appends to `findings` when a probe is
 NOT refused (a refused probe goes to `attack.refused_queries` instead,

@@ -125,7 +125,7 @@ calibration.
 `documents × n_probe_questions`, same as target-query volume, while the
 attacker LLM stays flat at 2 calls/document) — this is usually the first
 thing to hit a free-tier rate limit on a real run. `shadow_llm_api_keys`
-(added 2026-08-12) accepts a list of multiple keys for the same provider
+accepts a list of multiple keys for the same provider
 (e.g. several free-tier Groq keys) and rotates to the next one immediately
 on a rate limit, wrapping back to the first once every key has been tried
 — see `BaseAttack._init_llm`'s `api_keys` docstring for the exact
@@ -233,7 +233,8 @@ each candidate against it) — for a real Table-2-style benchmark, every
 document (member and non-member alike) just needs its raw Stage A→B→C score
 computed once; AUC needs no threshold at all, and TPR@FPR/Accuracy derive
 their threshold from the *same* scored set's own ROC curve, not from a
-separately-designated calibration subset. **Now built** (2026-08-12): `InterrogationAttack.score_documents(documents)`
+separately-designated calibration subset.
+`InterrogationAttack.score_documents(documents)`
 runs Stage A→B→C per document with no threshold/calibration step at all,
 returning each document's raw score — the caller supplies the true
 member/non-member label. `aginiti.reporting.mia_metrics.compute_mia_benchmark_metrics`

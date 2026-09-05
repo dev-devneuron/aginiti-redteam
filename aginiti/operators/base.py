@@ -68,7 +68,7 @@ class Precondition:
 @dataclass(frozen=True)
 class ClassPrecondition:
     """A precondition satisfied by ANY currently-current claim matching a
-    SEMANTIC CLASS, not one specific declared key -- added 2026-08-12 as
+    SEMANTIC CLASS, not one specific declared key -- built as
     the mechanism for genuine multi-step attack-path discovery (design doc
     directive: "don't tell Aginiti the chain. It should discover it from
     observations").
@@ -144,8 +144,8 @@ class ClaimEffect:
     # those are the categories the analyst queries (queries.py) care about.
     category: str | None = None
     # Optional judge-facing description for THIS effect, overriding the
-    # global aginiti/adapter/observation_adapter.py KEY_DESCRIPTIONS
-    # lookup when set (2026-08-08 architecture audit fix). Exists for
+    # global aginiti/core/observation_adapter.py KEY_DESCRIPTIONS
+    # lookup when set. Exists for
     # operator packs generated programmatically per-instance (e.g.
     # aginiti/operators/injecagent.py's one-per-test-case operators),
     # where mutating the shared global KEY_DESCRIPTIONS dict from a
@@ -262,8 +262,8 @@ class Operator:
     # preconditions_met() -- both tuples must be satisfied, so an operator can
     # mix "this exact setup claim" with "any trust edge from anywhere."
     precondition_classes: tuple[ClassPrecondition, ...] = ()
-    # A FINER-grained grouping than `attack_category` -- added 2026-08-14
-    # in direct response to a real live finding (exp28's postmortem):
+    # A FINER-grained grouping than `attack_category` -- added
+    # in direct response to a real live finding:
     # `attack_category` (11 broad categories) is too coarse to tell apart
     # "5 near-duplicate wrapper templates around the SAME underlying
     # question" (e.g. hardened_agent_definitions.py's
@@ -287,7 +287,7 @@ class Operator:
     # operators that don't actually share a mechanism would be worse than
     # leaving them untagged.
     technique_cluster: str | None = None
-    # -- Deep-attack fields (added 2026-08-20, Phase 2 Slice D, plans/
+    # -- Deep-attack fields (Phase 2 Slice D, plans/
     # phase2-operator-wrapping.md) -- extends Operator rather than forking
     # a parallel type, so rank()/budget_feasible()/OperatorLibrary/every
     # existing call site keeps typing `list[Operator]` uniformly; only

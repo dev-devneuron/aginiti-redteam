@@ -136,7 +136,7 @@ class DemoAgent:
                     "name": name,
                     "content": json.dumps(result),
                 })
-        # is_synthetic=True (2026-08-08, evidence-provenance fix): this text
+        # is_synthetic=True (evidence-provenance): this text
         # is Aginiti's own budget-cutoff message, not anything the mock
         # agent said -- see aginiti/adapters/base.py's SendResult docstring
         # for the real false positive (DVLA) this class of bug caused.

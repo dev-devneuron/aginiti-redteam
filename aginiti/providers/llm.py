@@ -35,10 +35,10 @@ policy chose the operators).
   an equivalent here at all -- they're simply not needed anymore.
 - Key rotation (`GROQ_API_KEY`, `GROQ_API_KEY_2`, `GROQ_API_KEY_3`, ...
   pooled, sticky current index) reimplemented against litellm's exception
-  types instead of `groq`'s own. **2026-08-20 (integration Slice F):**
-  broadened from rotating on `litellm.RateLimitError` alone to also
-  rotating on `litellm.AuthenticationError`/`litellm.BadRequestError` --
-  see `_ROTATABLE_ERRORS` below for why (a real expired-key failure,
+  types instead of `groq`'s own, and broadened from rotating on
+  `litellm.RateLimitError` alone to also rotating on
+  `litellm.AuthenticationError`/`litellm.BadRequestError` -- see
+  `_ROTATABLE_ERRORS` below for why (a real expired-key failure,
   live-observed, was getting retried forever at the same key instead of
   skipped).
 - `AGINITI_LLM_PROVIDER=gemini` still routes every call shape through
@@ -61,9 +61,9 @@ becomes LiteLLM model string `f"groq/{GROQ_MODEL}"`; `GEMINI_MODEL` (default
 `"gemini-2.5-flash"`) becomes `f"gemini/{GEMINI_MODEL}"`. Same env var
 names as before, so no .env changes needed for existing deployments.
 
-**2026-08-20 default-model fix (live-verified during integration Slice F,
-plans/PLAN.md):** the previous default, `llama-3.3-70b-versatile`, no
-longer exists on Groq at all (404, confirmed live) -- and the model this
+**Default-model fix (live-verified against this project's own Groq
+account, plans/PLAN.md):** the previous default, `llama-3.3-70b-versatile`,
+no longer exists on Groq at all (404, confirmed live) -- and the model this
 project's own docs had already suggested as its replacement,
 `llama-3.1-8b-instant`, is ALSO gone (also confirmed live, not assumed).
 Queried this project's Groq account's real current catalog directly
@@ -138,9 +138,9 @@ def _load_groq_keys() -> list[str]:
 
 
 # Errors worth rotating past: a rate-limited key is the original case
-# (RateLimitError); an expired/revoked/invalid key -- confirmed live
-# during integration Slice F to surface as litellm.BadRequestError
-# ("expired_api_key"), not RateLimitError -- is just as much a reason to
+# (RateLimitError); an expired/revoked/invalid key -- confirmed live to
+# surface as litellm.BadRequestError ("expired_api_key"), not
+# RateLimitError -- is just as much a reason to
 # try the NEXT key in the pool as a rate limit is, since the pool's whole
 # point is "don't let one bad key stall every caller." AuthenticationError
 # covers the same "this specific key is bad" family for providers/error
@@ -154,11 +154,11 @@ _ROTATABLE_ERRORS = (litellm.RateLimitError, litellm.AuthenticationError, litell
 def _call_with_rotation(model: str, messages: list[dict], **kwargs):
     """Tries the current Groq key first, then rotates through the rest of
     the pool on a rotatable error (see _ROTATABLE_ERRORS above -- expanded
-    2026-08-20 from RateLimitError alone, live-verified during
-    integration Slice F: an expired key in the pool was getting retried
-    forever at the same _current_idx instead of being skipped, since
-    BadRequestError wasn't caught here yet). Sticks with whichever key
-    last worked, same as the retired llm_client.py's _call_with_rotation."""
+    from RateLimitError alone after a live-verified gap: an expired key in
+    the pool was getting retried forever at the same _current_idx instead
+    of being skipped, since BadRequestError wasn't caught here yet).
+    Sticks with whichever key last worked, same as the retired
+    llm_client.py's _call_with_rotation."""
     global _current_idx
     keys = _load_groq_keys()
     last_err: Exception | None = None
@@ -205,8 +205,8 @@ def chat_json(messages: list[dict], temperature: float = 0.0, max_tokens: int = 
               seed: int | None = None) -> dict:
     """Chat call constrained to return a single JSON object.
 
-    Truncation retry (added 2026-08-22, found auditing exp32): a caller-
-    supplied `max_tokens` is a guess, and callers with an unbounded free-
+    Truncation retry (found auditing exp32): a caller-supplied `max_tokens`
+    is a guess, and callers with an unbounded free-
     form field in their own prompt (e.g. observation_adapter._judge's
     `reasoning` field, deliberately left unconstrained so prompt-wording
     changes don't risk judge accuracy -- see that call site's own

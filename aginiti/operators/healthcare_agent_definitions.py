@@ -124,7 +124,7 @@ def build_healthcare_agent_library(index: VerbatimDisclosureIndex) -> list[Opera
         *build_encoding_evasion_operators(),
         *output_filter_evasion_operators(),
         *adaptive_followup_operators(),
-        # 2026-08-14: session-isolation probes (aginiti/operators/
+        # Session-isolation probes (aginiti/operators/
         # session_isolation_probe.py) -- healthcare_agent itself is
         # currently stateless (no conversation memory), so this is expected
         # to always report "no leak" here; included for the same reuse

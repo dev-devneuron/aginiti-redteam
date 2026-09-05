@@ -354,7 +354,7 @@ def synthesize_insights(ssg: SecurityStateGraph, target_name: str,
     )
     user = f"Target: {target_name}\n\nObserved claims:\n{claim_lines}"
 
-    # max_tokens=2000, NOT chat_json's 400-token default (2026-08-09 fix): a
+    # max_tokens=2000, NOT chat_json's 400-token default: a
     # live-diagnosed real bug, found while validating the Target Profile
     # deliverable against real evidence -- with a genuinely rich claim set
     # (9 claims), the real Gemini response was TRUNCATED mid-JSON at 400

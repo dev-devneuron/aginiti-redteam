@@ -139,7 +139,7 @@ intended to be), via `run_benchmark()`'s `extra_run_metadata` field.
 | Rate limiting | `HARDENED_AGENT_RATE_LIMIT_ENABLED` | on | Simple sliding-window request counter, per persona (`agent.RateLimiter`) |
 | Output redaction | `HARDENED_AGENT_REDACTION_ENABLED` | on | Regex-based PII scrubbing on the generated response (`agent.redact`) |
 | Conversation memory | `HARDENED_AGENT_MEMORY_ENABLED` | on | Per-persona sliding window of the last 4 `(question, redacted answer)` pairs, re-sent as context on each call — a soft, prompt-level "be more cautious if you've already disclosed a lot in this session" nudge, not a hard rule. Deliberately minimal-token: only Q&A pairs are stored, never retrieved context/chunks (those would multiply token cost every turn for no ongoing value). Tune the window with `HARDENED_AGENT_MEMORY_MAX_TURNS` (default 4). |
-| System-prompt guardrail | `HARDENED_AGENT_GUARDRAIL_ENABLED` | on | An explicit system-prompt instruction not to reveal PII/secrets/confidential data (`agent._GUARDRAIL_SUFFIX`), added 2026-08-10 after review found the base prompt had no such instruction at all — only groundedness/anti-hallucination wording, despite an earlier code comment incorrectly claiming parity with `healthcare_agent`'s guardrail. Deliberately domain-agnostic (no persona-specific wording, so it reads identically across CUAD/CFPB/the ops slice) and attack-agnostic (explicitly names indirect/hypothetical/role-play/instruction-override framing, and covers membership-confirmation questions relevant to MIA-style probing, not just DRA-style content extraction) — not tuned against any one attack this library implements or will implement. Same soft, bypassable-under-pressure nature as every other prompt-level instruction here, not a hard rule. |
+| System-prompt guardrail | `HARDENED_AGENT_GUARDRAIL_ENABLED` | on | An explicit system-prompt instruction not to reveal PII/secrets/confidential data (`agent._GUARDRAIL_SUFFIX`), added after review found the base prompt had no such instruction at all — only groundedness/anti-hallucination wording, despite an earlier code comment incorrectly claiming parity with `healthcare_agent`'s guardrail. Deliberately domain-agnostic (no persona-specific wording, so it reads identically across CUAD/CFPB/the ops slice) and attack-agnostic (explicitly names indirect/hypothetical/role-play/instruction-override framing, and covers membership-confirmation questions relevant to MIA-style probing, not just DRA-style content extraction) — not tuned against any one attack this library implements or will implement. Same soft, bypassable-under-pressure nature as every other prompt-level instruction here, not a hard rule. |
 
 Per the explicit condition rate limiting was scoped under
 (`plans/vanilla-target-agent.md` §1.2/§2.2): **building the detector alone
@@ -151,7 +151,7 @@ API budget), not silently bundled into building this agent. The current
 threshold (`RateLimiter(max_requests=10, window_seconds=60)`) is a starting
 default, not yet calibrated against real IKEA query timing.
 
-## Live end-to-end verification — done, via Docker (2026-08-07)
+## Live end-to-end verification — done, via Docker
 
 The `Authorization: Bearer` auth mechanism (reused from the paused Onyx
 work — `AgentEndpoint`'s `headers` param) was unit-tested with mocked HTTP,

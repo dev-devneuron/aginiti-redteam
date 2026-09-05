@@ -43,8 +43,8 @@ PERSONAS = tuple(_PERSONA_CHROMA_FILTERS)
 
 # Toggle with HARDENED_AGENT_RBAC_ENABLED (default: enabled) — same on/off
 # ablation pattern as the other three defenses (agent.py's
-# RATE_LIMIT_ENABLED/REDACTION_ENABLED/MEMORY_ENABLED). Added 2026-08-07 in
-# response to a direct question: with RBAC always on, there was no way to
+# RATE_LIMIT_ENABLED/REDACTION_ENABLED/MEMORY_ENABLED): with RBAC always
+# on, there was no way to
 # measure what IKEA achieves against a RAG agent that has every OTHER
 # defense (rate limiting, redaction, memory-based caution) but where RBAC
 # specifically is missing or misconfigured — a real, common failure mode

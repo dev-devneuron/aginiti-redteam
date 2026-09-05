@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 
-# Canonical importance-bucket weights (2026-08-09 consolidation) -- the single
+# Canonical importance-bucket weights -- the single
 # source of truth for how a KNOWLEDGE_GAP insight's `importance` string maps to
 # a numeric weight, and for the valid range `priority_weight` may occupy within
 # each bucket. Previously duplicated (aginiti_planner.py's own
@@ -30,8 +30,8 @@ from enum import Enum
 # enforced in Insight.__post_init__, not just by caller discipline, closing the
 # other half of that same audit finding.
 #
-# Values DOUBLED 2026-08-09 (0.5/1.0/2.0 -> 1.0/2.0/4.0) -- a real, quantified
-# architectural ceiling this session's own audit found in AginitiPlanner: at
+# Values DOUBLED from an earlier scale (0.5/1.0/2.0 -> 1.0/2.0/4.0) -- a real,
+# quantified architectural ceiling an internal audit found in AginitiPlanner: at
 # move 1 (alpha=1.0), a single-step operator's alpha*info_gain can reach 4.0,
 # while gap_priority's old max (2.2, "high" bucket + full rank nudge) could
 # NEVER reach that regardless of how strong the cold-start prior was --
@@ -46,8 +46,8 @@ from enum import Enum
 # actual libraries, so "high" now competes on the SAME order of magnitude
 # instead of a smaller, arbitrary one -- a calibration target, not a re-guess.
 # This was deliberately tried BEFORE building a larger, more complex
-# alternative (aginiti/planner/bayesian_planner.py's Thompson-Sampling
-# planner, added earlier the same day) -- per "if it can be done simply,
+# alternative (aginiti/core/planner/bayesian_planner.py's Thompson-Sampling
+# planner) -- per "if it can be done simply,
 # don't overcomplicate it," a 3-number change that fixes the same diagnosed
 # problem is the right first fix to make, not a new module, even though the
 # Bayesian planner remains available (and may still offer real value beyond
@@ -298,10 +298,10 @@ class Insight:
     importance: str | None = None  # KNOWLEDGE_GAP: low/medium/high -- how much closing this gap would matter
     prior_belief: str | None = None  # KNOWLEDGE_GAP: an educated guess at the answer, from background reasoning
     related_probe_id: str | None = None  # KNOWLEDGE_GAP: an unexplored operator id that would help, if any
-    # KNOWLEDGE_GAP, optional (2026-08-09): a fine-grained numeric nudge WITHIN `importance`'s bucket,
+    # KNOWLEDGE_GAP, optional: a fine-grained numeric nudge WITHIN `importance`'s bucket,
     # None for every insight the Reasoning Layer forms (unchanged -- still bucket-only, display stays
     # exactly "importance: high" etc. in target_profile.py). Exists to fix a real, live-diagnosed bug:
-    # aginiti/graph/priors.py's cold-start seeding asked an LLM for independent low/medium/high labels,
+    # aginiti/core/graph/priors.py's cold-start seeding asked an LLM for independent low/medium/high labels,
     # and a known-defended trap operator landed in the SAME bucket as a real, reliable win (both
     # "medium") purely because 3 discrete buckets are too coarse to express a preference between two
     # options the model would still rank differently if asked directly -- confirmed live on

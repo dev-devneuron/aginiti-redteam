@@ -4,22 +4,23 @@ Interrogation Attack (MIA) benchmark results JSON
 (``scripts/run_interrogation_benchmark.py``'s output), using the current
 ``aginiti.attacks.mia.interrogation._parse_yes_no_unk``.
 
-**Why this exists**: it did NOT always agree with the classifier that ran
-live. Live-verified 2026-08-12/13: real ``hardened_agent`` responses often
-use reported-speech phrasing ("the consumer asserts that X") that never
-says "yes"/"no" outright, which the classifier at the time read as "unk"
-even when a human would clearly read the answer as affirmative or negative.
-Measured impact on the first 50+50 support-persona benchmark: ~6.6% of all
-3,000 probes affected, roughly equally across members and non-members (see
+**Why this exists**: the classifier that ran live did NOT always agree with
+the same text re-parsed later. Real ``hardened_agent`` responses often use
+reported-speech phrasing ("the consumer asserts that X") that never says
+"yes"/"no" outright, which an earlier version of the classifier read as
+"unk" even when a human would clearly read the answer as affirmative or
+negative. Measured impact on the first 50+50 support-persona benchmark:
+~6.6% of all 3,000 probes affected, roughly equally across members and
+non-members (see
 ``benchmarks/scaled_evals/results/mia_benchmark_support_..._20260812T181049Z.json``).
 
-**As of 2026-08-13 this reported-speech fallback is now part of the LIVE
-classifier itself** (``_parse_yes_no_unk``'s own docstring has the full
-rationale/limitations) — new runs no longer need this module at all. This
-module's remaining purpose is narrow: re-scoring results captured *before*
-that fix, from already-stored text, with zero new API calls. It delegates
-directly to the current ``_parse_yes_no_unk`` (no duplicated regex logic)
-so it always reflects whatever the live classifier's current behavior is.
+**This reported-speech fallback is now part of the LIVE classifier itself**
+(``_parse_yes_no_unk``'s own docstring has the full rationale/limitations)
+— new runs no longer need this module at all. This module's remaining
+purpose is narrow: re-scoring results captured *before* that fix, from
+already-stored text, with zero new API calls. It delegates directly to the
+current ``_parse_yes_no_unk`` (no duplicated regex logic) so it always
+reflects whatever the live classifier's current behavior is.
 
 **Does not touch the original results file.** Recomputes match/score/
 metrics entirely from already-stored text. Every original field is
@@ -62,7 +63,7 @@ def _score_paper_official(ground_truths: list[str], responses: list[str]) -> flo
     The scoring formula actually used by the official RAG_MIA repo
     (``external_repos/RAG_MIA/mia_utils/mia.py::calculate_score`` and
     ``analysis.ipynb::get_mia_scores`` — verified directly against both
-    files, 2026-08-13) to produce the paper's published Table 2 numbers.
+    files) to produce the paper's published Table 2 numbers.
 
     **This differs from the methodology doc's written formula** (§2.3,
     ``InterrogationAttack._score_document``'s docstring) in two ways the
@@ -89,9 +90,9 @@ def reparse_results_paper_formula(report: dict) -> dict:
     difference alone, independent of the parsing fix. Uses each document's
     ORIGINAL ``target_answer`` (not the reported-speech-fallback ``_v2``)
     since the official code's own parser is the simple ``\\b(Yes|No)\\b``
-    regex this project's original (pre-2026-08-13) parser matched — pass a
-    report already run through ``reparse_results`` first to instead combine
-    both fixes.
+    regex this project's original (pre-reported-speech-fix) parser matched
+    — pass a report already run through ``reparse_results`` first to
+    instead combine both fixes.
     """
     out = copy.deepcopy(report)
     for doc in out["scored_documents"]:
@@ -168,10 +169,10 @@ def reparse_results(report: dict, lambda_unk: float = 6.0) -> dict:
     # under a differently-named field. The as-originally-computed numbers
     # move to "metrics_original" so the before/after comparison stays
     # fully auditable without hiding the fix behind an unchanged top-level
-    # field (2026-08-13 -- a first version of this function left the
-    # top-level "metrics" untouched and added "metrics_v2" alongside it,
-    # which made the actual fix easy to miss when just glancing at the
-    # file's headline numbers).
+    # field -- do not go back to leaving "metrics" untouched and adding
+    # "metrics_v2" alongside it instead; an earlier version did exactly
+    # that, and it made the actual fix easy to miss when just glancing at
+    # the file's headline numbers.
     out["metrics_original"] = out.get("metrics")
     out["metrics"] = metrics_v2
     out["metrics_paper_formula"] = metrics_paper_formula
@@ -180,14 +181,14 @@ def reparse_results(report: dict, lambda_unk: float = 6.0) -> dict:
         "note": "Top-level 'metrics' is now the REVISED result (our formula, fixed parser). "
                 "'metrics_original' is the as-originally-computed, pre-fix number, kept for audit.",
         "parser_fix": {
-            "method": "parse_yes_no_unk_reparsed (reported-speech fallback, live since 2026-08-13, zero new API calls)",
+            "method": "parse_yes_no_unk_reparsed (reported-speech fallback, now part of the live classifier, zero new API calls)",
             "probes_flipped_unk_to_yes": flips_unk_to_yes,
             "probes_flipped_unk_to_no": flips_unk_to_no,
             "probes_flipped_total": flips_unk_to_yes + flips_unk_to_no,
         },
         "formula_fix": {
             "method": "_score_paper_official -- matches external_repos/RAG_MIA/mia_utils/mia.py::calculate_score "
-                       "and analysis.ipynb::get_mia_scores exactly (verified 2026-08-13): plain match "
+                       "and analysis.ipynb::get_mia_scores exactly (verified directly): plain match "
                        "fraction, NO lambda/UNK penalty, unk==unk counts as a match. Does NOT replace this "
                        "library's own InterrogationAttack._score_document (which stays lambda-penalized -- "
                        "more conservative, used for real execute_black_box membership decisions), this is "

@@ -1,5 +1,5 @@
 """A generic, reusable "try candidates adaptively until one works" engine,
-added 2026-08-12 at explicit user direction: rather than building a
+built at explicit user direction: rather than building a
 bespoke adaptive-search mechanism separately for each attack category
 (encoding, RAG-poisoning framing, tool-manipulation phrasing, ...), this
 module factors out the one thing every such search actually needs --
