@@ -91,7 +91,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from aginiti.core.observation_adapter import ObservationAdapter
+from aginiti.core.observation_adapter import ExecutionResult, ObservationAdapter
 from aginiti.adapters.base import BaseAdapter
 from aginiti.core.graph.attack_category import LOW_VALUE_RECONNAISSANCE
 from aginiti.core.graph.schema import ClaimStatus, RiskTier
@@ -131,6 +131,27 @@ class MembershipInferenceResult:
     wrong: int = 0
     unknown: int = 0
     trials: list[ProbeTrial] = field(default_factory=list)
+    # Left None -- the real membership verdict is a separate, threshold-
+    # calibrated decision made downstream by calibrate_threshold_from_
+    # held_out(), never something this engine decides for itself (see the
+    # rest of this module's docstring). Present so this class conforms to
+    # aginiti.adaptive.base.AdaptiveEngineResult instead of being a
+    # footnoted exception to it.
+    succeeded: bool | None = None
+    # Always None -- this engine has no single "winning" probe to report:
+    # every probe contributes to the one continuous `score` above, and all
+    # probes always run (no early stop). Present for the same Protocol-
+    # conformance reason as `succeeded` above.
+    winning_operator: Operator | None = None
+    # The most recent probe's raw execution result -- same "last thing
+    # actually sent/received" meaning `final_result` carries in every other
+    # AdaptiveEngineResult conformer, just never tied to a success/failure
+    # branch here since this engine has none.
+    final_result: ExecutionResult | None = None
+
+    @property
+    def steps_used(self) -> int:
+        return self.queries_used
 
 
 def _default_generate_probes(document_text: str, num_probes: int, seed: int | None) -> tuple[str, list[ProbeQuestion]]:
@@ -250,6 +271,7 @@ def run_membership_inference(
         prompt = f"{summary} {probe.question}".strip()
         operator = _membership_probe_operator(prompt, i, doc_id)
         exec_result = adapter.execute(operator, ssg, target_adapter, seed=seed)
+        result.final_result = exec_result
         judged = judge_response_fn(probe.question, exec_result.raw_signal, seed)
 
         if judged == probe.expected_answer:

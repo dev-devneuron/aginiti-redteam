@@ -64,6 +64,10 @@ def test_succeeds_on_first_turn_stops_immediately(monkeypatch):
     assert result.succeeded is True
     assert result.turns_used == 1
     assert ssg.is_confirmed("crescendo_test_disclosed_turn1")
+    # Regression test for the bug finalize_on_success() fixes: this class
+    # previously never recorded winning_operator at all (Issue #8, Tier 1).
+    assert result.winning_operator is not None
+    assert result.winning_operator.id == "crescendo_turn1"
 
 
 def test_escalates_across_turns_using_real_prior_responses(monkeypatch):
