@@ -9,12 +9,31 @@ picking from a fixed menu. See the root `CLAUDE.md`
 (§"attacks/ vs. operators/ vs. adaptive/") for the full three-way
 distinction if you're deciding where a new module belongs.
 
-**No `base.py` yet** — genuinely a gap, not an oversight: these 8 modules
-don't currently share a common entry-point protocol or result type, unlike
-every other directory with a `base.py`. Introducing one (a shared
-`AdaptiveEngineResult` + entry-point protocol + trial-recording helper) is
-tracked as a deliberately separate, sign-off-gated design decision — see
-`plans/open-source-readiness.md` if you're picking this up.
+## `base.py` — the shared result protocol
+
+`AdaptiveEngineResult` is a `typing.Protocol` (modeled on `Policy(Protocol)`
+in `aginiti/core/policies/base.py`) that every result class in this
+directory conforms to structurally: `succeeded`, `score`,
+`winning_operator`, `final_result`, and a `steps_used` property. A field
+that doesn't apply to a given engine is left honestly `None` rather than
+faked — e.g. the four stop-on-success engines' `score` is always `None`
+(no continuous-score concept), and `MembershipInferenceResult`'s
+`succeeded`/`winning_operator` are always `None` (no early-stop, no single
+"winning" probe — see that module's own docstring). Each engine's original,
+module-specific counter (`trials_used`/`attempts_used`/`turns_used`/
+`queries_used`) is untouched; `steps_used` is a new, additive alias.
+
+`finalize_on_success(result, operator, exec_result)` is the shared
+trial-recording helper every stop-on-success loop (`variant_discovery`,
+`refinement`, `crescendo`, `deceptive_delight`) routes through, closing a
+real bug: before this helper existed, three of those four hand-rolled the
+identical success block and silently never recorded `winning_operator`,
+even though the operator was in scope at the exact line.
+
+Full field-level consolidation (one literal dataclass instead of five) and
+`framing_discovery.py`'s tuple return are explicitly out of scope here —
+see the open issues tracking those as separate, deliberately deferred
+follow-ups.
 
 | Module | What it searches |
 |---|---|

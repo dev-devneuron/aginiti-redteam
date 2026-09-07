@@ -38,6 +38,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from aginiti.adaptive.base import finalize_on_success
 from aginiti.core.observation_adapter import ExecutionResult, ObservationAdapter
 from aginiti.adapters.base import BaseAdapter
 from aginiti.core.graph.schema import ClaimStatus, RiskTier
@@ -106,10 +107,21 @@ class CrescendoResult:
     turns: list[CrescendoTurn] = field(default_factory=list)
     succeeded: bool = False
     final_result: ExecutionResult | None = None
+    winning_operator: Operator | None = None
 
     @property
     def turns_used(self) -> int:
         return len(self.turns)
+
+    @property
+    def steps_used(self) -> int:
+        return self.turns_used
+
+    @property
+    def score(self) -> float | None:
+        # See variant_discovery.VariantDiscoveryResult.score's docstring --
+        # same "no continuous score, honestly None" reasoning applies here.
+        return None
 
 
 class _TurnDraftingFailed(RuntimeError):
@@ -272,9 +284,7 @@ def run_crescendo_escalation(
             turn_number=turn_number, prompt_sent=exec_result.prompt_sent or prompt,
             raw_signal=exec_result.raw_signal, success=exec_result.overall_success,
         ))
-        result.final_result = exec_result
-        if exec_result.overall_success:
-            result.succeeded = True
+        if finalize_on_success(result, operator, exec_result):
             _logger.info("crescendo escalation succeeded: goal=%r turn=%d/%d",
                          final_goal, turn_number, max_turns)
             return result

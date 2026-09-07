@@ -47,6 +47,10 @@ def test_succeeds_on_first_attempt_never_calls_refine():
     assert result.attempts_used == 1
     assert adapter.prompts_sent == ["original prompt"]
     assert result.attempts[0].success is True
+    # Regression test for the bug finalize_on_success() fixes: this class
+    # previously never recorded winning_operator at all (Issue #8, Tier 1).
+    assert result.winning_operator is not None
+    assert result.winning_operator.prompt == "original prompt"
 
 
 def test_refines_after_failure_and_succeeds_on_second_attempt():
@@ -59,6 +63,10 @@ def test_refines_after_failure_and_succeeds_on_second_attempt():
     assert adapter.prompts_sent == ["original prompt", "refined-2"]
     assert result.attempts[0].success is False
     assert result.attempts[1].success is True
+    # winning_operator must be the REFINED operator actually sent on the
+    # winning attempt, not the original -- current_operator changes each
+    # iteration, and finalize_on_success is called with it, not `operator`.
+    assert result.winning_operator.prompt == "refined-2"
 
 
 def test_exhausts_budget_and_reports_failure_when_every_attempt_fails():

@@ -96,6 +96,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from aginiti.adaptive.base import finalize_on_success
 from aginiti.adapters.base import BaseAdapter
 from aginiti.core.graph.schema import ClaimStatus, RiskTier
 from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
@@ -132,10 +133,21 @@ class DeceptiveDelightResult:
     turns: list[DeceptiveDelightTurn] = field(default_factory=list)
     succeeded: bool = False
     final_result: ExecutionResult | None = None
+    winning_operator: Operator | None = None
 
     @property
     def turns_used(self) -> int:
         return len(self.turns)
+
+    @property
+    def steps_used(self) -> int:
+        return self.turns_used
+
+    @property
+    def score(self) -> float | None:
+        # See variant_discovery.VariantDiscoveryResult.score's docstring --
+        # same "no continuous score, honestly None" reasoning applies here.
+        return None
 
 
 def _narrative_connection_prompt(target_element: str, benign_topics: tuple[str, str]) -> str:
@@ -258,9 +270,7 @@ def run_deceptive_delight(
             turn_number=turn_number, prompt_sent=exec_result.prompt_sent or prompt,
             raw_signal=exec_result.raw_signal, success=exec_result.overall_success,
         ))
-        result.final_result = exec_result
-        if exec_result.overall_success:
-            result.succeeded = True
+        if finalize_on_success(result, operator, exec_result):
             _logger.info("deceptive_delight succeeded: target_element=%r turn=%d/%d",
                          target_element, turn_number, len(prompts))
             return result

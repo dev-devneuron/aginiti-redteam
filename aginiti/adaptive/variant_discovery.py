@@ -28,6 +28,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from aginiti.adaptive.base import finalize_on_success
 from aginiti.core.observation_adapter import ExecutionResult, ObservationAdapter
 from aginiti.adapters.base import BaseAdapter
 from aginiti.core.graph.ssg import SecurityStateGraph
@@ -56,6 +57,19 @@ class VariantDiscoveryResult:
     @property
     def trials_used(self) -> int:
         return len(self.trials)
+
+    @property
+    def steps_used(self) -> int:
+        return self.trials_used
+
+    @property
+    def score(self) -> float | None:
+        # No continuous score concept here -- this engine stops the instant
+        # one trial succeeds, so `succeeded`/`winning_operator` are the
+        # whole answer. Left honestly None, same as MembershipInferenceResult
+        # leaves `succeeded` None where a boolean verdict doesn't apply to it
+        # (see aginiti/adaptive/base.py's module docstring).
+        return None
 
 
 def run_variant_discovery(
@@ -91,10 +105,7 @@ def run_variant_discovery(
             raw_signal=exec_result.raw_signal,
             success=exec_result.overall_success,
         ))
-        result.final_result = exec_result
-        if exec_result.overall_success:
-            result.succeeded = True
-            result.winning_operator = operator
+        if finalize_on_success(result, operator, exec_result):
             _logger.info("variant discovery succeeded: variant=%s trial=%d/%d",
                          variant_name, trial_number, max_trials)
             return result

@@ -66,6 +66,15 @@ def test_all_correct_answers_produce_a_high_positive_score():
     assert result.unknown == 0
     assert result.score == 1.0  # every contribution is +1/n, sum = n/n = 1.0
     assert result.queries_used == 4
+    # Issue #8, Tier 1: this class is now a first-class AdaptiveEngineResult
+    # conformer, not a footnoted exception. succeeded/winning_operator stay
+    # honestly None -- this engine has no early-stop or single "winning"
+    # probe concept, `score` is the real answer -- but final_result/
+    # steps_used are genuinely populated, same as every other conformer.
+    assert result.succeeded is None
+    assert result.winning_operator is None
+    assert result.final_result is not None
+    assert result.steps_used == result.queries_used == 4
 
 
 def test_all_unknown_answers_produce_a_negative_score():

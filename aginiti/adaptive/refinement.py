@@ -65,6 +65,7 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import dataclass, field
 
+from aginiti.adaptive.base import finalize_on_success
 from aginiti.core.observation_adapter import ExecutionResult, ObservationAdapter
 from aginiti.adapters.base import BaseAdapter
 from aginiti.core.graph.ssg import SecurityStateGraph
@@ -104,10 +105,21 @@ class AdaptiveRefinementResult:
     attempts: list[RefinementAttempt] = field(default_factory=list)
     final_result: ExecutionResult | None = None
     succeeded: bool = False
+    winning_operator: Operator | None = None
 
     @property
     def attempts_used(self) -> int:
         return len(self.attempts)
+
+    @property
+    def steps_used(self) -> int:
+        return self.attempts_used
+
+    @property
+    def score(self) -> float | None:
+        # See variant_discovery.VariantDiscoveryResult.score's docstring --
+        # same "no continuous score, honestly None" reasoning applies here.
+        return None
 
 
 def _refine_prompt(intent: str, previous_prompt: str, target_response: str,
@@ -153,9 +165,7 @@ def run_adaptive_refinement(
             raw_signal=exec_result.raw_signal,
             success=exec_result.overall_success,
         ))
-        result.final_result = exec_result
-        if exec_result.overall_success:
-            result.succeeded = True
+        if finalize_on_success(result, current_operator, exec_result):
             _logger.info("adaptive refinement succeeded: operator=%s attempt=%d/%d",
                          operator.id, attempt_number, max_attempts)
             return result
