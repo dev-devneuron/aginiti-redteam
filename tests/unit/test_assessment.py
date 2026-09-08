@@ -211,7 +211,7 @@ def test_uncorroborated_framing_discovery_success_does_not_stop_the_assessment(m
                                   framing_discovery_budget=5, framing_refinement_attempts=0,
                                   crescendo_turns=1, crescendo_generate_turn_fn=_stub_generate_turn)
 
-    assert result.framing_discovery[0][0].succeeded is True  # the judge still said yes
+    assert result.framing_discovery[0].succeeded is True  # the judge still said yes
     assert result.stopped_early_after is None  # but it wasn't trusted alone
     assert result.outcome != "SUCCESS"
     # BOTH framing goals were attempted (each followed by an uncorroborated-
@@ -267,7 +267,7 @@ def test_corroborated_crescendo_success_stops_before_the_next_goal(monkeypatch):
 
     assert result.encoding_discovery.succeeded is False
     assert result.many_shot_discovery.succeeded is False
-    assert result.framing_discovery[0][0].succeeded is False
+    assert result.framing_discovery[0].succeeded is False
     assert len(result.crescendo_escalations) == 1
     assert result.crescendo_escalations[0].succeeded is True
     assert result.crescendo_escalations[0].turns_used == 1  # stopped the instant turn 1 succeeded
@@ -294,7 +294,7 @@ def test_all_discovery_fails_campaign_phase_runs_with_remaining_budget_and_share
 
     assert result.encoding_discovery.succeeded is False
     assert result.many_shot_discovery.succeeded is False
-    assert all(not d.succeeded for d, _r in result.framing_discovery)
+    assert all(not d.succeeded for d in result.framing_discovery)
     assert all(c is None or not c.succeeded for c in result.crescendo_escalations)
     assert result.stopped_early_after is None
     assert result.campaign is not None

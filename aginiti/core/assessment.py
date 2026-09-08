@@ -62,9 +62,8 @@ from dataclasses import dataclass, field
 
 from aginiti.adaptive.crescendo import CrescendoResult, _default_generate_turn, run_crescendo_escalation
 from aginiti.adaptive.encoding_discovery import run_encoding_chain_discovery
-from aginiti.adaptive.framing_discovery import run_framing_discovery
+from aginiti.adaptive.framing_discovery import FramingDiscoveryResult, run_framing_discovery
 from aginiti.adaptive.many_shot import DEFAULT_SHOT_COUNTS, run_many_shot_discovery
-from aginiti.adaptive.refinement import AdaptiveRefinementResult
 from aginiti.adaptive.variant_discovery import VariantDiscoveryResult
 from aginiti.adapters.base import BaseAdapter
 from aginiti.core.campaign import CampaignResult, run_campaign
@@ -103,7 +102,7 @@ DEFAULT_FRAMING_GOALS: tuple[tuple[str, str, str, str, str], ...] = (
 class FullAssessmentResult:
     encoding_discovery: VariantDiscoveryResult | None = None
     many_shot_discovery: VariantDiscoveryResult | None = None
-    framing_discovery: list[tuple[VariantDiscoveryResult, AdaptiveRefinementResult | None]] = field(default_factory=list)
+    framing_discovery: list[FramingDiscoveryResult] = field(default_factory=list)
     # Parallel to `framing_discovery` -- crescendo_escalations[i] is the
     # Crescendo attempt for framing_goals[i], or None if it never ran
     # (either an earlier mechanism already corroborated success for that
@@ -271,26 +270,25 @@ def run_full_assessment(
         if remaining <= 0:
             break
         goal_budget = min(framing_discovery_budget, remaining)
-        discovery_result, refinement_result = run_framing_discovery(
+        framing_result = run_framing_discovery(
             goal=goal, claim_key=claim_key, blocked_key=blocked_key, ssg=ssg, target_adapter=agent,
             attack_category=attack_category, owasp_llm_category=owasp_llm_category,
             max_trials=goal_budget, seed=seed,
             escalate_to_refinement=(remaining > goal_budget),
             refinement_max_attempts=min(framing_refinement_attempts, max(0, remaining - goal_budget)),
         )
-        result.framing_discovery.append((discovery_result, refinement_result))
-        used = discovery_result.trials_used + (refinement_result.attempts_used if refinement_result else 0)
+        result.framing_discovery.append(framing_result)
+        used = framing_result.steps_used
         result.prompts_used_framing += used
         remaining -= used
-        _logger.info("assessment phase 3 (framing discovery, goal=%r): discovery_succeeded=%s "
-                     "refinement_succeeded=%s prompts=%d", claim_key, discovery_result.succeeded,
-                     refinement_result.succeeded if refinement_result else None, used)
+        _logger.info("assessment phase 3 (framing discovery, goal=%r): succeeded=%s "
+                     "escalated_to_refinement=%s prompts=%d", claim_key, framing_result.succeeded,
+                     framing_result.escalated_to is not None, used)
         # Same reasoning as phase 1: framing_discovery's claim keys are
         # ALSO runtime-generated (suffixed with whichever framing/refined
         # attempt won), so is_satisfied() alone can't see a genuine
         # success here either -- but same corroboration requirement too.
-        goal_succeeded = discovery_result.succeeded or (refinement_result is not None and refinement_result.succeeded)
-        if _corroborated(agent, goal_succeeded, "phase 3 (framing discovery)", claim_key) \
+        if _corroborated(agent, framing_result.succeeded, "phase 3 (framing discovery)", claim_key) \
                 or mission.is_satisfied(ssg):
             result.stopped_early_after = "framing_discovery"
             return result

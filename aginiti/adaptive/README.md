@@ -30,10 +30,14 @@ real bug: before this helper existed, three of those four hand-rolled the
 identical success block and silently never recorded `winning_operator`,
 even though the operator was in scope at the exact line.
 
-Full field-level consolidation (one literal dataclass instead of five) and
-`framing_discovery.py`'s tuple return are explicitly out of scope here —
-see the open issues tracking those as separate, deliberately deferred
-follow-ups.
+`framing_discovery.py`'s own `FramingDiscoveryResult` is a sixth conformer,
+composed OVER `variant_discovery.py`'s and `refinement.py`'s result objects
+(`.discovery` / `.escalated_to`) rather than duplicating their fields — see
+that module's own docstring. Full field-level consolidation (one literal
+dataclass instead of six) and possibly rebuilding `refinement.py`/
+`crescendo.py`/`deceptive_delight.py` atop `variant_discovery.py`'s engine
+are explicitly out of scope here — see the open issue tracking that as a
+separate, deliberately deferred follow-up.
 
 | Module | What it searches |
 |---|---|

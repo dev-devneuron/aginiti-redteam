@@ -96,13 +96,21 @@ def _run_one_trial(trial: int, seed: int) -> dict:
                                  chat_mode="chat")
     ssg2 = SecurityStateGraph()
     t0 = time.time()
-    disc_result, refine_result = run_framing_discovery(
+    framing_result = run_framing_discovery(
         GOAL, "exp20_sysprompt_disclosed", "exp20_sysprompt_blocked", ssg2, agent2,
         attack_category=DIRECT_PROMPT_ATTACK, owasp_llm_category=LLM07_SYSTEM_PROMPT_LEAKAGE,
         max_trials=5, seed=seed, escalate_to_refinement=True, refinement_max_attempts=2,
     )
     elapsed = time.time() - t0
+    disc_result, refine_result = framing_result.discovery, framing_result.escalated_to
     record["framing_discovery"] = {
+        # Top-level succeeded=/winning_framing= intentionally still report
+        # the STATIC-framing-only phase's own verdict (not
+        # framing_result.succeeded/.winning_operator, which would also
+        # count an escalation win) -- this record's shape predates
+        # FramingDiscoveryResult (Issue #8/#26) and reports each phase
+        # separately by design; refinement_succeeded below is the
+        # escalation phase's own verdict.
         "succeeded": disc_result.succeeded,
         "trials_used": disc_result.trials_used,
         "elapsed_seconds": elapsed,
