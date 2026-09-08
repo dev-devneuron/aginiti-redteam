@@ -22,14 +22,68 @@ as a last resort -- composing both adaptive mechanisms built this session
 rather than duplicating either."""
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from aginiti.adaptive.refinement import AdaptiveRefinementResult, _refine_prompt, run_adaptive_refinement
 from aginiti.adaptive.variant_discovery import VariantDiscoveryResult, run_variant_discovery
 from aginiti.adapters.base import BaseAdapter
 from aginiti.core.graph.schema import ClaimStatus, RiskTier
 from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
+from aginiti.core.observation_adapter import ExecutionResult
 from aginiti.operators.library import ClaimEffect, Operator
 
 CONFIRMED = ClaimStatus.CONFIRMED
+
+
+@dataclass
+class FramingDiscoveryResult:
+    """Wraps `run_framing_discovery()`'s two phases (Issue #8/#26, Tier 2)
+    -- a structural `AdaptiveEngineResult` conformer composed OVER the two
+    existing result objects rather than duplicating their fields, so there
+    is exactly one source of truth for each phase's own data.
+    `succeeded`/`score`/`winning_operator`/`final_result`/`steps_used` are
+    all derived fresh from `discovery`/`escalated_to` on every access, never
+    a second copy that could drift out of sync with them."""
+
+    discovery: VariantDiscoveryResult
+    # None iff every static framing was tried and none succeeded but
+    # escalation was skipped (escalate_to_refinement=False), OR the static
+    # sweep itself already succeeded (escalation never needed). Non-None
+    # means the LLM-rewrite loop ran, whether or not IT succeeded either.
+    escalated_to: AdaptiveRefinementResult | None = None
+
+    @property
+    def succeeded(self) -> bool:
+        return self.discovery.succeeded or (self.escalated_to is not None and self.escalated_to.succeeded)
+
+    @property
+    def winning_operator(self) -> Operator | None:
+        if self.discovery.succeeded:
+            return self.discovery.winning_operator
+        if self.escalated_to is not None:
+            return self.escalated_to.winning_operator
+        return None
+
+    @property
+    def final_result(self) -> ExecutionResult | None:
+        # The escalation's own last attempt is the more recent real send
+        # whenever it ran at all -- matches the "most recent execution"
+        # meaning final_result carries on every other conformer.
+        if self.escalated_to is not None:
+            return self.escalated_to.final_result
+        return self.discovery.final_result
+
+    @property
+    def steps_used(self) -> int:
+        return self.discovery.steps_used + (self.escalated_to.steps_used if self.escalated_to else 0)
+
+    @property
+    def score(self) -> float | None:
+        # Same "no continuous score concept" reasoning as every other
+        # stop-on-success engine (see variant_discovery.VariantDiscoveryResult
+        # .score's own docstring) -- succeeded/winning_operator are the
+        # whole answer here too.
+        return None
 
 # 5 structurally different pretexts wrapping the SAME underlying ask.
 # Order matters: cheapest/most-generic framings first, more elaborate
@@ -109,20 +163,22 @@ def run_framing_discovery(
     escalate_to_refinement: bool = True,
     refinement_max_attempts: int = 2,
     refine_fn=_refine_prompt,
-) -> tuple[VariantDiscoveryResult, AdaptiveRefinementResult | None]:
+) -> FramingDiscoveryResult:
     """Sweeps FRAMINGS adaptively (stopping on first success). If none of
     the static framings work and `escalate_to_refinement` is True, hands
     the LAST framing tried off to run_adaptive_refinement() for a few more
-    LLM-driven rewrite attempts -- returns `(discovery_result, None)` on a
-    static-framing success, or `(discovery_result, refinement_result)` when
-    escalation ran (whether or not IT succeeded either). `refine_fn` is
-    passed straight through to run_adaptive_refinement() -- injectable for
-    testing (a stub avoids a live LLM call), real callers should leave it
-    at the default."""
+    LLM-driven rewrite attempts. Returns one `FramingDiscoveryResult` either
+    way -- `.escalated_to` is `None` on a static-framing success (or when
+    escalation was skipped), and the actual `AdaptiveRefinementResult` when
+    escalation ran (whether or not IT succeeded either); `.succeeded`/
+    `.winning_operator` read correctly from either phase regardless of
+    which one actually won. `refine_fn` is passed straight through to
+    run_adaptive_refinement() -- injectable for testing (a stub avoids a
+    live LLM call), real callers should leave it at the default."""
     next_fn = make_framing_candidate_fn(goal, claim_key, blocked_key, attack_category, owasp_llm_category)
     discovery_result = run_variant_discovery(next_fn, ssg, target_adapter, max_trials=max_trials, seed=seed)
     if discovery_result.succeeded or not escalate_to_refinement:
-        return discovery_result, None
+        return FramingDiscoveryResult(discovery=discovery_result)
 
     # Seed refinement from the LAST static framing tried. Its first attempt
     # re-sends that exact framing once more before any LLM rewriting
@@ -138,4 +194,4 @@ def run_framing_discovery(
         seed_operator, ssg, target_adapter, max_attempts=refinement_max_attempts, seed=seed,
         refine_fn=refine_fn,
     )
-    return discovery_result, refinement_result
+    return FramingDiscoveryResult(discovery=discovery_result, escalated_to=refinement_result)
