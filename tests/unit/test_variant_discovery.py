@@ -94,6 +94,10 @@ def test_full_trial_trace_is_recorded_including_failures_before_success():
     assert [t.variant_name for t in result.trials] == ["v1", "v2", "v3"]
     assert [t.success for t in result.trials] == [False, False, True]
     assert [t.trial_number for t in result.trials] == [1, 2, 3]
+    # Issue #27 (Tier 3): VariantTrial gained prompt_sent for parity with
+    # RefinementAttempt/CrescendoTurn/DeceptiveDelightTurn, which all
+    # already carried it.
+    assert [t.prompt_sent for t in result.trials] == ["prompt for v1", "prompt for v2", "prompt for v3"]
 
 
 def test_candidate_fn_receives_the_history_so_far_each_call():

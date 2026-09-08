@@ -44,6 +44,7 @@ class VariantTrial:
     operator_id: str
     variant_name: str
     raw_signal: str
+    prompt_sent: str
     success: bool
 
 
@@ -103,6 +104,7 @@ def run_variant_discovery(
             operator_id=operator.id,
             variant_name=variant_name,
             raw_signal=exec_result.raw_signal,
+            prompt_sent=exec_result.prompt_sent or operator.prompt,
             success=exec_result.overall_success,
         ))
         if finalize_on_success(result, operator, exec_result):
