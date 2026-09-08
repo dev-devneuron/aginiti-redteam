@@ -33,11 +33,23 @@ even though the operator was in scope at the exact line.
 `framing_discovery.py`'s own `FramingDiscoveryResult` is a sixth conformer,
 composed OVER `variant_discovery.py`'s and `refinement.py`'s result objects
 (`.discovery` / `.escalated_to`) rather than duplicating their fields — see
-that module's own docstring. Full field-level consolidation (one literal
-dataclass instead of six) and possibly rebuilding `refinement.py`/
-`crescendo.py`/`deceptive_delight.py` atop `variant_discovery.py`'s engine
-are explicitly out of scope here — see the open issue tracking that as a
-separate, deliberately deferred follow-up.
+that module's own docstring.
+
+**Full field-level consolidation (one literal dataclass instead of six) and
+rebuilding `refinement.py`/`crescendo.py`/`deceptive_delight.py` atop
+`variant_discovery.py`'s engine were evaluated and declined** (Issue #27,
+closed): the blast radius is real (five live experiment scripts read
+`.trials`/`.attempts`/`.turns` directly, not just tests and
+`assessment.py`), the remaining per-engine field names are meaningful
+domain vocabulary (a trial, an attempt, a turn are genuinely different
+things) rather than accidental duplication, and `refinement.py`'s
+"one claim key, retried with different wording" model is a real
+architectural mismatch with `variant_discovery.py`'s "one claim key per
+candidate" model, not just similarly-shaped loops — forcing them through
+one engine would change what claims land in the SSG for three live-tested,
+paper-grounded mechanisms. The one genuinely missing piece,
+`VariantTrial.prompt_sent` (the other three trial-record types already had
+it), was added on its own.
 
 | Module | What it searches |
 |---|---|
