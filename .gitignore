@@ -160,9 +160,16 @@ experiments/*
 !experiments/graduated_difficulty_dry_run.py
 !experiments/info_gain_normalization_dry_run.py
 
-# The 2 tests that only ever tested experiments/ modules removed above
-# (groq_quota.py, _target_lifecycle.py) -- kept locally same as the rest,
-# guarded here so an unqualified `git add -A`/`git add .` doesn't silently
-# re-track a test file whose subject no longer exists in this repo.
+# The 4 tests that only ever tested experiments/ scripts removed above
+# (groq_quota.py, _target_lifecycle.py, exp11_live_anythingllm_planner_
+# benchmark.py, exp12_branching_benchmark.py -- the latter two import their
+# subject via a bare `from expNN_... import ...` + sys.path.insert(...,
+# "experiments") rather than `from experiments.expNN_... import ...`, which
+# is why a plain `grep -rl "from experiments"` missed them the first time
+# this section was written and CI caught it) -- kept locally same as the
+# rest, guarded here so an unqualified `git add -A`/`git add .` doesn't
+# silently re-track a test file whose subject no longer exists in this repo.
 tests/unit/test_groq_quota.py
 tests/unit/test_target_lifecycle.py
+tests/unit/test_exp11_benchmark_resume.py
+tests/unit/test_exp12_branching_benchmark.py

@@ -10,7 +10,7 @@ against an independent, non-LLM oracle before it counts.
 | **98%** | reduction in requests blocked by the target's own input filter |
 | **4/5** | attack categories where Aginiti and NVIDIA's garak agreed exactly |
 | **10+** | published, cited research papers implemented as real, working operators |
-| **1,854** | tests, fully offline, zero API cost |
+| **1,842** | tests, fully offline, zero API cost |
 
 ---
 
