@@ -2,7 +2,7 @@
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)]()
-[![Tests](https://img.shields.io/badge/tests-1842%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-1845%20passing-brightgreen.svg)]()
 [![Attack Categories](https://img.shields.io/badge/attack%20categories-11-blueviolet.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)]()
 
@@ -50,7 +50,7 @@ baselines and an industry-standard scanner, on real, independently-built targets
   multi-step MCP tool-chain composition, grounded in **10+ published, cited research
   papers** — ArtPrompt, Crescendo, PAIR, CipherChat/MetaCipher, the Interrogation Attack,
   IKEA, SECRET, SPE-LLM, InjecAgent, and STAC among them.
-- **1,842 tests, fully offline** — every LLM and network call mocked, full suite in
+- **1,845 tests, fully offline** — every LLM and network call mocked, full suite in
   under 30 seconds, zero API cost.
 
 Full methodology, numbers, and citations: [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md).
@@ -147,9 +147,8 @@ aginiti-redteam/
 │   │   ├── policies/                 # Policy interface + Static/Random baselines for A/B comparison
 │   │   ├── mission.py                 # Success criteria, budget, risk threshold
 │   │   ├── campaign.py                 # run_campaign() — the plan→act→observe→repeat loop
-│   │   ├── observation_adapter.py     # Every response's single interpretation point
-│   │   │                             #   (deterministic extractor -> LLM judge -> independent oracle)
-│   │   └── llm.py                     # Provider-agnostic LLM client (Groq/Gemini, auto-fallback)
+│   │   └── observation_adapter.py     # Every response's single interpretation point
+│   │                                 #   (deterministic extractor -> LLM judge -> independent oracle)
 │   ├── operators/                # Operator libraries — one module per target/technique family;
 │   │                             #   see docs/ARCHITECTURE.md for the full catalog
 │   ├── adapters/                 # One BaseAdapter subclass per real/mock target — the only
@@ -177,7 +176,7 @@ aginiti-redteam/
 │   ├── run_ikea.py / run_secret.py / run_interrogation.py   # Standalone single-attack runners
 │   └── run_healthcare_benchmark.py  # Preset benchmark against the HealthCareMagic-1k corpus
 ├── docs/                         # ARCHITECTURE.md, BENCHMARKS.md, ROADMAP.md
-└── tests/                        # 1,842 tests, fully offline (every LLM/HTTP call mocked)
+└── tests/                        # 1,845 tests, fully offline (every LLM/HTTP call mocked)
 ```
 
 ---
@@ -316,7 +315,7 @@ offline, in seconds, at zero API cost:
 pytest tests/ -v
 ```
 
-1,842 tests currently pass on a clean checkout.
+1,845 tests currently pass on a clean checkout.
 
 ---
 
