@@ -32,9 +32,11 @@ from typing import Optional
 
 # OWASP LLM Top 10 (2025) mapping, keyed by LeakFinding.attack_type. DRA
 # (Data Reconstruction Attack) extracts sensitive content from a RAG store,
-# which is squarely LLM06:2025. MIA/FIA are not yet implemented in this
-# library (see CLAUDE.md build-status table) — no mapping guessed for them
-# ahead of time; _OWASP_DEFAULT covers any attack_type not in this dict.
+# which is squarely LLM06:2025. SECRET (a second DRA technique) shares the
+# "DRA" attack_type with IKEA, so it's already covered by that entry, not a
+# separate one. FIA is the only one of the four core attacks not yet
+# implemented (see CLAUDE.md build-status table) — no mapping guessed for
+# it ahead of time; _OWASP_DEFAULT covers any attack_type not in this dict.
 _OWASP_MAPPING = {
     "DRA": "LLM06:2025 - Sensitive Information Disclosure",
     # MIA (InterrogationAttack): a confirmed membership verdict is itself a
@@ -43,6 +45,10 @@ _OWASP_MAPPING = {
     # patient/whistleblower/customer record's presence) — same OWASP
     # category as DRA, distinct attack mechanism.
     "MIA": "LLM06:2025 - Sensitive Information Disclosure",
+    # SPE (SPEAttack, System Prompt Extraction): the target's own system
+    # instructions leaking is exactly OWASP's dedicated category for this,
+    # distinct from MIA/DRA's sensitive-information-disclosure framing.
+    "SPE": "LLM07:2025 - System Prompt Leakage",
 }
 _OWASP_DEFAULT = "OWASP LLM Top 10 mapping not yet defined for this attack type"
 
@@ -51,9 +57,21 @@ _OWASP_DEFAULT = "OWASP LLM Top 10 mapping not yet defined for this attack type"
 # uses. Hardcoded, not measured; shown for context only.
 _PAPER_BASELINE = {"asr": 0.92, "ee": 0.87, "crr": 0.28, "ss": 0.71}
 
-# Attack registry key -> display name. Only "ikea" exists today.
+# Attack registry key ("run_metadata"/report-level "attack" field, e.g.
+# scripts/run_benchmark.py's --attack choice or a standalone script's own
+# hardcoded value) -> display name. "ikea" and "spe" are the two values
+# that actually reach generate_markdown_report() today (run_benchmark.py's
+# own ATTACK_REGISTRY only has "ikea" wired in so far; run_spe_benchmark.py
+# hardcodes "spe"). SECRET/MIA aren't routed through this function by any
+# current script, but are included so their reports render correctly the
+# moment they are, rather than needing a follow-up fix then. Falls back to
+# the raw key itself (never raises) for anything not listed here.
 _ATTACK_DISPLAY_NAMES = {
     "ikea": "IKEA (Silent Leaks, ICLR 2026, arXiv:2505.15420)",
+    "secret": "SECRET (External Data Extraction Attacks, IEEE TIFS 2026, arXiv:2510.02964)",
+    "mia_interrogation": "Interrogation Attack (Riddle Me This!, ACM CCS 2025, arXiv:2502.00306)",
+    "mia_interrogation_benchmark": "Interrogation Attack (Riddle Me This!, ACM CCS 2025, arXiv:2502.00306)",
+    "spe": "SPE-LLM (System Prompt Extraction, ICLR 2026, arXiv:2505.23817)",
 }
 
 _FULL_RESPONSE_TRUNCATE_CHARS = 200

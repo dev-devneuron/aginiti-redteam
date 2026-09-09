@@ -196,7 +196,7 @@ _UNK_RE = re.compile(r"i\s+don'?t\s+know|i\s+do\s+not\s+know", re.IGNORECASE)
 # Reported-speech fallback, live-verified against a real
 # 100-document hardened_agent benchmark — see
 # aginiti/attacks/mia/README.md's "Verification status" section and
-# aginiti/reporting/interrogation_reparse.py, which recovers pre-fix
+# scripts/interrogation_reparse.py, which recovers pre-fix
 # results offline).
 # hardened_agent frequently answers in indirect reported-speech style ("the
 # consumer asserts that X") without ever using the literal word "yes"/"no" —
