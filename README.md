@@ -2,7 +2,7 @@
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)]()
-[![Tests](https://img.shields.io/badge/tests-1842%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-1845%20passing-brightgreen.svg)]()
 [![Attack Categories](https://img.shields.io/badge/attack%20categories-11-blueviolet.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)]()
 
@@ -147,9 +147,8 @@ aginiti-redteam/
 │   │   ├── policies/                 # Policy interface + Static/Random baselines for A/B comparison
 │   │   ├── mission.py                 # Success criteria, budget, risk threshold
 │   │   ├── campaign.py                 # run_campaign() — the plan→act→observe→repeat loop
-│   │   ├── observation_adapter.py     # Every response's single interpretation point
-│   │   │                             #   (deterministic extractor -> LLM judge -> independent oracle)
-│   │   └── llm.py                     # Provider-agnostic LLM client (Groq/Gemini, auto-fallback)
+│   │   └── observation_adapter.py     # Every response's single interpretation point
+│   │                                 #   (deterministic extractor -> LLM judge -> independent oracle)
 │   ├── operators/                # Operator libraries — one module per target/technique family;
 │   │                             #   see docs/ARCHITECTURE.md for the full catalog
 │   ├── adapters/                 # One BaseAdapter subclass per real/mock target — the only
