@@ -141,3 +141,28 @@ runs/
 targets/       # vendored third-party target apps (AnythingLLM, DVAA, DVLA, MCP fs server) -- test AGAINST, not part of this repo's own source
 infra/         # operational scripts/logs/scratch, not version-controlled
 archive/
+
+# experiments/ -- pruned to just the offline, deterministic dry-run
+# validation scripts (see experiments/README.md); everything else here is
+# this project's own internal research archive: live, target-dependent,
+# dated one-off scripts (several needing a local-only gateway/config this
+# repo doesn't ship) plus ~1,200 raw per-run result files. None of it is
+# documented or reproducible for an outside contributor, and the actual
+# conclusions it produced already live in docs/BENCHMARKS.md in cited,
+# public form -- same "don't ship the lab notebook, ship the paper"
+# treatment benchmarks/scaled_evals/results/ already gets above. Kept
+# locally (this only removes it from the shared repo, not from disk).
+experiments/*
+!experiments/__init__.py
+!experiments/README.md
+!experiments/agentic_primitives_dry_run.py
+!experiments/discovery_chain_dry_run.py
+!experiments/graduated_difficulty_dry_run.py
+!experiments/info_gain_normalization_dry_run.py
+
+# The 2 tests that only ever tested experiments/ modules removed above
+# (groq_quota.py, _target_lifecycle.py) -- kept locally same as the rest,
+# guarded here so an unqualified `git add -A`/`git add .` doesn't silently
+# re-track a test file whose subject no longer exists in this repo.
+tests/unit/test_groq_quota.py
+tests/unit/test_target_lifecycle.py

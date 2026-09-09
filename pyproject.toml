@@ -122,11 +122,6 @@ cloud-embeddings = []
 # the open-source-readiness directory reorg. Anyone running that fixture
 # locally installs flask via requirements.txt (the full dev environment
 # file), same as every other benchmarks/ fixture's runtime deps.
-# psutil is used by experiments/_target_lifecycle.py (not shipped in the
-# wheel — experiments/ is excluded by packages.find — but grouped here
-# per the plan doc since it's part of the same adaptive-orchestrator dev
-# workflow, not core-library usage).
-#
 # Deliberately does NOT include google-genai: the plan doc's original
 # item 7 listed it, but it was only ever pulled in by the hand-rolled
 # Gemini translation shim (aginiti/gemini_client.py) that Slice B's
@@ -142,7 +137,6 @@ adaptive = [
     "langchain-groq>=1.1.3",
     "langchain-community>=0.4",
     "mcp>=2.0.0",
-    "psutil>=7.2.2",
 ]
 
 [tool.setuptools.packages.find]

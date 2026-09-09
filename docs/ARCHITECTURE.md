@@ -175,7 +175,7 @@ aginiti/
 benchmarks/
 ├── dev_fixtures/    # Lightweight mock targets for unit tests & local dev
 └── scaled_evals/    # Production-scale targets over real document corpora
-experiments/         # Live A/B experiment scripts + their results
+experiments/         # Offline, deterministic dry-run scripts validating specific planner claims
 scripts/             # Entry points — see the README Quickstart
 ```
 

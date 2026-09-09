@@ -1,10 +1,9 @@
-"""Offline, deterministic dry run of the two new agentic primitive types
-(aginiti/operators/agentic_primitives_definitions.py) -- validates Issue 3
-of the 2026-08-12 architectural directive: approval gates and untrusted
-tool-output content, composed via Issue 1's ClassPrecondition discovery
+"""Offline, deterministic dry run of the two agentic primitive types
+(aginiti/operators/agentic_primitives_definitions.py) -- approval gates and
+untrusted tool-output content, composed via ClassPrecondition's discovery
 mechanism (proving that mechanism generalizes to a SECOND, independently-
-authored operator pack, not just the original discovery_chain_
-definitions.py demo).
+authored operator pack, not just discovery_chain_dry_run.py's original
+discovery_chain_definitions.py demo -- see that script for the base case).
 
 NOT a live experiment -- no target, no LLM judge, no network call. Also
 NOT a claim about any real target's actual behavior (DVAA or otherwise) --
@@ -75,8 +74,8 @@ def _run(label: str, suppress_key: str | None) -> None:
 
 def main() -> None:
     print("Agentic-primitives dry run -- offline, deterministic, no live target, no LLM call.")
-    print("Validates: approval-gate + untrusted-tool-output primitives compose via Issue 1's")
-    print("ClassPrecondition mechanism in a SECOND, independently-authored operator pack.")
+    print("Validates: approval-gate + untrusted-tool-output primitives compose via")
+    print("ClassPrecondition's discovery mechanism in a SECOND, independently-authored operator pack.")
 
     _run("RUN A: full chain available (bypass SUCCEEDS)", suppress_key=None)
     _run("RUN B: approval-gate bypass attempt is BLOCKED (BLOCKED_BY_APPROVAL_GATE)",
@@ -95,7 +94,7 @@ def main() -> None:
     assert diagnoses.get("agentic_approval_gate_enforced") == BLOCKED_BY_APPROVAL_GATE
     print("Confirmed: the blocked bypass attempt is recorded with a structured, generalizable")
     print("diagnosis (BLOCKED_BY_APPROVAL_GATE) -- not just a generic '*_blocked' fact -- and")
-    print("AginitiPlanner.failure_evidence_penalty() (Issue 4) would demote ANY other candidate")
+    print("AginitiPlanner.failure_evidence_penalty() would demote ANY other candidate")
     print("in the library that shares this same prospective failure_diagnosis tag.")
 
 
