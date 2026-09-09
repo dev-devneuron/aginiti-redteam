@@ -1,9 +1,9 @@
 """Backward-compatible re-export shim.
 
 This module moved to ``aginiti.reporting.report`` -- report-generation
-code belongs in ``aginiti/reporting/`` alongside ``markdown_report.py``,
-``mia_metrics.py``, and ``interrogation_reparse.py``, not scattered into
-``core/``. Every internal call site imports from
+code belongs in ``aginiti/reporting/`` alongside ``markdown_report.py``
+and ``mia_metrics.py``, not scattered into ``core/``. Every internal
+call site imports from
 ``aginiti.reporting.report`` directly; this shim exists only so external
 code importing the old ``aginiti.core.report`` path keeps working. New
 code should import from ``aginiti.reporting.report`` instead.

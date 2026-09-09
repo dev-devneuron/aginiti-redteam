@@ -343,6 +343,31 @@ class TestGenerateMarkdownReport:
         )
         assert "OWASP LLM Top 10 mapping not yet defined" in markdown
 
+    def test_owasp_mapping_for_spe(self, tmp_path):
+        # A real report.run_spe_benchmark.py already produces via SPEAttack's
+        # own attack_type="SPE" -- was falling through to _OWASP_DEFAULT
+        # before this mapping existed.
+        markdown = generate_markdown_report(
+            _run_ikea_schema([_finding(severity="high", leak_type="verbatim", attack_type="SPE")]),
+            tmp_path / "r.md",
+        )
+        assert "LLM07:2025 - System Prompt Leakage" in markdown
+
+    def test_attack_display_name_for_spe(self, tmp_path):
+        # A real report.run_spe_benchmark.py already produces via
+        # run_metadata["attack"]="spe" -- was rendering as the bare "spe"
+        # string before this display-name entry existed.
+        report = _run_benchmark_schema([_finding()])
+        report["run_metadata"]["attack"] = "spe"
+        markdown = generate_markdown_report(report, tmp_path / "r.md")
+        assert "**Attack:** SPE-LLM (System Prompt Extraction, ICLR 2026, arXiv:2505.23817)" in markdown
+
+    def test_attack_display_name_falls_back_to_raw_key_for_unknown_attack(self, tmp_path):
+        report = _run_benchmark_schema([_finding()])
+        report["run_metadata"]["attack"] = "some_future_attack"
+        markdown = generate_markdown_report(report, tmp_path / "r.md")
+        assert "**Attack:** some_future_attack" in markdown
+
     def test_finding_includes_all_labeled_fields(self, tmp_path):
         findings = [_finding(
             severity="critical",

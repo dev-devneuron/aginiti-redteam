@@ -6,9 +6,9 @@ from a run that's still in progress or was interrupted partway through
 the full run would have looked a certain way.
 
 Moved here from aginiti/core/report.py -- report-generation code belongs
-in aginiti/reporting/ alongside markdown_report.py, mia_metrics.py, and
-interrogation_reparse.py, not scattered into core/. aginiti/core/report.py
-remains a backward-compatible re-export shim.
+in aginiti/reporting/ alongside markdown_report.py and mia_metrics.py,
+not scattered into core/. aginiti/core/report.py remains a
+backward-compatible re-export shim.
 """
 from __future__ import annotations
 

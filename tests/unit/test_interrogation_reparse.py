@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from aginiti.reporting.interrogation_reparse import (
+from scripts.interrogation_reparse import (
     _score_paper_official,
     parse_yes_no_unk_reparsed,
     reparse_results,

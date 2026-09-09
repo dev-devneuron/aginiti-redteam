@@ -148,7 +148,7 @@ run this yourself:
   requires a direct "yes"/"no"/"I don't know" first, falling back to a
   reported-speech heuristic ("the consumer asserts that X") only when that
   fails — see its own docstring for the exact pattern and limitations.
-  `aginiti/reporting/interrogation_reparse.py` exists to re-score results
+  `scripts/interrogation_reparse.py` exists to re-score results
   captured before this fallback existed, from already-stored response
   text, at zero new API cost.
 - **AUC is corpus-dependent, not just parser-dependent.** A 50-member +

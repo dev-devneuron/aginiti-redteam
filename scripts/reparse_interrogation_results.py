@@ -3,7 +3,7 @@ Offline re-parser for an existing ``scripts/run_interrogation_benchmark.py``
 results JSON — recovers responses misclassified as "unk" by the shipped
 yes/no/unk parser (``aginiti.attacks.mia.interrogation._parse_yes_no_unk``,
 which requires the literal word "yes"/"no") using
-``aginiti.reporting.interrogation_reparse``'s reported-speech regex fallback.
+``scripts/interrogation_reparse.py``'s reported-speech regex fallback.
 
 **Zero new API calls** — re-parses the ALREADY-CAPTURED ``target_response``
 text stored in the input file, recomputes each document's score and the
@@ -19,7 +19,7 @@ import argparse
 import json
 from pathlib import Path
 
-from aginiti.reporting.interrogation_reparse import reparse_results
+from interrogation_reparse import reparse_results
 
 
 def main() -> None:
