@@ -12,7 +12,7 @@ speed.
 **Proven, not just architected:** benchmarked head-to-head against fixed-order
 enumeration (~5x fewer requests to the same outcomes) and validated against NVIDIA's
 garak (findings agreed exactly on every comparable category) on real, production-realistic
-targets. 11 attack methodologies, grounded in 10+ published research papers, 1,857 tests.
+targets. 11 attack methodologies, grounded in 10+ published research papers, 1,842 tests.
 Full numbers: [`docs/BENCHMARKS.md`](https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/BENCHMARKS.md).
 
 ---

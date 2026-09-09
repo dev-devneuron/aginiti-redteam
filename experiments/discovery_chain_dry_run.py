@@ -1,11 +1,9 @@
 """Offline, deterministic dry run of the discovery-chain operator pack
-(aginiti/operators/discovery_chain_definitions.py) -- validates Issue 1
-of the 2026-08-12 architectural directive: "Make Aginiti capable of
-discovering multi-step attack paths... don't tell Aginiti the chain. It
-should discover it from observations."
+(aginiti/operators/discovery_chain_definitions.py) -- validates that
+Aginiti discovers a multi-step attack path from observations alone,
+never told the chain in advance.
 
-NOT a live experiment (per the standing "don't run any experiment now"
-instruction this session is under) -- no target, no LLM judge, no
+NOT a live experiment -- no target, no LLM judge, no
 network call anywhere in this script. Every operator in the pack carries
 a deterministic extractor keyed off its own rendered prompt text, and the
 mock adapter below just echoes the prompt straight back as the "response"

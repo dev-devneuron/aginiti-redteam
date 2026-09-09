@@ -5,15 +5,14 @@ execution -- fast, and exactly what's needed to check generalization
 across targets BEFORE deciding whether "mean" should ever become the
 default. Run: `python experiments/info_gain_normalization_dry_run.py`
 
-For each target library, builds a representative mission the same way
-exp16/exp17 already do (success_criteria = every library-declared
-mission_outcome-category claim key), then computes rank() at move 1
-(fresh SSG, no confirmed evidence yet) under BOTH normalization modes and
-reports: does the ranking order change, and specifically, does the
-1-effect "plant/prerequisite"-shaped operator's relative standing improve
-under "mean" without breaking any already-validated calibration (the
-well-evidenced-operator-wins shape from exp16, IMPORTANCE_WEIGHT's own
-scale)."""
+For each target library, builds a representative mission (success_criteria
+= every library-declared mission_outcome-category claim key), then
+computes rank() at move 1 (fresh SSG, no confirmed evidence yet) under
+BOTH normalization modes and reports: does the ranking order change, and
+specifically, does the 1-effect "plant/prerequisite"-shaped operator's
+relative standing improve under "mean" without breaking the already-
+validated calibration that a well-evidenced operator should still win
+(IMPORTANCE_WEIGHT's own scale)."""
 from __future__ import annotations
 
 import os

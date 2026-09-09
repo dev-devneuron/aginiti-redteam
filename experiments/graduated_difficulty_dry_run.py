@@ -1,8 +1,8 @@
 """Offline, deterministic (seeded) Monte Carlo dry run of the graduated-
 difficulty candidate pack (aginiti/operators/graduated_difficulty_
-definitions.py) -- validates Issue 2 of the 2026-08-12 architectural
-directive: "we need harder candidates... now Aginiti has to actually
-reason. That is much closer to real red teaming."
+definitions.py) -- validates that Aginiti has to genuinely reason about
+which candidate to try first among several plausible ones, rather than
+picking from an easy, structurally-obvious set.
 
 NOT a live experiment -- no target, no LLM judge, no network call. Each
 candidate's TRUE success probability lives only in GraduatedAttackAdapter's
@@ -173,7 +173,7 @@ def main() -> None:
           f"{results[1]['first_pick_distribution']}")
     print("BayesianBanditPlanner's prior pseudo-counts (gap_priority, hypothesis_priority, "
           "path_progress, emergent_impact, potential_progress, branch_interest) do NOT include "
-          "severity_priority at all -- confirmed by reading aginiti/planner/bayesian_planner.py "
+          "severity_priority at all -- confirmed by reading aginiti/core/planner/bayesian_planner.py "
           "directly. With every other prior term tied across these 5 candidates, its first pick "
           "is effectively a UNIFORM RANDOM Thompson draw. That is a genuine, previously-unknown "
           "gap: neither planner currently has any REAL mechanism trading off cost against "
