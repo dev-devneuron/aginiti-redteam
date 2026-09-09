@@ -9,6 +9,76 @@ changes.
 
 ## [Unreleased]
 
+## [0.2.0]
+
+### Added — `aginiti/adaptive/` result-shape consistency (issues #8, #26, #27)
+
+- New `aginiti/adaptive/base.py`: `AdaptiveEngineResult`, a `typing.Protocol`
+  (modeled on `Policy(Protocol)` in `aginiti/core/policies/base.py`) that
+  every result class in `aginiti/adaptive/` now conforms to structurally —
+  `succeeded`, `score`, `winning_operator`, `final_result`, and a
+  `steps_used` property — plus `finalize_on_success()`, the shared
+  trial-recording helper every stop-on-success loop now routes through.
+  Closes a real bug found along the way: 3 of the 4 stop-on-success engines
+  (`refinement.py`, `crescendo.py`, `deceptive_delight.py`) hand-rolled the
+  same success block and silently never recorded `winning_operator`, even
+  though the operator was in scope at that exact line.
+- `aginiti/adaptive/framing_discovery.py`: `run_framing_discovery()`'s ad
+  hoc tuple return replaced with `FramingDiscoveryResult`, a dataclass
+  composed *over* its underlying `VariantDiscoveryResult`/
+  `AdaptiveRefinementResult` (not duplicating their fields) that also
+  conforms to `AdaptiveEngineResult`. **Breaking:** `FullAssessmentResult
+  .framing_discovery` (`aginiti/core/assessment.py`) changed type from
+  `list[tuple[...]]` to `list[FramingDiscoveryResult]` — any external code
+  unpacking that field as a tuple needs updating to attribute access.
+- `aginiti/adaptive/variant_discovery.py`: added `VariantTrial.prompt_sent`
+  — the one genuinely missing field found when evaluating full field-level
+  consolidation of all six `aginiti/adaptive/` result classes into one
+  dataclass. The rest of that consolidation, and rebuilding
+  `refinement.py`/`crescendo.py`/`deceptive_delight.py` atop
+  `variant_discovery.py`'s own engine, were evaluated and declined — see
+  `aginiti/adaptive/README.md` for the full reasoning (in short:
+  `refinement.py`'s "one claim key, retried with different wording" model
+  is a real architectural mismatch with `variant_discovery.py`'s "one claim
+  key per candidate" model, not just similarly-shaped loops).
+
+### Changed — `experiments/` pruned to the reproducible core
+
+- Removed roughly 1,275 files from `experiments/` — an undocumented
+  internal research archive of dated, session-specific scripts never meant
+  for public consumption — keeping only the 4 scripts that are offline,
+  deterministic, reproducible with no target/API key required, and still
+  exercised by the test suite: `agentic_primitives_dry_run.py`,
+  `discovery_chain_dry_run.py`, `graduated_difficulty_dry_run.py`,
+  `info_gain_normalization_dry_run.py`. Added `experiments/README.md`
+  explaining the split. `experiments/` was never part of the published
+  wheel (`pyproject.toml`'s `[tool.setuptools.packages.find]` only
+  includes `aginiti*`), so this has no effect on `pip install
+  aginiti-redteam`.
+
+### Fixed — `aginiti/reporting/` cleanup
+
+- `_OWASP_MAPPING`'s header comment claimed MIA/FIA were unimplemented;
+  SECRET actually shares DRA's `attack_type` and is implemented — only FIA
+  remains genuinely unmapped. Corrected, and while verifying it, found a
+  real *live* gap: SPE findings (`attack_type="SPE"`, produced today by
+  `run_spe_benchmark.py`) had no OWASP mapping at all — added
+  `"SPE": "LLM07:2025 - System Prompt Leakage"`.
+- Added missing `_ATTACK_DISPLAY_NAMES` entries for `secret`,
+  `mia_interrogation`, `mia_interrogation_benchmark`, and `spe`.
+- `aginiti/reporting/__init__.py` now exports the package's full public
+  surface (`generate_markdown_report`, `generate_markdown_report_from_file`,
+  `compute_mia_benchmark_metrics`, `html_to_pdf`, `load_run`,
+  `CONDITION_LABELS`, `CONDITION_ORDER`) instead of just the two
+  markdown-report functions.
+- Moved `aginiti/reporting/interrogation_reparse.py` to
+  `scripts/interrogation_reparse.py` — a narrow offline migration tool
+  (re-scores an old results JSON with the current parser), not part of the
+  library's runtime public API, so it has no business shipping inside the
+  installable `aginiti*` wheel. Never documented as public API, but
+  flagged here in case anyone imported it directly: use
+  `scripts/interrogation_reparse.py` from a git checkout instead.
+
 ### Added — GitHub Pages documentation site
 
 - Published a single-page framework documentation site (`docs/index.html`,

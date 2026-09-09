@@ -50,7 +50,7 @@ baselines and an industry-standard scanner, on real, independently-built targets
   multi-step MCP tool-chain composition, grounded in **10+ published, cited research
   papers** — ArtPrompt, Crescendo, PAIR, CipherChat/MetaCipher, the Interrogation Attack,
   IKEA, SECRET, SPE-LLM, InjecAgent, and STAC among them.
-- **1,842 tests, fully offline** — every LLM and network call mocked, full suite in
+- **1,845 tests, fully offline** — every LLM and network call mocked, full suite in
   under 30 seconds, zero API cost.
 
 Full methodology, numbers, and citations: [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md).
@@ -177,7 +177,7 @@ aginiti-redteam/
 │   ├── run_ikea.py / run_secret.py / run_interrogation.py   # Standalone single-attack runners
 │   └── run_healthcare_benchmark.py  # Preset benchmark against the HealthCareMagic-1k corpus
 ├── docs/                         # ARCHITECTURE.md, BENCHMARKS.md, ROADMAP.md
-└── tests/                        # 1,842 tests, fully offline (every LLM/HTTP call mocked)
+└── tests/                        # 1,845 tests, fully offline (every LLM/HTTP call mocked)
 ```
 
 ---
@@ -316,7 +316,7 @@ offline, in seconds, at zero API cost:
 pytest tests/ -v
 ```
 
-1,842 tests currently pass on a clean checkout.
+1,845 tests currently pass on a clean checkout.
 
 ---
 
