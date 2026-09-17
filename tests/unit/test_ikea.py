@@ -1385,6 +1385,48 @@ class TestExecuteBlackBox:
 
         assert len(call_log) <= max_q
 
+    def test_max_queries_zero_is_a_clean_noop(self):
+        # Regression test for a real bug found during the v0.2.0 pip-install
+        # verification pass: `kwargs.get("max_queries") or self.max_queries`
+        # treated an explicit max_queries=0 as falsy and silently fell back
+        # to the constructor default (256) -- confirmed live, the attack ran
+        # a full-budget campaign instead of a no-op. Confirmed via
+        # `docs/USAGE.md`'s own claim this should be a clean, zero-query
+        # no-op, not a crash and not a full default-budget run.
+        self._stub_attack()
+        with patch.object(AgentEndpoint, "check_reachable", return_value=True), \
+             patch.object(AgentEndpoint, "chat") as mock_chat:
+            findings = self.attack.execute_black_box(topic="HR records", max_queries=0)
+        assert findings == []
+        mock_chat.assert_not_called()
+
+    def test_max_queries_omitted_still_uses_constructor_default(self):
+        # The fix above must not break the *other* falsy-adjacent case:
+        # max_queries genuinely omitted (not explicitly 0) should still use
+        # self.max_queries, exactly as before.
+        self._stub_attack()
+        self.attack.max_queries = 1
+        with patch.object(AgentEndpoint, "check_reachable", return_value=True), \
+             patch.object(AgentEndpoint, "chat", return_value="Employee record: Name: John Doe.") as mock_chat:
+            self.attack.execute_black_box(topic="HR records")
+        assert mock_chat.call_count <= 1
+
+    def test_unreachable_target_error_points_to_the_real_module_path(self):
+        # Regression test for a real bug found during the v0.2.0 pip-install
+        # verification pass: this message used to suggest
+        # `benchmarks.agents.reference_agent_blackbox.main`, which never
+        # existed under that combination -- the reference agent lives under
+        # `benchmarks.dev_fixtures.agents...` since the open-source-readiness
+        # reorg, and this one string was missed. Confirmed live: copy-pasting
+        # the old suggested command raised a confusing, unrelated
+        # ModuleNotFoundError.
+        with patch.object(AgentEndpoint, "check_reachable", return_value=False):
+            with pytest.raises(RuntimeError, match="NOT reachable") as exc_info:
+                self.attack.execute_black_box(topic="HR records", max_queries=1)
+        message = str(exc_info.value)
+        assert "benchmarks.dev_fixtures.agents.reference_agent_blackbox.main" in message
+        assert "benchmarks.agents.reference_agent_blackbox" not in message
+
     def test_raises_on_empty_topic(self):
         attack = _make_attack(topic="")
         with pytest.raises(ValueError, match="topic must be provided"):

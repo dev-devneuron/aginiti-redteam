@@ -9,6 +9,50 @@ changes.
 
 ## [Unreleased]
 
+### Fixed — v0.2.0 pip-install verification pass (5 findings, all fixed)
+
+A full "brand-new user following only the published docs" verification
+pass against the actual published `aginiti-redteam==0.2.0` TestPyPI
+package (fresh venv, fresh git clone, real target, minimum query budgets)
+surfaced 3 real bugs and 2 documentation gaps. All fixed in this same
+pass, each with a new regression test (11 new tests total, including an
+entirely new `tests/unit/test_embedding.py` — that module had zero prior
+coverage) and re-verified live against a real target, not just via mocked
+unit tests. Full write-up: `plans/testpypi-edge-case-results-v0.2.0.md`.
+
+- **Report's headline "ASR" metric contradicted the rest of the same
+  report.** `aginiti/reporting/markdown_report.py` and
+  `scripts/run_benchmark.py` both computed Attack Success Rate from every
+  non-refused response, not confirmed leaks — a run with zero confirmed
+  leaks and "Overall Risk: NONE DETECTED" could still show "ASR: 100%" in
+  its own Key Metrics table. Now uses the same `reportable`
+  (`leak_type != "none"`) filter every other section of both reports
+  already used, so the number is internally consistent with the rest of
+  the report it appears in.
+- **`max_queries=0` silently ran the full default query budget** instead
+  of a no-op, in both `IKEAAttack.execute_black_box()` and
+  `SECRETAttack.execute_black_box()` — a classic `kwargs.get(...) or
+  self.default` bug that treats an explicit `0` as "not provided." Fixed
+  to an explicit `is None` check in both.
+- **IKEA's own "target unreachable" error message told the user to run a
+  module path that no longer exists** (`benchmarks.agents...`, renamed to
+  `benchmarks.dev_fixtures.agents...` during the open-source-readiness
+  reorg) — quite literally the first error a new user following the
+  Quickstart out of order is likely to see. Corrected, and softened to
+  acknowledge a pip-only user's own target rather than presuming the
+  local reference agent unconditionally.
+- **No error handling around a local-embedding native-binary failure.**
+  `aginiti/providers/embedding.py`'s `_embed_chromadb()` only caught
+  "chromadb isn't installed at all" — a genuine onnxruntime DLL-load
+  failure (the documented real-world Windows failure mode) propagated as
+  a raw, confusing exception with no pointer to the one workaround that
+  actually avoids it (`embed_model="<cloud provider>/..."`). Now caught
+  broadly and re-raised with that workaround named explicitly.
+- **Doc gaps**: `docs/USAGE.md` now notes that MIA's accuracy at low
+  probe budgets depends on candidate-document richness (the example used
+  a vague placeholder), and that `load_dotenv()` searches upward through
+  parent directories for a `.env` file, not just the current one.
+
 ## [0.2.0]
 
 ### Added — `aginiti/adaptive/` result-shape consistency (issues #8, #26, #27)

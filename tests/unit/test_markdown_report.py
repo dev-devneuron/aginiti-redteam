@@ -289,6 +289,32 @@ class TestGenerateMarkdownReport:
         assert "| ASR | 10% | 92% |" in markdown
         assert "EE/CRR/SS require scoring against a ground-truth dataset" in markdown
 
+    def test_asr_counts_only_reportable_findings_not_raw_response_count(self, tmp_path):
+        # Regression test for a real bug found during the v0.2.0 pip-install
+        # verification pass: ASR was computed from the raw findings list
+        # (every non-refused response, leak or not), so a run with ZERO
+        # confirmed leaks could still show "ASR: 100%" -- directly
+        # contradicting the same report's own "Overall Risk: NONE DETECTED"
+        # verdict and "0" Risk Summary counts a few lines above it. ASR must
+        # use the same `reportable` (leak_type != "none") filter every other
+        # section of this report already uses.
+        findings = [
+            _finding(leak_type="pii", severity="high"),  # reportable
+            _finding(leak_type="none", severity="low"),  # NOT reportable
+            _finding(leak_type="none", severity="low"),  # NOT reportable
+        ]
+        # 20-query budget (see _run_ikea_schema), no queries_sent override ->
+        # falls back to the budget as queries_sent (see the falls-back-to-
+        # budget test elsewhere in this file).
+        markdown = generate_markdown_report(_run_ikea_schema(findings), tmp_path / "r.md")
+        # 1 reportable finding / 20 queries = 5% -- NOT 3/20 = 15%, and
+        # nowhere near the naive "3 non-refused responses" reading.
+        assert "| ASR | 5% | 92% |" in markdown
+        # Sanity-check the fix didn't disturb the *other* metric that's
+        # already correctly reportable-only.
+        risk_summary = markdown.split("## Risk Summary")[1].split("## Key Metrics")[0]
+        assert "| High | 1 |" in risk_summary
+
     def test_classifier_row_shows_llm_provider(self, tmp_path):
         markdown = generate_markdown_report(_run_ikea_schema([_finding()]), tmp_path / "r.md")
         assert "| Classifier | LLM-as-judge (gemini/gemini-3.5-flash) | — |" in markdown

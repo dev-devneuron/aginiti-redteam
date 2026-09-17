@@ -1564,7 +1564,14 @@ class IKEAAttack(BaseAttack):
             internally for ERS penalty weighting.
         """
         topic: str = kwargs.get("topic") or self.topic
-        max_q: int = kwargs.get("max_queries") or self.max_queries
+        # `is None`, not `or self.max_queries` -- an explicit max_queries=0
+        # must stay 0 (a real, intentional no-op budget), not silently fall
+        # back to the constructor default the way `0 or x` would evaluate.
+        # Confirmed live: this previously ran the full 256-query default
+        # instead of a no-op. Still falls back correctly on both "omitted"
+        # and an explicit max_queries=None.
+        _max_q_kwarg = kwargs.get("max_queries")
+        max_q: int = self.max_queries if _max_q_kwarg is None else _max_q_kwarg
         force_refresh: bool = bool(kwargs.get("force_refresh", False))
         checkpoint_file: Optional[str] = kwargs.get("checkpoint_file")
 
@@ -1650,8 +1657,10 @@ class IKEAAttack(BaseAttack):
                 f"\n\n"
                 f"  Target agent at {self.target_url} is NOT reachable.\n"
                 f"  Port is actively refused — the agent process is not running.\n\n"
-                f"  Start the agent in a SEPARATE terminal and keep it open:\n"
-                f"    python -m benchmarks.agents.reference_agent_blackbox.main\n\n"
+                f"  If you're pointing at your own target, confirm it's running and\n"
+                f"  reachable at that URL. If you're using this repo's local reference\n"
+                f"  agent, start it in a SEPARATE terminal and keep it open:\n"
+                f"    python -m benchmarks.dev_fixtures.agents.reference_agent_blackbox.main\n\n"
                 f"  Do NOT run the agent and the attack in the same terminal window.\n"
                 f"  The agent must stay running for the entire duration of the attack.\n"
             )
@@ -1756,8 +1765,9 @@ class IKEAAttack(BaseAttack):
                                 f"Target agent at {self.target_url} appears to be DOWN — "
                                 f"{_consecutive_http_failures} consecutive HTTP connection failures "
                                 f"with 0 queries recorded. "
-                                f"Start the agent before running the attack:\n"
-                                f"  python -m benchmarks.agents.reference_agent_blackbox.main"
+                                f"Confirm your target is still up, or if you're using this "
+                                f"repo's local reference agent, restart it:\n"
+                                f"  python -m benchmarks.dev_fixtures.agents.reference_agent_blackbox.main"
                             )
                         break  # network/server failure; skip probe, resample
 
