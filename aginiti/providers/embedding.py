@@ -95,6 +95,10 @@ def _embed_chromadb(texts: list[str], model_name: str) -> list[list[float]]:
 
     Raises:
         ImportError: If chromadb is not installed.
+        RuntimeError: If chromadb is installed but the local ONNX runtime
+            fails to load or run (e.g. a native-binary/DLL incompatibility
+            on some Windows/older-CPU machines) — see the message for the
+            cloud-embedding workaround.
     """
     try:
         import chromadb.utils.embedding_functions as ef
@@ -104,23 +108,52 @@ def _embed_chromadb(texts: list[str], model_name: str) -> list[list[float]]:
             "Install with: pip install chromadb"
         ) from exc
 
-    if model_name not in _CHROMA_EF_CACHE:
-        if model_name == "all-MiniLM-L6-v2":
-            # ONNX-backed built-in — the zero-PyTorch default path.
-            _CHROMA_EF_CACHE[model_name] = ef.ONNXMiniLM_L6_V2()
-        else:
-            # Any other model needs sentence-transformers (not bundled). This
-            # raises a clear ImportError from ChromaDB if it isn't installed.
-            _CHROMA_EF_CACHE[model_name] = ef.SentenceTransformerEmbeddingFunction(
-                model_name=model_name
-            )
-    embedding_fn = _CHROMA_EF_CACHE[model_name]
-    # float(x), not list(vec): ChromaDB's embedding function returns numpy
-    # arrays, and list(numpy_array) yields numpy.float32 scalars rather than
-    # native Python floats. That numpy.float32 silently propagates through
-    # every _cosine() computation downstream (LeakFinding.confidence included)
-    # and breaks json.dump with "Object of type float32 is not JSON serializable".
-    return [[float(x) for x in vec] for vec in embedding_fn(texts)]
+    # Constructing/running the ONNX embedding function is where a native-
+    # binary incompatibility actually surfaces (a DLL load failure, or --
+    # rarer, and not catchable at all -- a native segfault in chromadb's
+    # Rust core). `import chromadb` itself succeeding above says nothing
+    # about this; onnxruntime's native loader only runs lazily, here.
+    # Previously uncaught: this raised a raw, confusing OSError/native
+    # traceback straight out of execute_black_box() with no indication of
+    # the one workaround that actually avoids the whole path -- confirmed
+    # live during the v0.2.0 pip-install verification pass.
+    try:
+        if model_name not in _CHROMA_EF_CACHE:
+            if model_name == "all-MiniLM-L6-v2":
+                # ONNX-backed built-in — the zero-PyTorch default path.
+                _CHROMA_EF_CACHE[model_name] = ef.ONNXMiniLM_L6_V2()
+            else:
+                # Any other model needs sentence-transformers (not bundled).
+                # This raises a clear ImportError from ChromaDB if it isn't
+                # installed.
+                _CHROMA_EF_CACHE[model_name] = ef.SentenceTransformerEmbeddingFunction(
+                    model_name=model_name
+                )
+        embedding_fn = _CHROMA_EF_CACHE[model_name]
+        # float(x), not list(vec): ChromaDB's embedding function returns numpy
+        # arrays, and list(numpy_array) yields numpy.float32 scalars rather than
+        # native Python floats. That numpy.float32 silently propagates through
+        # every _cosine() computation downstream (LeakFinding.confidence included)
+        # and breaks json.dump with "Object of type float32 is not JSON serializable".
+        return [[float(x) for x in vec] for vec in embedding_fn(texts)]
+    except ImportError:
+        raise
+    except Exception as exc:
+        raise RuntimeError(
+            "Local ONNX embedding (chromadb/all-MiniLM-L6-v2, the default) "
+            f"failed to run: {type(exc).__name__}: {exc}\n\n"
+            "This is usually a native-binary compatibility issue with "
+            "onnxruntime on this machine (a DLL load failure on some "
+            "Windows setups, or an older-CPU incompatibility), not a bug "
+            "in your code.\n\n"
+            "Workaround that avoids this code path entirely -- pass a "
+            "cloud embedding model instead of the default local one, e.g.:\n"
+            '  embed_model="gemini/gemini-embedding-001"\n'
+            "(needs the matching provider API key; no other change required).\n\n"
+            "If you want to keep using local embeddings, developing inside "
+            "WSL2 is the most reliable fix for this class of native-binary "
+            "issue on Windows."
+        ) from exc
 
 
 def _embed_litellm(

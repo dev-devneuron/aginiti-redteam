@@ -564,6 +564,24 @@ class TestExecuteBlackBoxOrchestration:
         # counter, not the "cluster emptied" fallback.
         assert len(attack._cluster_docs) == 0  # cleared on switch back to GE
 
+    def test_max_queries_zero_is_a_clean_noop(self, monkeypatch):
+        # Regression test for a real bug found during the v0.2.0 pip-install
+        # verification pass: `kwargs.get("max_queries") or self.max_queries`
+        # treated an explicit max_queries=0 as falsy and silently fell back
+        # to the constructor default -- confirmed live, Phase 2 ran a
+        # full-budget campaign instead of a no-op. Same fix as ikea.py's
+        # identical pattern.
+        attack = _make_attack(max_queries=4)
+        monkeypatch.setattr(attack, "_ensure_jailbreak_artifact", MagicMock(return_value=_artifact()))
+        process_mock = MagicMock(return_value=([], None))
+        monkeypatch.setattr(attack, "_process_response", process_mock)
+        with patch.object(AgentEndpoint, "check_reachable", return_value=True), \
+             patch.object(AgentEndpoint, "chat") as mock_chat:
+            findings = attack.execute_black_box(max_queries=0)
+        assert findings == []
+        assert attack.queries_sent == 0
+        mock_chat.assert_not_called()
+
     def test_http_failure_is_retried_not_fatal(self, monkeypatch):
         attack = _make_attack(max_queries=2)
         monkeypatch.setattr(attack, "_ensure_jailbreak_artifact", MagicMock(return_value=_artifact()))

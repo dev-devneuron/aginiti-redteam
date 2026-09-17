@@ -996,7 +996,14 @@ class SECRETAttack(BaseAttack):
             One finding per non-refused query where the classifier
             determined a real disclosure occurred (``leak_type != "none"``).
         """
-        max_q: int = kwargs.get("max_queries") or self.max_queries
+        # `is None`, not `or self.max_queries` -- an explicit max_queries=0
+        # must stay 0 (a real, intentional no-op Phase 2 budget), not
+        # silently fall back to the constructor default the way `0 or x`
+        # would evaluate (the same bug, confirmed live, also fixed in
+        # ikea.py's identical pattern). Still falls back correctly on both
+        # "omitted" and an explicit max_queries=None.
+        _max_q_kwarg = kwargs.get("max_queries")
+        max_q: int = self.max_queries if _max_q_kwarg is None else _max_q_kwarg
         domain: str = kwargs.get("domain") or "the target's knowledge base"
         force_refresh_phase1: bool = bool(
             kwargs.get("force_refresh_phase1", self.phase1_force_refresh)

@@ -70,6 +70,15 @@ OPENAI_API_KEY=your_key
 ANTHROPIC_API_KEY=your_key
 ```
 
+> **`.env` is found by searching upward, not just the current directory.**
+> `python-dotenv`'s `load_dotenv()` (called automatically the moment any
+> `aginiti` code that needs an LLM is imported) walks up from the current
+> working directory looking for a `.env` file, the same way `git` finds
+> `.git`. Usually convenient — a script in a subdirectory of your project
+> still picks up the project root's `.env` — but worth knowing if you're
+> deliberately testing with no key configured: an unrelated `.env` in a
+> parent directory can silently supply one anyway.
+
 Then pass the matching provider string as `llm_provider` — LiteLLM's
 `provider/model` convention: `gemini/gemini-3.5-flash`,
 `groq/openai/gpt-oss-20b`, `openai/gpt-4o`, and so on.
@@ -203,6 +212,17 @@ findings = attack.execute_black_box(documents=[
 ])
 # findings = confirmed MEMBERS only; attack.non_member_results holds the rest
 ```
+
+> **Candidate-document text should be the real, structured document, not a
+> summary.** Probe questions are generated *from* this text — a terse
+> paraphrase produces weaker, less discriminating questions than the actual
+> record (e.g. the full multi-field text a real document would contain).
+> This matters most at low `n_probe_questions`, where there's little room
+> for one weak question to average out — verified live: the identical
+> real, seeded record correctly confirmed as a member at
+> `n_probe_questions=1` with its full structured text, but was misclassified
+> as non-member with a one-line paraphrase of the same record at the same
+> budget.
 
 ### SPE-LLM
 
