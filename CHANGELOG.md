@@ -9,6 +9,16 @@ changes.
 
 ## [Unreleased]
 
+### Added — hands-on tutorial
+
+- New `docs/TUTORIAL.md`: a narrower, copy-paste, step-by-step companion
+  to `docs/USAGE.md`'s full reference — from an empty folder through
+  installing, setting up the local practice target, running all 4
+  attacks (both a plain-`pip install` script and, where one exists, the
+  ready-made `scripts/run_*.py` shortcut), saving a report, and a short
+  Adaptive Mode walkthrough. Linked from `README.md`'s doc table,
+  `docs/USAGE.md`'s intro, and `docs/index.html`'s sidebar.
+
 ### Fixed — v0.2.0 pip-install verification pass (5 findings, all fixed)
 
 A full "brand-new user following only the published docs" verification

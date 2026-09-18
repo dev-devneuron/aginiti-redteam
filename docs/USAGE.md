@@ -16,6 +16,11 @@ plain `pip install`.
   the same engine is also a plain Python call that works from
   `pip install` alone.
 
+New to the library? [docs/TUTORIAL.md](TUTORIAL.md) is a narrower,
+hands-on walkthrough — copy-paste commands from an empty folder through
+running every attack and saving a report. This page is the full
+reference once you're past that.
+
 ---
 
 ## Installation
