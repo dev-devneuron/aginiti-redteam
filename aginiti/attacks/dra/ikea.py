@@ -36,6 +36,7 @@ import openai
 
 from aginiti.attacks.base import BaseAttack, LeakFinding
 from aginiti.connectors.endpoint import AgentEndpoint
+from aginiti.providers.cache import cache_dir
 from aginiti.providers.embedding import embed_texts
 
 # Progress logging only — the attack loop makes many sequential LLM/embedding/
@@ -442,9 +443,10 @@ _REFUSAL_EXEMPLARS: tuple[str, ...] = (
 # topic is deterministic enough (same topic -> same LLM prompt) to be worth
 # caching across runs — saves the anchor-generation LLM call entirely on a
 # cache hit. Keyed by a filesystem-safe slug of the topic string, one JSON
-# file per topic under ``{project_root}/.cache/ikea_anchors/`` — a stable,
-# deterministic path (same topic string always maps to the same file,
-# case-insensitive) that doesn't depend on run-to-run state.
+# file per topic under a real per-user cache directory (see
+# aginiti/providers/cache.py) — a stable, deterministic path (same topic
+# string always maps to the same file, case-insensitive) that doesn't depend
+# on run-to-run state.
 #
 # TTL is 7 days, not a shorter window like 24h: with repeated same-day
 # retries during development/rate-limit troubleshooting, a 24h TTL provided
@@ -459,8 +461,7 @@ _ANCHOR_CACHE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60  # 7 days
 def _anchor_cache_path(topic: str) -> Path:
     """Cache file path for a topic's LLM-generated anchor candidates."""
     topic_slug = topic.lower().replace(" ", "_")[:50]
-    project_root = Path(__file__).resolve().parents[3]
-    return project_root / ".cache" / "ikea_anchors" / f"{topic_slug}.json"
+    return cache_dir("ikea_anchors") / f"{topic_slug}.json"
 
 
 # ---------------------------------------------------------------------------

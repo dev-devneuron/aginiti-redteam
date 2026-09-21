@@ -52,6 +52,7 @@ from typing import Callable, Optional
 
 from aginiti.attacks.base import BaseAttack
 from aginiti.connectors.endpoint import AgentEndpoint
+from aginiti.providers.cache import cache_dir
 
 logger = logging.getLogger(__name__)
 
@@ -286,8 +287,7 @@ def _jailbreak_cache_key(
 
 
 def _jailbreak_cache_path(cache_key: str) -> Path:
-    project_root = Path(__file__).resolve().parents[3]
-    return project_root / ".cache" / "secret_jailbreak" / f"{cache_key}.json"
+    return cache_dir("secret_jailbreak") / f"{cache_key}.json"
 
 
 # ---------------------------------------------------------------------------

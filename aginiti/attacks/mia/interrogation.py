@@ -44,6 +44,7 @@ from typing import Optional
 
 from aginiti.attacks.base import BaseAttack, LeakFinding
 from aginiti.connectors.endpoint import AgentEndpoint
+from aginiti.providers.cache import cache_dir
 
 logger = logging.getLogger(__name__)
 
@@ -307,8 +308,7 @@ def _calibration_cache_key(
 
 
 def _calibration_cache_path(cache_key: str) -> Path:
-    project_root = Path(__file__).resolve().parents[3]
-    return project_root / ".cache" / "ia_calibration" / f"{cache_key}.json"
+    return cache_dir("ia_calibration") / f"{cache_key}.json"
 
 
 # ---------------------------------------------------------------------------

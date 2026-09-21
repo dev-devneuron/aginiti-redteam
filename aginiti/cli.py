@@ -1,0 +1,522 @@
+"""
+``aginiti`` -- the command-line entry point for the aginiti-redteam attack
+library. Lets a security auditor run a real assessment from a terminal,
+with no Python code and no git clone required (``pip install
+aginiti-redteam`` alone is enough for every subcommand below).
+
+Three subcommands:
+
+    aginiti scan    High-level, use-case-driven campaign (--tier/
+                    --attack-category), wrapping the adaptive planner
+                    (aginiti/core/campaign_builder.py, the same logic
+                    scripts/run_campaign.py uses -- one source of truth).
+    aginiti attack  One of the 4 standalone, paper-faithful attacks
+                    (ikea/secret/mia/spe) run directly against a target.
+    aginiti report  Convert a previously-saved findings.json into a
+                    Markdown report on its own, without re-running anything.
+
+Every ``scan``/``attack`` run prints one authorized-use reminder, then
+auto-saves ``findings.json`` (the full structured result) and
+``aginiti_assessment_report.md`` (a human-readable, OWASP-Top-10-mapped
+Markdown report) into the current directory (override with
+``--output-dir``).
+
+Authorized use only. This tool is intended exclusively for security testing
+of systems you own or have explicit written permission to test.
+"""
+from __future__ import annotations
+
+import argparse
+import dataclasses
+import json
+import logging
+import os
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional
+
+_AUTH_BANNER = (
+    "aginiti-redteam -- for authorized security testing only. "
+    "Run this only against systems you own or have explicit permission to test."
+)
+
+# ---------------------------------------------------------------------------
+# Model auto-detection -- standard AI-ecosystem env var conventions. Order
+# is the fixed priority when more than one provider's key is present.
+# ---------------------------------------------------------------------------
+_PROVIDER_DEFAULTS: list[tuple[str, str]] = [
+    ("GEMINI_API_KEY", "gemini/gemini-3.5-flash"),
+    ("OPENAI_API_KEY", "openai/gpt-4o-mini"),
+    ("GROQ_API_KEY", "groq/openai/gpt-oss-120b"),
+    ("ANTHROPIC_API_KEY", "anthropic/claude-3-5-haiku-latest"),
+    ("MISTRAL_API_KEY", "mistral/mistral-small-latest"),
+]
+_PROVIDER_ENV_FOR = {
+    "gemini": "GEMINI_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
+}
+
+
+def _resolve_model(explicit: Optional[str]) -> tuple[str, str]:
+    """
+    Resolve ``(model, api_key)`` for the attacker/judge LLM.
+
+    Without ``--model``: the first provider (in the fixed order above)
+    whose API key is set in the environment. With ``--model``: uses that
+    model string, paired with its own provider's key if resolvable, else
+    the first available key found (litellm raises its own clear error if
+    that key doesn't actually match the model's provider).
+
+    Raises ``SystemExit`` with an actionable message if no key can be
+    found at all -- never proceeds with an attack that would silently fail
+    every call.
+    """
+    if explicit:
+        provider = explicit.split("/", 1)[0]
+        env_var = _PROVIDER_ENV_FOR.get(provider)
+        if env_var and os.environ.get(env_var):
+            return explicit, os.environ[env_var]
+        for env_var, _ in _PROVIDER_DEFAULTS:
+            if os.environ.get(env_var):
+                return explicit, os.environ[env_var]
+        raise SystemExit(
+            f"--model {explicit!r} was passed, but no matching API key was found in the "
+            f"environment. Set one of: {', '.join(v for v, _ in _PROVIDER_DEFAULTS)}."
+        )
+
+    for env_var, default_model in _PROVIDER_DEFAULTS:
+        if os.environ.get(env_var):
+            return default_model, os.environ[env_var]
+
+    raise SystemExit(
+        "No LLM API key found. Set one of "
+        + ", ".join(v for v, _ in _PROVIDER_DEFAULTS)
+        + " (in your environment or a .env file), or pass --model explicitly."
+    )
+
+
+def _resolve_secret_optimizer(primary_model: str, primary_key: str) -> tuple[str, str]:
+    """
+    Resolve SECRET Phase 1's optimizer LLM.
+
+    Safety-aligned commercial models (Gemini, GPT) tend to refuse the
+    Optimizer's own "author a jailbreak candidate" framing outright --
+    Phase 1 then silently produces nothing (a real, previously-confirmed
+    failure mode; see docs/USAGE.md's SECRET gotcha). If a Groq key is
+    available and the primary model isn't already Groq, prefer Groq for
+    this one role specifically. Otherwise falls back to the primary model
+    and prints a loud warning, since that combination is known to
+    underperform by default.
+    """
+    if os.environ.get("GROQ_API_KEY") and not primary_model.startswith("groq/"):
+        return "groq/openai/gpt-oss-120b", os.environ["GROQ_API_KEY"]
+    print(
+        "WARNING: SECRET's jailbreak-optimizer step is using the same model as "
+        f"extraction ({primary_model!r}). Safety-aligned models often refuse this "
+        "step's own framing, silently producing a weak/empty jailbreak. Set "
+        "GROQ_API_KEY for a model that reliably complies, or pass --optimizer-model.",
+        file=sys.stderr,
+    )
+    return primary_model, primary_key
+
+
+# ---------------------------------------------------------------------------
+# Logging -- clean, single-line-per-event terminal output. LiteLLM and its
+# own HTTP client log at INFO by default (confirmed live: every single
+# completion() call emits two colored "LiteLLM completion()"/"Wrapper:
+# Completed Call" lines) -- silenced here unless --verbose is passed.
+# ---------------------------------------------------------------------------
+def _configure_logging(verbose: bool) -> None:
+    logging.basicConfig(level=logging.INFO if verbose else logging.WARNING, format="%(message)s")
+    # aginiti's own campaign/attack progress logs stay visible even in the
+    # default (non-verbose) mode -- only third-party HTTP/LLM noise is
+    # raised to WARNING.
+    logging.getLogger("aginiti").setLevel(logging.INFO)
+    if not verbose:
+        for noisy in ("litellm", "LiteLLM", "httpx", "httpcore", "urllib3"):
+            logging.getLogger(noisy).setLevel(logging.WARNING)
+
+
+# ---------------------------------------------------------------------------
+# Output helpers -- every scan/attack run auto-saves findings.json +
+# aginiti_assessment_report.md.
+# ---------------------------------------------------------------------------
+def _write_json(path: Path, data: dict) -> None:
+    path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+    print(f"Wrote {path}")
+
+
+def _write_attack_outputs(
+    output_dir: Path, report_name: str, attack: str, target: str,
+    findings: list, started: float, embed_model: str, llm_provider: str,
+    redact: bool,
+) -> None:
+    """Shared output path for all 4 `aginiti attack` subcommands -- writes
+    findings.json (run_metadata + raw findings) and, via the same
+    OWASP-mapped generator every other report in this project uses,
+    aginiti_assessment_report.md."""
+    from aginiti.reporting import generate_markdown_report
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    report = {
+        "run_metadata": {
+            "attack": attack,
+            "agent_url": target,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "total_queries": len(findings),
+            "runtime_seconds": time.monotonic() - started,
+            "embed_model": embed_model,
+            "llm_provider": llm_provider,
+        },
+        "findings": [dataclasses.asdict(f) for f in findings],
+    }
+    _write_json(output_dir / "findings.json", report)
+    # generate_markdown_report() returns the rendered Markdown STRING (and
+    # writes it to output_path as a side effect) -- not a Path, unlike
+    # generate_markdown_report_from_file() below. Print the path we passed
+    # in, not the return value.
+    md_path = output_dir / report_name
+    generate_markdown_report(report, md_path, redact=redact)
+    print(f"Wrote {md_path}")
+
+    confirmed = sum(1 for f in findings if f.confirmed)
+    print(f"\n{len(findings)} finding(s), {confirmed} confirmed.")
+
+
+def _write_scan_outputs(output_dir: Path, report_name: str, target: Optional[str], result, library) -> None:
+    """`aginiti scan`'s own output writer -- a CampaignResult has a
+    structurally different shape than a LeakFinding list (decision/
+    execution logs over a claim graph, not a flat findings list), so it
+    gets its own lightweight Markdown summary rather than being forced
+    through generate_markdown_report()'s LeakFinding-specific schema."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    findings_payload = {
+        "run_metadata": {
+            "attack": "scan",
+            "agent_url": target or "(in-memory demo agent)",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "outcome": result.outcome,
+            "steps_executed": result.steps_executed,
+            "prompts_used": result.prompts_used,
+        },
+        "decision_log": [dataclasses.asdict(d) for d in result.decision_log],
+        "execution_log": [dataclasses.asdict(e) for e in result.execution_log],
+    }
+    _write_json(output_dir / "findings.json", findings_payload)
+
+    lines = [
+        "# Aginiti Assessment Report",
+        "",
+        f"**Target:** {target or '(in-memory demo agent)'}  ",
+        f"**Outcome:** {result.outcome}  ",
+        f"**Steps executed:** {result.steps_executed}  ",
+        f"**Prompts used:** {result.prompts_used}",
+        "",
+        "## Confirmed findings (OWASP LLM Top 10)",
+        "",
+    ]
+    any_confirmed = False
+    for entry in result.execution_log:
+        if not entry.overall_success:
+            continue
+        try:
+            op = library.get(entry.operator_id)
+            effect = op.effects_success[0] if op.effects_success else None
+        except Exception:
+            effect = None
+        owasp = (effect.owasp_llm_category if effect and effect.owasp_llm_category else "unclassified")
+        owasp_title = owasp.split("_", 1)[-1].replace("_", " ").title() if "_" in owasp else owasp
+        any_confirmed = True
+        lines += [
+            f"### {entry.operator_id}",
+            f"- **OWASP category:** {owasp_title} (`{owasp}`)",
+            f"- **Reasoning:** {entry.reasoning or '(none recorded)'}",
+            f"- **Evidence:** `{entry.raw_signal[:200]!r}`",
+            "",
+        ]
+    if not any_confirmed:
+        lines.append("_No confirmed findings this run._\n")
+
+    (output_dir / report_name).write_text("\n".join(lines), encoding="utf-8")
+    print(f"Wrote {output_dir / report_name}")
+
+
+# ---------------------------------------------------------------------------
+# aginiti scan
+# ---------------------------------------------------------------------------
+def _cmd_scan(args: argparse.Namespace) -> None:
+    from aginiti.core.campaign import run_campaign
+    from aginiti.core.campaign_builder import CampaignBuildError, build_campaign
+
+    if args.model:
+        model, _ = _resolve_model(args.model)
+        os.environ["IKEA_OPERATOR_LLM_PROVIDER"] = model
+        os.environ["SECRET_OPERATOR_LLM_PROVIDER"] = model
+        os.environ["MIA_OPERATOR_LLM_PROVIDER"] = model
+
+    # flush=True: without it, this can appear AFTER the attack's own
+    # (auto-flushed, e.g. via logging) progress output when stdout is
+    # redirected to a file/pipe rather than a TTY -- Python switches to
+    # full block buffering in that case, so a plain print() can sit
+    # buffered while other output flushes immediately, reordering what the
+    # user actually sees despite this line executing first.
+    print(_AUTH_BANNER, flush=True)
+
+    try:
+        library, mission, agent = build_campaign(
+            agent_url=args.target, tier=args.tier, attack_category=args.attack_category,
+            budget=args.budget,
+        )
+    except CampaignBuildError as exc:
+        raise SystemExit(str(exc)) from exc
+
+    try:
+        result = run_campaign(mission, library, agent=agent)
+        print(f"\nOutcome: {result.outcome} | steps: {result.steps_executed} | "
+              f"prompts used: {result.prompts_used}/{mission.budget}")
+        _write_scan_outputs(Path(args.output_dir), args.report, args.target, result, library)
+    finally:
+        if args.target and agent is not None:
+            agent.endpoint.close()
+
+
+# ---------------------------------------------------------------------------
+# aginiti attack {ikea,secret,mia,spe}
+# ---------------------------------------------------------------------------
+def _cmd_attack_ikea(args: argparse.Namespace) -> None:
+    from aginiti.attacks.dra.ikea import IKEAAttack
+
+    model, key = _resolve_model(args.model)
+    # flush=True: without it, this can appear AFTER the attack's own
+    # (auto-flushed, e.g. via logging) progress output when stdout is
+    # redirected to a file/pipe rather than a TTY -- Python switches to
+    # full block buffering in that case, so a plain print() can sit
+    # buffered while other output flushes immediately, reordering what the
+    # user actually sees despite this line executing first.
+    print(_AUTH_BANNER, flush=True)
+    started = time.monotonic()
+    attack = IKEAAttack(target_url=args.target, llm_provider=model, api_key=key)
+    findings = attack.execute_black_box(topic=args.topic, max_queries=args.queries)
+    _write_attack_outputs(
+        Path(args.output_dir), args.report, "ikea", args.target, findings, started,
+        embed_model="chromadb/all-MiniLM-L6-v2", llm_provider=model, redact=args.redact,
+    )
+
+
+def _cmd_attack_secret(args: argparse.Namespace) -> None:
+    from aginiti.attacks.dra.secret import SECRETAttack
+
+    model, key = _resolve_model(args.model)
+    if args.optimizer_model:
+        optimizer_model, optimizer_key = _resolve_model(args.optimizer_model)
+    else:
+        optimizer_model, optimizer_key = _resolve_secret_optimizer(model, key)
+
+    if args.corpus:
+        corpus = [line.strip() for line in Path(args.corpus).read_text(encoding="utf-8").splitlines() if line.strip()]
+    else:
+        # SECRET requires a non-empty external_corpus (Global Exploration's
+        # natural-text sampling pool) even against a target with no real
+        # corpus of your own to supply -- these two generic, unrelated
+        # sentences are the same placeholder this project's own scripts use.
+        corpus = ["A sentence about something unrelated.", "Another unrelated sentence."]
+
+    # flush=True: without it, this can appear AFTER the attack's own
+    # (auto-flushed, e.g. via logging) progress output when stdout is
+    # redirected to a file/pipe rather than a TTY -- Python switches to
+    # full block buffering in that case, so a plain print() can sit
+    # buffered while other output flushes immediately, reordering what the
+    # user actually sees despite this line executing first.
+    print(_AUTH_BANNER, flush=True)
+    started = time.monotonic()
+    attack = SECRETAttack(
+        target_url=args.target, llm_provider=model, api_key=key,
+        optimizer_llm_provider=optimizer_model, optimizer_api_key=optimizer_key,
+        external_corpus=corpus, phase1_n_iter=args.phase1_iter, phase1_n_cand=args.phase1_cand,
+    )
+    findings = attack.execute_black_box(domain=args.domain, max_queries=args.queries)
+    _write_attack_outputs(
+        Path(args.output_dir), args.report, "secret", args.target, findings, started,
+        embed_model="chromadb/all-MiniLM-L6-v2", llm_provider=model, redact=args.redact,
+    )
+
+
+def _cmd_attack_mia(args: argparse.Namespace) -> None:
+    from aginiti.attacks.mia.interrogation import InterrogationAttack
+
+    model, key = _resolve_model(args.model)
+
+    dataset = json.loads(Path(args.dataset).read_text(encoding="utf-8"))
+    documents = dataset.get("documents")
+    non_member_reference_docs = dataset.get("non_member_reference_docs")
+    if not documents or not non_member_reference_docs:
+        raise SystemExit(
+            f"{args.dataset} must contain both a non-empty \"documents\" list (the candidates "
+            "to test) and a non-empty \"non_member_reference_docs\" list (calibration "
+            "documents known NOT to be in the target's knowledge base), each a list of "
+            "{\"id\": ..., \"text\": ...} objects."
+        )
+
+    # flush=True: without it, this can appear AFTER the attack's own
+    # (auto-flushed, e.g. via logging) progress output when stdout is
+    # redirected to a file/pipe rather than a TTY -- Python switches to
+    # full block buffering in that case, so a plain print() can sit
+    # buffered while other output flushes immediately, reordering what the
+    # user actually sees despite this line executing first.
+    print(_AUTH_BANNER, flush=True)
+    started = time.monotonic()
+    attack = InterrogationAttack(
+        target_url=args.target, llm_provider=model, api_key=key,
+        non_member_reference_docs=non_member_reference_docs, n_probe_questions=args.probes,
+    )
+    findings = attack.execute_black_box(documents=documents)
+    _write_attack_outputs(
+        Path(args.output_dir), args.report, "mia", args.target, findings, started,
+        embed_model="", llm_provider=model, redact=args.redact,
+    )
+
+
+def _cmd_attack_spe(args: argparse.Namespace) -> None:
+    from aginiti.attacks.spe.spe_llm import SPEAttack
+
+    # SPE never raises on a missing classifier key -- it silently returns
+    # confirmed=False for every probe, indistinguishable from a genuinely
+    # clean target (see docs/USAGE.md's SPE gotcha). _resolve_model's own
+    # SystemExit on "no key at all" is exactly the loud failure this needs;
+    # never let this subcommand construct SPEAttack with no key resolved.
+    model, key = _resolve_model(args.model)
+
+    # flush=True: without it, this can appear AFTER the attack's own
+    # (auto-flushed, e.g. via logging) progress output when stdout is
+    # redirected to a file/pipe rather than a TTY -- Python switches to
+    # full block buffering in that case, so a plain print() can sit
+    # buffered while other output flushes immediately, reordering what the
+    # user actually sees despite this line executing first.
+    print(_AUTH_BANNER, flush=True)
+    started = time.monotonic()
+    attack = SPEAttack(target_url=args.target, classifier_llm_provider=model, classifier_api_key=key)
+    findings = attack.execute_black_box()
+    _write_attack_outputs(
+        Path(args.output_dir), args.report, "spe", args.target, findings, started,
+        embed_model="", llm_provider=model, redact=args.redact,
+    )
+
+
+# ---------------------------------------------------------------------------
+# aginiti report
+# ---------------------------------------------------------------------------
+def _cmd_report(args: argparse.Namespace) -> None:
+    from aginiti.reporting import generate_markdown_report, generate_markdown_report_from_file
+
+    if args.output:
+        # generate_markdown_report() returns the rendered Markdown STRING,
+        # not a Path -- unlike generate_markdown_report_from_file() below.
+        report = json.loads(Path(args.input).read_text(encoding="utf-8"))
+        out_path = Path(args.output)
+        generate_markdown_report(report, out_path, redact=args.redact)
+    else:
+        out_path = generate_markdown_report_from_file(args.input, redact=args.redact)
+    print(f"Wrote {out_path}")
+
+
+# ---------------------------------------------------------------------------
+# Argument parsing
+# ---------------------------------------------------------------------------
+def _add_common_output_args(parser: argparse.ArgumentParser, default_report: str) -> None:
+    parser.add_argument("--output-dir", default=".", help="Directory to write findings.json/report into. Default: current directory.")
+    parser.add_argument("--report", default=default_report, help=f"Markdown report filename. Default: {default_report}")
+    parser.add_argument("--redact", action="store_true", help="Also write a PII-redacted copy of the report.")
+    parser.add_argument("--model", default=None, help="Attacker/judge LLM, e.g. openai/gpt-4o. Default: auto-detected from whichever *_API_KEY is set.")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Show full LiteLLM/HTTP logs instead of the default clean output.")
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    from aginiti.core.campaign_builder import TIER_CHOICES
+    from aginiti.core.graph.attack_category import ALL_CATEGORIES
+
+    parser = argparse.ArgumentParser(prog="aginiti", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p_scan = sub.add_parser("scan", help="Use-case-driven adaptive campaign (--tier/--attack-category).")
+    p_scan.add_argument("--target", required=True, help="Base URL of the target agent, e.g. http://localhost:8001")
+    _tier_group = p_scan.add_mutually_exclusive_group()
+    _tier_group.add_argument("--tier", default=None, choices=TIER_CHOICES, help="Coarse test tier. Default: full_assessment (no filter).")
+    _tier_group.add_argument("--attack-category", nargs="+", default=None, metavar="CATEGORY", choices=sorted(ALL_CATEGORIES), help="One or more precise attack-methodology categories (union). See --list-attack-categories.")
+    p_scan.add_argument("--list-attack-categories", action="store_true", help="Print every valid --attack-category value and exit.")
+    p_scan.add_argument("--budget", type=int, default=None, help="Override the mission's prompt budget.")
+    _add_common_output_args(p_scan, "aginiti_assessment_report.md")
+    p_scan.set_defaults(func=_cmd_scan)
+
+    p_attack = sub.add_parser("attack", help="Run one standalone attack directly.")
+    attack_sub = p_attack.add_subparsers(dest="technique", required=True)
+
+    p_ikea = attack_sub.add_parser("ikea", help="Benign-query RAG knowledge extraction (ICLR 2026).")
+    p_ikea.add_argument("--target", required=True)
+    p_ikea.add_argument("--topic", required=True, help='Topic keyword for the target\'s knowledge base, e.g. "HR records".')
+    p_ikea.add_argument("--queries", type=int, default=20, help="Query budget. Default: 20.")
+    _add_common_output_args(p_ikea, "aginiti_assessment_report.md")
+    p_ikea.set_defaults(func=_cmd_attack_ikea)
+
+    p_secret = attack_sub.add_parser("secret", help="Jailbreak-optimized extraction attack (IEEE TIFS 2026).")
+    p_secret.add_argument("--target", required=True)
+    p_secret.add_argument("--domain", default="the target's knowledge base", help='Domain description for the classifier, e.g. "HR records".')
+    p_secret.add_argument("--queries", type=int, default=20, help="Phase 2 (extraction) query budget. Default: 20.")
+    p_secret.add_argument("--phase1-iter", type=int, default=3, help="Phase 1 jailbreak-calibration iterations. Default: 3.")
+    p_secret.add_argument("--phase1-cand", type=int, default=2, help="Phase 1 candidates drafted per iteration. Default: 2.")
+    p_secret.add_argument("--corpus", default=None, help="Path to a text file, one sentence per line, for Global Exploration. Default: a small generic placeholder.")
+    p_secret.add_argument("--optimizer-model", default=None, help="Override the Phase 1 optimizer's model (default: auto-prefers Groq -- see docs).")
+    _add_common_output_args(p_secret, "aginiti_assessment_report.md")
+    p_secret.set_defaults(func=_cmd_attack_secret)
+
+    p_mia = attack_sub.add_parser("mia", help="Membership inference against specific documents you hold (ACM CCS 2025).")
+    p_mia.add_argument("--target", required=True)
+    p_mia.add_argument("--dataset", required=True, help='JSON file: {"documents": [{"id","text"}...], "non_member_reference_docs": [{"id","text"}...]}')
+    p_mia.add_argument("--probes", type=int, default=10, help="Probe questions per document. Default: 10.")
+    _add_common_output_args(p_mia, "aginiti_assessment_report.md")
+    p_mia.set_defaults(func=_cmd_attack_mia)
+
+    p_spe = attack_sub.add_parser("spe", help="System prompt extraction, 3 fixed probes (ICLR 2026).")
+    p_spe.add_argument("--target", required=True)
+    _add_common_output_args(p_spe, "aginiti_assessment_report.md")
+    p_spe.set_defaults(func=_cmd_attack_spe)
+
+    p_report = sub.add_parser("report", help="Convert a saved findings.json into a Markdown report.")
+    p_report.add_argument("--input", required=True, help="Path to a findings.json produced by scan/attack.")
+    p_report.add_argument("--output", default=None, help="Output .md path. Default: alongside --input.")
+    p_report.add_argument("--redact", action="store_true", help="Write a PII-redacted report instead.")
+    p_report.set_defaults(func=_cmd_report)
+
+    return parser
+
+
+def main(argv: Optional[list[str]] = None) -> None:
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+
+    if getattr(args, "list_attack_categories", False):
+        from aginiti.core.campaign_builder import print_attack_categories
+        print_attack_categories()
+        return
+
+    _configure_logging(getattr(args, "verbose", False))
+
+    try:
+        args.func(args)
+    except SystemExit:
+        raise
+    except KeyboardInterrupt:
+        print("\nInterrupted.", file=sys.stderr)
+        sys.exit(130)
+
+
+if __name__ == "__main__":
+    main()

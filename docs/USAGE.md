@@ -175,7 +175,7 @@ attack = SECRETAttack(
     phase1_n_iter=3, phase1_n_cand=2,   # Phase 1 budget
 )
 
-findings = attack.execute(domain="HR records", max_queries=10)  # Phase 2 budget
+findings = attack.execute_black_box(domain="HR records", max_queries=10)  # Phase 2 budget
 ```
 
 Phase 1's result is **cached per target** for 7 days — the first run

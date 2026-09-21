@@ -57,6 +57,51 @@ Full methodology, numbers, and citations: [`docs/BENCHMARKS.md`](docs/BENCHMARKS
 
 ---
 
+## ⚡ Fastest path: `pip install`, no git clone
+
+Run a real assessment from your terminal with zero Python code and zero repo checkout —
+just the package and one LLM API key:
+
+```bash
+# 1. Install the CLI + a local target agent to try it against
+pip install "aginiti-redteam[demo-target]"
+
+# 2. Add one LLM API key (standard env var names — GEMINI_API_KEY, OPENAI_API_KEY,
+#    GROQ_API_KEY, ANTHROPIC_API_KEY, or MISTRAL_API_KEY; the CLI auto-detects
+#    whichever is set and picks that provider's current default model)
+export GEMINI_API_KEY=your_key_here   # or put it in a .env file in your working directory
+
+# 3. Start the local target agent (seeds itself on first run, then serves on :8001)
+aginiti-demo-target
+
+# 4. In a second terminal: run a use-case-driven scan against it
+aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
+
+# ...or run one specific attack technique directly
+aginiti attack spe --target http://localhost:8001
+aginiti attack ikea --target http://localhost:8001 --topic "HR records" --queries 10
+```
+
+Every `scan`/`attack` run prints one authorized-use reminder, then auto-saves
+`findings.json` (the full structured result) and `aginiti_assessment_report.md` (a
+human-readable, OWASP LLM Top 10–mapped Markdown report) into the current directory
+(`--output-dir` to redirect). `aginiti scan --tier` accepts `data_leakage |
+unauthorized_actions | discovery_recon | full_assessment`, or use `--attack-category` for
+one of the 11 precise named groups (`aginiti scan --list-attack-categories` to see all of
+them). `aginiti attack {ikea,secret,mia,spe}` runs one technique on its own — see
+`aginiti attack <technique> --help` for that technique's own flags, or
+[`docs/TUTORIAL.md`](docs/TUTORIAL.md) for a full copy-paste walkthrough of every
+subcommand. `aginiti report --input findings.json` regenerates the Markdown report on its
+own, without re-running anything.
+
+This is genuinely the same attack library and campaign engine as everything below — the CLI
+is a thin wrapper, not a separate/lighter tool. The git-clone path below adds the full
+contributor workflow, the Python API for scripting your own assessments, and
+`scripts/run_campaign.py`'s CLI (functionally equivalent to `aginiti scan`, plus a couple of
+git-clone-only conveniences).
+
+---
+
 ## 🚀 Quickstart (2 minutes, zero targets to set up)
 
 The fastest way to see Aginiti actually plan and execute a live campaign — no servers, no
@@ -349,8 +394,8 @@ project follows the [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md). See
 
 ## 👥 Contributors
 
-- [Omer Bin Dawood](https://github.com/OmerBinDawood)
 - [Muhammad Hammad Irfan](https://github.com/MuhammadHammadIrfan)
+- [Omer Bin Dawood](https://github.com/OmerBinDawood)
 
 ---
 

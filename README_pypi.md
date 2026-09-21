@@ -24,6 +24,12 @@ Install the core library (for running standalone attacks and HTTP adapters):
 pip install aginiti-redteam
 ```
 
+Add `[demo-target]` for a local target agent to try Aginiti against, with no target of your
+own required:
+```bash
+pip install "aginiti-redteam[demo-target]"
+```
+
 If you plan to run the autonomous campaign orchestrator with advanced integrations (like LangChain agents, OpenTelemetry tracing, or Model Control Protocol stdio servers), install the adaptive extras:
 ```bash
 pip install aginiti-redteam[adaptive]
@@ -37,15 +43,54 @@ Aginiti campaigns use an LLM provider to evaluate vulnerability conditions, judg
 
 Set up your API keys in your environment or a `.env` file:
 ```env
-# Attacker/Judge LLM keys (LiteLLM routes these automatically)
-GROQ_API_KEY=your_groq_api_key
+# Attacker/Judge LLM keys (LiteLLM routes these automatically). Set any one --
+# the CLI below auto-detects whichever is present and picks that provider's
+# current default model.
 GEMINI_API_KEY=your_gemini_api_key
 OPENAI_API_KEY=your_openai_api_key
+GROQ_API_KEY=your_groq_api_key
+ANTHROPIC_API_KEY=your_anthropic_api_key
+MISTRAL_API_KEY=your_mistral_api_key
 ```
 
 ---
 
-## 💻 Usage Guide
+## ⚡ CLI Quickstart (no code required)
+
+Run a real assessment straight from your terminal:
+
+```bash
+# Start a local target agent to try Aginiti against (seeds itself, then serves on :8001)
+aginiti-demo-target
+
+# In a second terminal: a use-case-driven scan, filtered by security concern
+aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
+
+# ...or one specific attack technique directly
+aginiti attack spe --target http://localhost:8001
+aginiti attack ikea --target http://localhost:8001 --topic "HR records" --queries 10
+aginiti attack secret --target http://localhost:8001 --domain "HR records" --queries 10
+aginiti attack mia --target http://localhost:8001 --dataset candidates.json
+
+# Regenerate a Markdown report from a saved findings.json, without re-running anything
+aginiti report --input findings.json
+```
+
+Every `scan`/`attack` run prints one authorized-use reminder, then auto-saves
+`findings.json` (the full structured result) and `aginiti_assessment_report.md` (a
+human-readable, OWASP LLM Top 10–mapped Markdown report) into the current directory
+(`--output-dir` to redirect). `--tier` accepts `data_leakage | unauthorized_actions |
+discovery_recon | full_assessment`; use `--attack-category` instead for one of 11 precise
+named groups (`aginiti scan --list-attack-categories` to see all of them). Every subcommand
+has its own `--help`; `aginiti attack mia --dataset` expects a JSON file shaped
+`{"documents": [{"id", "text"}, ...], "non_member_reference_docs": [{"id", "text"}, ...]}`.
+
+Point `--target` at any real, HTTP-reachable agent you're authorized to test instead of the
+local demo target — nothing about the CLI requires it.
+
+---
+
+## 💻 Python API
 
 Aginiti supports two modes of execution: **Direct Mode** (for full-scale standalone audits) and **Adaptive Mode** (for autonomous orchestrated campaigns).
 
@@ -187,6 +232,7 @@ for claim in result.ssg.claims:
 
 *   **GitHub Repository:** For local developer setups, starting Docker target containers, or contributing, visit [Aginiti Red-Team GitHub](https://github.com/dev-devneuron/aginiti-redteam).
 *   **Full Usage Guide:** [`docs/USAGE.md`](https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/USAGE.md) — every attack's parameters and query budget, target authentication, where results/cache files land, and a gotchas/FAQ list.
+*   **Hands-on Tutorial:** [`docs/TUTORIAL.md`](https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/TUTORIAL.md) — a copy-paste walkthrough of the full CLI and Python API, start to finish.
 *   **Detailed Documentation:** Refer to the `docs/` folder in the repository for detailed papers on the Aginiti planning model, evidence classification, and mitigation guides.
 *   **Contributors:** [Omer Bin Dawood](https://github.com/OmerBinDawood), [Muhammad Hammad Irfan](https://github.com/MuhammadHammadIrfan)
 *   **License:** MIT
