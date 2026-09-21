@@ -763,7 +763,7 @@ attack = SECRETAttack(
     phase1_n_iter=3, phase1_n_cand=2,   # Phase 1 budget
 )
 
-findings = attack.execute(domain="HR records", max_queries=10)  # Phase 2 budget</code></pre>
+findings = attack.execute_black_box(domain="HR records", max_queries=10)  # Phase 2 budget</code></pre>
       <p>Phase 1's result is <strong>cached per target for 7 days</strong> — the first run against a new
         target pays the full optimizer/evaluator cost; every run after that reuses it and only Phase 2's
         budget applies. Force a fresh run with <code>force_refresh_phase1=True</code>.</p>

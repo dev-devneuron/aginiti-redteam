@@ -324,7 +324,7 @@ attack = SECRETAttack(
     phase1_n_iter=2, phase1_n_cand=2,   # how hard it tries to invent a good jailbreak
 )
 
-findings = attack.execute(domain="HR records", max_queries=5)
+findings = attack.execute_black_box(domain="HR records", max_queries=5)
 
 print(f"Jailbreak quality found (0.0 = failed, 1.0 = worked): {attack.jailbreak_artifact.score}")
 for f in findings:
