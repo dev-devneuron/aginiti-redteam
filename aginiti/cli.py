@@ -188,63 +188,112 @@ def _write_attack_outputs(
     print(f"\n{len(findings)} finding(s), {confirmed} confirmed.")
 
 
-def _write_scan_outputs(output_dir: Path, report_name: str, target: Optional[str], result, library) -> None:
-    """`aginiti scan`'s own output writer -- a CampaignResult has a
-    structurally different shape than a LeakFinding list (decision/
-    execution logs over a claim graph, not a flat findings list), so it
-    gets its own lightweight Markdown summary rather than being forced
-    through generate_markdown_report()'s LeakFinding-specific schema."""
-    output_dir.mkdir(parents=True, exist_ok=True)
+def _format_owasp_category(raw: str) -> str:
+    """"LLM07:2025_system_prompt_leakage" -> "LLM07:2025 - System Prompt
+    Leakage" -- matches the exact style aginiti/reporting/markdown_report.py's
+    own _OWASP_MAPPING already hardcodes for DRA/MIA/SPE, so a campaign
+    step's finding reads identically to a direct attack's."""
+    code, _, rest = raw.partition("_")
+    return f"{code} - {rest.replace('_', ' ').title()}"
 
-    findings_payload = {
+
+def _operator_owasp_category(library, operator_id: str) -> Optional[str]:
+    try:
+        op = library.get(operator_id)
+        effect = op.effects_success[0] if op.effects_success else None
+    except Exception:
+        return None
+    return effect.owasp_llm_category if effect and effect.owasp_llm_category else None
+
+
+def _collect_scan_findings(execution_log, library) -> list[dict]:
+    """Translate a campaign's execution_log into LeakFinding-shaped dicts,
+    so `aginiti scan` can reuse the exact same rich, severity-sorted
+    generate_markdown_report() renderer `aginiti attack` already uses,
+    instead of a separate, thinner hand-rolled summary.
+
+    Deep-attack steps (IKEA/SECRET/MIA/SPE wrapped as an Operator) keep
+    their own real LeakFinding objects (ExecutionResult.deep_attack_findings)
+    verbatim -- full per-query probe/response/confidence/severity detail,
+    identical to what `aginiti attack` produces for the same technique.
+    Every other (cheap prompt-operator) step is synthesized into ONE
+    finding -- confirmed steps as a real reportable finding (severity
+    "high": a confirmed claim is by construction a genuine compromise, not
+    a guess), everything else as a leak_type="none" non-finding, so the
+    report's ASR/Non-Findings-Summary counts include every step the
+    campaign actually ran, not just the deep-attack ones.
+    """
+    import dataclasses as _dc
+
+    results: list[dict] = []
+    for entry in execution_log:
+        if entry.deep_attack_findings:
+            results.extend(_dc.asdict(f) for f in entry.deep_attack_findings)
+            continue
+
+        owasp_raw = _operator_owasp_category(library, entry.operator_id)
+        confirmed = entry.overall_success
+        results.append({
+            "attack_type": "CAMPAIGN",
+            "tier_used": "black_box",
+            "confidence": 0.75 if confirmed else 0.0,
+            "confirmed": confirmed,
+            "leaked_content": entry.raw_signal if confirmed else "",
+            "probe_used": entry.prompt_sent,
+            "trace_span_id": "",
+            "recommendation": (
+                f"Review the target's handling of this operator ({entry.operator_id})."
+                if confirmed else ""
+            ),
+            "severity": "high" if confirmed else "low",
+            "full_response": entry.raw_signal,
+            "leak_type": "sensitive_data" if confirmed else "none",
+            "reasoning": entry.reasoning,
+            "owasp_override": _format_owasp_category(owasp_raw) if owasp_raw else None,
+        })
+    return results
+
+
+def _write_scan_outputs(output_dir: Path, report_name: str, target: Optional[str], result, library,
+                         started: float) -> None:
+    """`aginiti scan`'s output writer -- reuses generate_markdown_report()
+    (the same OWASP-mapped, severity-sorted report `aginiti attack`
+    produces) over findings translated from the campaign's execution_log
+    by `_collect_scan_findings`, rather than a separate, thinner format."""
+    from aginiti.reporting import generate_markdown_report
+
+    from aginiti.providers.llm import active_provider_name
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    findings = _collect_scan_findings(result.execution_log, library)
+
+    report = {
         "run_metadata": {
             "attack": "scan",
             "agent_url": target or "(in-memory demo agent)",
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "outcome": result.outcome,
-            "steps_executed": result.steps_executed,
-            "prompts_used": result.prompts_used,
+            "total_queries": result.prompts_used,
+            "runtime_seconds": time.monotonic() - started,
+            "embed_model": "",
+            # The core judge/planner's own auto-detected provider -- a
+            # campaign's deep-attack steps (if any) may use a separately
+            # configured provider for their own reasoning, so this
+            # specifically describes the judge, not necessarily every LLM
+            # call this run made.
+            "llm_provider": f"{active_provider_name()} (judge)",
         },
+        "findings": findings,
         "decision_log": [dataclasses.asdict(d) for d in result.decision_log],
         "execution_log": [dataclasses.asdict(e) for e in result.execution_log],
     }
-    _write_json(output_dir / "findings.json", findings_payload)
+    _write_json(output_dir / "findings.json", report)
 
-    lines = [
-        "# Aginiti Assessment Report",
-        "",
-        f"**Target:** {target or '(in-memory demo agent)'}  ",
-        f"**Outcome:** {result.outcome}  ",
-        f"**Steps executed:** {result.steps_executed}  ",
-        f"**Prompts used:** {result.prompts_used}",
-        "",
-        "## Confirmed findings (OWASP LLM Top 10)",
-        "",
-    ]
-    any_confirmed = False
-    for entry in result.execution_log:
-        if not entry.overall_success:
-            continue
-        try:
-            op = library.get(entry.operator_id)
-            effect = op.effects_success[0] if op.effects_success else None
-        except Exception:
-            effect = None
-        owasp = (effect.owasp_llm_category if effect and effect.owasp_llm_category else "unclassified")
-        owasp_title = owasp.split("_", 1)[-1].replace("_", " ").title() if "_" in owasp else owasp
-        any_confirmed = True
-        lines += [
-            f"### {entry.operator_id}",
-            f"- **OWASP category:** {owasp_title} (`{owasp}`)",
-            f"- **Reasoning:** {entry.reasoning or '(none recorded)'}",
-            f"- **Evidence:** `{entry.raw_signal[:200]!r}`",
-            "",
-        ]
-    if not any_confirmed:
-        lines.append("_No confirmed findings this run._\n")
+    md_path = output_dir / report_name
+    generate_markdown_report(report, md_path)
+    print(f"Wrote {md_path}")
 
-    (output_dir / report_name).write_text("\n".join(lines), encoding="utf-8")
-    print(f"Wrote {output_dir / report_name}")
+    confirmed = sum(1 for f in findings if f.get("confirmed"))
+    print(f"\n{len(findings)} step(s) evaluated, {confirmed} confirmed.")
 
 
 # ---------------------------------------------------------------------------
@@ -267,6 +316,7 @@ def _cmd_scan(args: argparse.Namespace) -> None:
     # buffered while other output flushes immediately, reordering what the
     # user actually sees despite this line executing first.
     print(_AUTH_BANNER, flush=True)
+    started = time.monotonic()
 
     try:
         library, mission, agent = build_campaign(
@@ -277,10 +327,20 @@ def _cmd_scan(args: argparse.Namespace) -> None:
         raise SystemExit(str(exc)) from exc
 
     try:
-        result = run_campaign(mission, library, agent=agent)
+        # stop_on_mission_success=False: run_campaign()'s own default
+        # (True) is deliberate for the project's benchmark suite (stopping
+        # the instant a mission is satisfied is how "prompts used to
+        # success" is measured there) -- but for `aginiti scan`, the whole
+        # point of the budget is to spend it finding as much as possible,
+        # not to stop at the first confirmed finding. max_steps is raised
+        # to match the budget (its own default, 25, otherwise caps a large
+        # --budget's step count before the budget itself is actually
+        # exhausted, on a library with enough eligible operators).
+        result = run_campaign(mission, library, agent=agent,
+                               stop_on_mission_success=False, max_steps=max(25, mission.budget))
         print(f"\nOutcome: {result.outcome} | steps: {result.steps_executed} | "
               f"prompts used: {result.prompts_used}/{mission.budget}")
-        _write_scan_outputs(Path(args.output_dir), args.report, args.target, result, library)
+        _write_scan_outputs(Path(args.output_dir), args.report, args.target, result, library, started)
     finally:
         if args.target and agent is not None:
             agent.endpoint.close()

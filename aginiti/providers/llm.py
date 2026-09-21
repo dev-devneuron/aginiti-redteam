@@ -104,7 +104,33 @@ _logger = get_logger("providers.llm")
 
 _GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
 _GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+_OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+_ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-3-5-haiku-latest")
+_MISTRAL_MODEL = os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
 _PROVIDER = os.environ.get("AGINITI_LLM_PROVIDER", "groq").lower()
+
+# Which env var holds the key for each provider this module can route to,
+# and which model string it uses when selected. Groq isn't listed here --
+# it has its own key-pool/rotation machinery (_load_groq_keys/
+# _call_with_rotation) rather than a single api_key, so it's handled as a
+# special case in _resolve_active_provider() and each chat*() function,
+# not through this simple lookup.
+_PROVIDER_ENV_KEYS = {
+    "gemini": "GEMINI_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
+}
+_PROVIDER_MODELS = {
+    "gemini": _GEMINI_MODEL,
+    "openai": _OPENAI_MODEL,
+    "anthropic": _ANTHROPIC_MODEL,
+    "mistral": _MISTRAL_MODEL,
+}
+# Priority when auto-detecting (AGINITI_LLM_PROVIDER unset/"groq" and no
+# GROQ_API_KEY present) -- first configured key wins. Matches aginiti/
+# cli.py's own provider-priority order.
+_AUTO_DETECT_ORDER = ("gemini", "openai", "anthropic", "mistral")
 
 _current_idx = 0
 # Set to a short string describing the most recent automatic Groq->Gemini
@@ -115,6 +141,49 @@ _last_fallback_reason: str | None = None
 
 def _gemini_available() -> bool:
     return bool(os.environ.get("GEMINI_API_KEY"))
+
+
+def _resolve_active_provider() -> str:
+    """
+    Which provider chat()/chat_json()/chat_tools() actually use for THIS
+    call -- checked fresh every call (not cached), so a `.env` edit or a
+    key added mid-process takes effect immediately.
+
+    An explicit ``AGINITI_LLM_PROVIDER`` set to anything other than
+    ``"groq"`` (its default) is honored unconditionally: ``"gemini"`` is
+    the original behavior; ``"openai"``/``"anthropic"``/``"mistral"`` are
+    new alternatives, routed the same way.
+
+    Otherwise (``_PROVIDER == "groq"`` -- covers both the real default and
+    an explicit ``AGINITI_LLM_PROVIDER=groq``, which this module has never
+    distinguished from each other): use Groq if ``GROQ_API_KEY`` is
+    actually set, preserving the original default and its multi-key
+    rotation pool exactly as before. If it ISN'T set, auto-detect the
+    first available key among the other 4 supported providers instead of
+    letting ``_load_groq_keys()`` raise -- this is the fix for a real,
+    live-reported crash: a user who configured only ``GEMINI_API_KEY``
+    (or only OPENAI/ANTHROPIC/MISTRAL) got a hard ``RuntimeError`` on
+    ``aginiti scan``'s very first judge call, even though a perfectly
+    usable key was sitting right there in their `.env`. If truly nothing
+    is configured anywhere, still returns "groq" so the existing,
+    already-descriptive ``_load_groq_keys()`` error is what the user sees,
+    rather than inventing a second, redundant error message here.
+    """
+    if _PROVIDER != "groq" and _PROVIDER in _PROVIDER_ENV_KEYS:
+        return _PROVIDER
+    if os.environ.get("GROQ_API_KEY"):
+        return "groq"
+    for provider in _AUTO_DETECT_ORDER:
+        if os.environ.get(_PROVIDER_ENV_KEYS[provider]):
+            return provider
+    return "groq"
+
+
+def _model_string(provider: str) -> str:
+    """LiteLLM model string for any provider except groq (groq's own
+    model string is built from _GROQ_MODEL directly at each call site,
+    since it's paired with the key-rotation pool, not this lookup)."""
+    return f"{provider}/{_PROVIDER_MODELS[provider]}"
 
 
 def _load_groq_keys() -> list[str]:
@@ -184,9 +253,10 @@ def chat(messages: list[dict], temperature: float = 0.4, max_tokens: int = 1024,
     global _last_fallback_reason
     kwargs = dict(temperature=temperature, max_tokens=max_tokens, num_retries=0, timeout=60,
                   **_seed_kwargs(seed))
-    if _PROVIDER == "gemini":
+    active = _resolve_active_provider()
+    if active != "groq":
         _last_fallback_reason = None
-        resp = litellm.completion(model=f"gemini/{_GEMINI_MODEL}", messages=messages, **kwargs)
+        resp = litellm.completion(model=_model_string(active), messages=messages, **kwargs)
         return resp.choices[0].message.content or ""
     try:
         resp = _call_with_rotation(f"groq/{_GROQ_MODEL}", messages, **kwargs)
@@ -242,14 +312,16 @@ def chat_json(messages: list[dict], temperature: float = 0.0, max_tokens: int = 
         except (AttributeError, IndexError):
             return False
 
-    if _PROVIDER == "gemini":
+    active = _resolve_active_provider()
+    if active != "groq":
         _last_fallback_reason = None
-        resp = litellm.completion(model=f"gemini/{_GEMINI_MODEL}", messages=messages, **kwargs)
+        model = _model_string(active)
+        resp = litellm.completion(model=model, messages=messages, **kwargs)
         result = _parse(resp)
         if "_parse_error" in result and _truncated(resp):
             _logger.warning("chat_json: response truncated at max_tokens=%d -- retrying "
                              "once with max_tokens=%d", max_tokens, max_tokens * 2)
-            resp = litellm.completion(model=f"gemini/{_GEMINI_MODEL}", messages=messages,
+            resp = litellm.completion(model=model, messages=messages,
                                        **{**kwargs, "max_tokens": max_tokens * 2})
             result = _parse(resp)
         return result
@@ -290,9 +362,10 @@ def chat_tools(messages: list[dict], tools: list[dict], temperature: float = 0.3
     global _last_fallback_reason
     kwargs = dict(tools=tools, tool_choice="auto", temperature=temperature, max_tokens=max_tokens,
                   num_retries=0, timeout=60, **_seed_kwargs(seed))
-    if _PROVIDER == "gemini":
+    active = _resolve_active_provider()
+    if active != "groq":
         _last_fallback_reason = None
-        resp = litellm.completion(model=f"gemini/{_GEMINI_MODEL}", messages=messages, **kwargs)
+        resp = litellm.completion(model=_model_string(active), messages=messages, **kwargs)
         return resp.choices[0].message
     try:
         resp = _call_with_rotation(f"groq/{_GROQ_MODEL}", messages, **kwargs)
@@ -305,6 +378,14 @@ def chat_tools(messages: list[dict], tools: list[dict], temperature: float = 0.3
         _logger.warning(_last_fallback_reason)
         resp = litellm.completion(model=f"gemini/{_GEMINI_MODEL}", messages=messages, **kwargs)
         return resp.choices[0].message
+
+
+def active_provider_name() -> str:
+    """Public wrapper around `_resolve_active_provider()` -- which provider
+    the NEXT chat/chat_json/chat_tools call will actually use, for callers
+    that want to log/display it (e.g. observation_adapter._judge()) without
+    reaching into a private helper."""
+    return _resolve_active_provider()
 
 
 def last_fallback_reason() -> str | None:

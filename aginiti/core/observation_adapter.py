@@ -20,11 +20,26 @@ from aginiti.attacks.base import LeakFinding
 from aginiti.core.finding_translation import translate_findings_to_claims
 from aginiti.core.graph.schema import ClaimStatus, next_id
 from aginiti.core.graph.ssg import CATEGORY_MISSION_OUTCOME, SUBGRAPH_DEFENDER, SUBGRAPH_TARGET, SecurityStateGraph
-from aginiti.providers.llm import chat_json, warn_if_parse_error
+from aginiti.providers.llm import active_provider_name, chat_json, warn_if_parse_error
 from aginiti.core.observability import get_logger
 from aginiti.operators.library import ClaimEffect, Operator
 
 _logger = get_logger("observation_adapter")
+
+_LOG_TRUNCATE_CHARS = 160
+
+
+def _truncate_for_log(text: str) -> str:
+    """Single-line, length-capped text for an INFO log line -- matches the
+    truncated-preview style the standalone attack classes already use for
+    their own [HTTP->]/[LLM #N]-style progress output (e.g.
+    aginiti/attacks/dra/ikea.py's own logging), so `aginiti scan`'s
+    terminal output reads with the same granularity as `aginiti attack`'s."""
+    text = " ".join(text.split())
+    if len(text) > _LOG_TRUNCATE_CHARS:
+        return text[:_LOG_TRUNCATE_CHARS] + "..."
+    return text
+
 
 KEY_DESCRIPTIONS = {
     # -- Payroll branch --
@@ -297,6 +312,17 @@ class ExecutionResult:
     # from key alone reproduces the exact effect-clobbering bug this field
     # exists to prevent.
     confirmed_effects: list[dict] = field(default_factory=list)
+    # The real LeakFinding objects a deep-attack operator (IKEA/SECRET/MIA/
+    # SPE wrapped as an Operator) produced, previously computed then
+    # discarded -- only a summary string (raw_signal) and a count (folded
+    # into reasoning) survived past _execute_deep_attack's return. Kept so
+    # a campaign report can render the same per-finding detail (probe
+    # text, full response, confidence, OWASP mapping, remediation) that
+    # `aginiti attack`'s own reports already show, instead of a campaign
+    # step's real findings being unrecoverable after the fact. Empty for
+    # every prompt-kind operator (which never produces a LeakFinding at
+    # all -- see `execute()`'s own extractor/judge path above).
+    deep_attack_findings: list = field(default_factory=list)
 
 
 def _effect_id(effect: ClaimEffect) -> str:
@@ -463,8 +489,10 @@ class ObservationAdapter:
         # target (e.g. a name/salary pulled from an earlier confirmed claim)
         # instead of sending the same canned text regardless of context.
         rendered_prompt = operator.render_prompt(ssg)
+        _logger.info("[PROMPT->] %s: %r", operator.id, _truncate_for_log(rendered_prompt))
         send_result = self._send(agent, operator.channel, rendered_prompt)
         raw_signal = send_result.final_text
+        _logger.info("[RESPONSE<-] %s: %r", operator.id, _truncate_for_log(raw_signal))
 
         # Facts are recorded before any interpretation happens, and
         # regardless of what (if anything) the judge concludes below --
@@ -507,11 +535,16 @@ class ObservationAdapter:
             details = {}
             reasoning = "deterministic extraction (no judge call)"
         else:
+            _logger.info("[JUDGE] %s: evaluating response against %d candidate effect(s) via %s...",
+                         operator.id, len(all_effects), active_provider_name())
             verdict = _judge(operator, raw_signal, seed=seed)
             confirmed_ids = [i for i in verdict.get("confirmed_effect_ids", []) if i in effects_by_id]
             details = verdict.get("details", {})
             reasoning = verdict.get("reasoning", "")
         confirmed_effects = [effects_by_id[i] for i in confirmed_ids]
+        _logger.info("[VERDICT] %s: %s | %s", operator.id,
+                     "confirmed" if confirmed_effects else "no confirmed effect",
+                     _truncate_for_log(reasoning) if reasoning else "(no reasoning recorded)")
 
         # Same polarity rule as _build_candidates: only REFUTED is negative.
         # HYPOTHESIZED effects (e.g. every recon-style operator's only
@@ -764,6 +797,7 @@ class ObservationAdapter:
                       f"({sum(1 for f in findings if f.confirmed)} confirmed)",
             prompt_sent=f"[deep_attack via {operator.id}]",
             tool_trace=[],
+            deep_attack_findings=findings,
         )
 
     @staticmethod
