@@ -9,6 +9,51 @@ changes.
 
 ## [Unreleased]
 
+## [0.3.0]
+
+### Added — `aginiti` CLI + installable demo target agent
+
+Closes the biggest adoption gap: running an assessment previously required
+a git clone, since `scripts/` isn't part of the published wheel. A plain
+`pip install aginiti-redteam` now gets a real, use-case-driven CLI with no
+Python code required.
+
+- New `aginiti/cli.py` — `aginiti scan` (the adaptive campaign engine,
+  filtered by `--tier`/`--attack-category`), `aginiti attack
+  {ikea,secret,mia,spe}` (one standalone attack directly), and `aginiti
+  report` (convert a saved `findings.json` into a Markdown report on its
+  own). Installed as the `aginiti` console script. Standard-env-var LLM
+  auto-detection (`GEMINI_API_KEY`/`OPENAI_API_KEY`/`GROQ_API_KEY`/
+  `ANTHROPIC_API_KEY`/`MISTRAL_API_KEY`) refuses loudly if no key
+  resolves — SPE-LLM in particular never silently degrades to a
+  false-clean result the way it would if constructed with no key.
+  SECRET's jailbreak-optimizer role prefers Groq automatically when a key
+  is available (safety-aligned models tend to refuse that step's own
+  framing otherwise) and warns when it falls back. Clean terminal output
+  by default — LiteLLM/HTTP logging noise suppressed unless `-v`. Every
+  `scan`/`attack` run prints one authorized-use reminder and auto-saves
+  `findings.json` + `aginiti_assessment_report.md`.
+- New `aginiti/demo_target/` — the reference target agent, previously
+  only available via a git-clone-only `benchmarks/` fixture, repackaged
+  to ship in the wheel. Install with `pip install
+  aginiti-redteam[demo-target]`, launch with the new
+  `aginiti-demo-target` console script — no clone, no nested venv, no
+  second full install of the library.
+- New `aginiti/providers/cache.py` — IKEA/SECRET/MIA's 7-day disk caches
+  now resolve via `platformdirs` to a real per-user cache directory
+  (override: `AGINITI_CACHE_DIR`), instead of a path relative to the
+  installed package (previously inside `site-packages/`, not reliably
+  writable and wiped on every reinstall).
+- New `aginiti/core/campaign_builder.py` — the `--agent-url`/`--tier`/
+  `--attack-category` -> `(library, mission, agent)` derivation,
+  extracted out of `scripts/run_campaign.py` so `aginiti scan` and that
+  script share one implementation instead of two that could silently
+  drift apart.
+- `aginiti/core/campaign.py` now logs one `INFO`-level line per campaign
+  step (chosen operator, score, outcome, budget used) for real-time
+  terminal telemetry — plain standard `logging`, no new callback/event
+  system.
+
 ### Added — hands-on tutorial
 
 - New `docs/TUTORIAL.md`: a narrower, copy-paste, step-by-step companion
