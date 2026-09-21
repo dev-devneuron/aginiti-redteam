@@ -250,6 +250,21 @@ def run_campaign(mission: Mission, library: OperatorLibrary, agent: BaseAdapter 
             score=chosen.score,
             meta=chosen.meta,
         ))
+        # Per-step live telemetry (aginiti scan's terminal output reads
+        # this via standard logging, not a bespoke callback/observer
+        # mechanism -- see aginiti/cli.py's log configuration). One line
+        # per step, cheap enough to always emit rather than gate behind a
+        # verbosity flag; --agent-url callers configure the handler/level.
+        # Budget (prompts_used/mission.budget), not step count, is the
+        # meaningful progress fraction here -- operators have very
+        # different costs, so "step N" alone doesn't say how far through
+        # the run this actually is.
+        _logger.info(
+            "[step %d] chose '%s' (score=%.2f) -> %s | budget %d/%d",
+            step, chosen.operator.id, chosen.score,
+            "success" if result.overall_success else "no confirmed effect",
+            prompts_used, mission.budget,
+        )
         # Milestone 2 (aginiti/graph/belief_state.py): deterministic branch
         # propagation over exactly the claims this step newly produced --
         # zero LLM calls, safe every step regardless of outcome. Cursor

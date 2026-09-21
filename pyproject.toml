@@ -10,9 +10,8 @@ readme = "README_pypi.md"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [
-    { name = "Aginiti" },
-    { name = "Omer Bin Dawood" },
     { name = "Muhammad Hammad Irfan" },
+    { name = "Omer Bin Dawood" },
 ]
 requires-python = ">=3.10"
 keywords = [
@@ -67,6 +66,12 @@ dependencies = [
     # by human using Python art library"), not a hand-rolled approximation.
     # Pure-Python, no native/binary deps, tiny (~1MB).
     "art>=6.0",
+    # Resolves a real per-OS user cache directory for IKEA/SECRET/MIA's disk
+    # caches (aginiti/providers/cache.py) instead of a path relative to the
+    # installed package -- a pip install's site-packages/ is not reliably
+    # writable and gets wiped on every reinstall/upgrade, defeating the
+    # whole point of a 7-day cache. Pure-Python, no native deps, tiny.
+    "platformdirs>=4.0",
 ]
 
 [project.urls]
@@ -74,6 +79,20 @@ Homepage = "https://github.com/dev-devneuron/aginiti-redteam"
 Repository = "https://github.com/dev-devneuron/aginiti-redteam"
 Documentation = "https://github.com/dev-devneuron/aginiti-redteam/tree/main/docs"
 Issues = "https://github.com/dev-devneuron/aginiti-redteam/issues"
+
+[project.scripts]
+# `aginiti scan`/`attack`/`report` -- see aginiti/cli.py's own module
+# docstring. A single entry point, not one alias per subcommand: matches
+# how virtually every other multi-subcommand CLI (git, docker, gh, ...)
+# does this, and avoids main() having to guess which subcommand was
+# intended from the invoked binary name.
+aginiti = "aginiti.cli:main"
+# `aginiti-demo-target` -- launches the installable local target agent
+# (aginiti/demo_target/, the "demo-target" extra). Its own console script,
+# not routed through aginiti.cli, so `aginiti scan`/`attack`/`report`
+# never transitively import chromadb's ONNX embedding function or trigger
+# its first-run model download just by importing aginiti.cli.
+aginiti-demo-target = "aginiti.demo_target.main:main"
 
 [project.optional-dependencies]
 # Full local dev/benchmark workflow: running the test suite PLUS the local
@@ -138,10 +157,29 @@ adaptive = [
     "langchain-community>=0.4",
     "mcp>=2.0.0",
 ]
+# A minimal, installable local target to red-team without cloning the repo
+# or standing up your own agent -- `pip install aginiti-redteam[demo-target]`
+# then `aginiti-demo-target` (aginiti/demo_target/, its own console script
+# below). Adapted from benchmarks/dev_fixtures/agents/reference_agent_blackbox
+# (a git-clone-only dev fixture) so it ships in the wheel instead. Kept as
+# its own extra, not folded into `dev`: `dev` is the contributor test
+# environment (pytest et al.), this is an end-user convenience with a
+# narrower, FastAPI/ChromaDB-serving dependency set.
+demo-target = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["aginiti*"]
+
+[tool.setuptools.package-data]
+# Bundled ground-truth dataset for the demo target agent
+# (aginiti/demo_target/seed.py reads it as a plain file next to itself).
+# Not a .py file, so setuptools won't include it in the wheel without this
+# declaration.
+"aginiti.demo_target" = ["*.json"]
 
 [tool.pytest.ini_options]
 # Consolidated from the standalone pytest.ini on 2026-08-20 (integration

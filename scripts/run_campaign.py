@@ -188,6 +188,7 @@ def _parse_args() -> argparse.Namespace:
     # only to populate --attack-category's `choices` list so argparse's
     # own validation and --help output are the single source of truth for
     # valid category names, not a hand-maintained duplicate list.
+    from aginiti.core.campaign_builder import TIER_CHOICES
     from aginiti.core.graph.attack_category import ALL_CATEGORIES
 
     parser = argparse.ArgumentParser(
@@ -203,7 +204,7 @@ def _parse_args() -> argparse.Namespace:
     _tier_group = parser.add_mutually_exclusive_group()
     _tier_group.add_argument(
         "--tier", default=None,
-        choices=["data_leakage", "unauthorized_actions", "discovery_recon", "full_assessment"],
+        choices=TIER_CHOICES,
         help="Filter the loaded library to one of 4 COARSE test tiers. 'full_assessment' (or "
              "omitting this flag entirely) means no filtering -- every operator in the loaded "
              "library is eligible. Mutually exclusive with --attack-category.",
@@ -247,17 +248,8 @@ def main() -> None:
         # path, so it should work instantly even in an environment with no
         # API keys configured at all, matching --help's own zero-
         # dependency spirit.
-        from aginiti.core.graph.attack_category import (
-            ALL_CATEGORIES, CATEGORY_TITLES, OFFENSIVE_CATEGORIES,
-        )
-        print("Valid --attack-category values:\n")
-        for category in sorted(ALL_CATEGORIES):
-            # CATEGORY_TITLES already spells out "(planner-evaluation
-            # control)" in the title text itself for those 3 -- only the
-            # offensive ones need a label appended here, or every control
-            # category would print its own parenthetical twice.
-            suffix = " (offensive technique)" if category in OFFENSIVE_CATEGORIES else ""
-            print(f"  {category:<32} {CATEGORY_TITLES[category]}{suffix}")
+        from aginiti.core.campaign_builder import print_attack_categories
+        print_attack_categories()
         print(
             "\nPass one or more to --attack-category (space-separated -- a union, not an "
             "intersection). See this file's own module docstring, 'Attack-category "
@@ -279,126 +271,18 @@ def main() -> None:
     from dotenv import load_dotenv
     load_dotenv()
 
-    from aginiti.adapters.http_agent_adapter import HTTPAgentAdapter
-    from aginiti.connectors.endpoint import AgentEndpoint
     from aginiti.core.campaign import run_campaign
-    from aginiti.core.graph.attack_category import (
-        LOW_VALUE_RECONNAISSANCE, TOOL_DISCOVERY, TOOL_MANIPULATION,
-    )
-    from aginiti.core.graph.owasp_llm_taxonomy import (
-        LLM01_PROMPT_INJECTION, LLM02_SENSITIVE_INFORMATION_DISCLOSURE,
-        LLM06_EXCESSIVE_AGENCY, LLM07_SYSTEM_PROMPT_LEAKAGE,
-    )
-    from aginiti.core.graph.schema import RiskTier
-    from aginiti.core.mission import Mission
-    from aginiti.core.scenarios import multi_path_mission
-    from aginiti.operators.data_exposure import data_exposure_operators
-    from aginiti.operators.definitions import build_library
-    from aginiti.operators.deep_attack_operators import deep_attack_operators
-    from aginiti.operators.library import Operator, OperatorLibrary
+    from aginiti.core.campaign_builder import CampaignBuildError, build_campaign
 
-    _RECON_ATTACK_CATEGORIES = {TOOL_DISCOVERY, LOW_VALUE_RECONNAISSANCE}
-    _UNAUTHORIZED_ACTION_OWASP = {LLM01_PROMPT_INJECTION, LLM06_EXCESSIVE_AGENCY}
-    _DATA_LEAKAGE_OWASP = {LLM02_SENSITIVE_INFORMATION_DISCLOSURE, LLM07_SYSTEM_PROMPT_LEAKAGE}
-
-    def _classify_tier(op: Operator) -> str | None:
-        """See this file's own module docstring, 'Tier classification',
-        for the full rationale. Reads only the FIRST effects_success
-        ClaimEffect -- every operator this project defines carries exactly
-        one, verified directly rather than assumed."""
-        if not op.effects_success:
-            return None
-        effect = op.effects_success[0]
-        if effect.attack_category in _RECON_ATTACK_CATEGORIES:
-            return "discovery_recon"
-        if effect.owasp_llm_category in _UNAUTHORIZED_ACTION_OWASP or effect.attack_category == TOOL_MANIPULATION:
-            return "unauthorized_actions"
-        if effect.owasp_llm_category in _DATA_LEAKAGE_OWASP:
-            return "data_leakage"
-        return None
-
-    def _success_keys(op: Operator) -> set[str]:
-        """The claim key(s) that count as THIS operator succeeding --
-        deep-attack operators declare exactly one (op.claim_key); prompt
-        operators may declare more than one effects_success ClaimEffect."""
-        if op.kind == "deep_attack":
-            return {op.claim_key} if op.claim_key else set()
-        return {e.key for e in op.effects_success}
-
-    used_defaults = args.agent_url is None and args.tier is None and args.attack_category is None
-
-    if used_defaults:
-        # Exact original behavior -- zero change from before this script
-        # gained a CLI.
-        library = OperatorLibrary(build_library())
-        mission = multi_path_mission()
-        agent = None  # run_campaign() falls back to DemoAgent itself
-    else:
-        if args.agent_url:
-            operators = [*data_exposure_operators(), *deep_attack_operators()]
-            endpoint = AgentEndpoint(base_url=args.agent_url)
-            agent = HTTPAgentAdapter(endpoint)
-        else:
-            # --tier/--attack-category without --agent-url: still exercise
-            # the DemoAgent scenario library, just filtered.
-            operators = build_library()
-            agent = None
-
-        if args.tier and args.tier != "full_assessment":
-            operators = [op for op in operators if _classify_tier(op) == args.tier]
-            if not operators:
-                raise SystemExit(
-                    f"--tier {args.tier!r} matched zero operators in the loaded library. "
-                    f"(Tier classification only covers operators tagged with owasp_llm_category/"
-                    f"attack_category -- see this file's own module docstring, 'Tier "
-                    f"classification', for which packs that fully covers.)"
-                )
-
-        if args.attack_category:
-            # OperatorLibrary.by_category() (aginiti/operators/library.py)
-            # does the actual filtering and its own validation -- reused
-            # here rather than reimplemented, same discipline as
-            # _classify_tier's own docstring documents for the tier case.
-            # argparse's `choices` already rejects an unknown category
-            # name before main() ever runs, so by_category()'s own
-            # ValueError path is a defensive second layer, not the
-            # primary one, here specifically.
-            operators = list(OperatorLibrary(operators).by_category(*args.attack_category))
-            if not operators:
-                raise SystemExit(
-                    f"--attack-category {args.attack_category!r} matched zero operators in the "
-                    f"loaded library. (See this file's own module docstring, 'Attack-category "
-                    f"classification', for the untagged-operator caveat, most common against "
-                    f"the older DemoAgent mock library.)"
-                )
-
-        library = OperatorLibrary(operators)
-
-        success_criteria = tuple(sorted({key for op in operators for key in _success_keys(op)}))
-        _scope_note = (
-            f" (tier: {args.tier})" if args.tier
-            else f" (attack categories: {', '.join(args.attack_category)})" if args.attack_category
-            else ""
+    try:
+        library, mission, agent = build_campaign(
+            agent_url=args.agent_url,
+            tier=args.tier,
+            attack_category=args.attack_category,
+            budget=args.budget,
         )
-        mission = Mission(
-            goal=(
-                f"Demonstrate a concrete compromise against the target"
-                f"{_scope_note}."
-            ),
-            success_criteria=success_criteria,
-            # 25: comfortably admits a mix of cheap data_exposure probes
-            # (cost_prompts=1 each) alongside one deep-attack operator
-            # (cost_prompts ~3-20) without --budget -- see deep_attack_
-            # operators.py's own declared costs. Override with --budget
-            # for anything more deliberate.
-            budget=25,
-            risk_threshold=RiskTier.MEDIUM,
-            success_mode="any",
-        )
-
-    if args.budget is not None:
-        import dataclasses
-        mission = dataclasses.replace(mission, budget=args.budget)
+    except CampaignBuildError as exc:
+        raise SystemExit(str(exc)) from exc
 
     try:
         result = run_campaign(mission, library, agent=agent)
