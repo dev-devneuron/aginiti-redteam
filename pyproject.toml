@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aginiti-redteam"
-version = "0.2.0"
+version = "0.3.0"
 description = "Red-teaming library for enterprise agentic AI systems — data leak evaluation"
 readme = "README_pypi.md"
 license = "MIT"
@@ -172,7 +172,19 @@ demo-target = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["aginiti*"]
+# "aginiti.*" (dotted), not "aginiti*" -- the old glob also matched any
+# top-level directory whose NAME literally starts with "aginiti" as a
+# plain string prefix, not just dotted submodules of the aginiti package.
+# Caught live building 0.3.0: a local, gitignored scratch directory named
+# aginiti-demo/ (a contributor's own test scripts, never committed) was
+# being swept into the built wheel by this exact pattern. That directory
+# is untracked and never reaches a real release through source control,
+# but a wheel is built from the working tree, not from git -- so any
+# local directory matching this glob would ship regardless of git status.
+# The explicit exclude below is defense in depth on top of the narrower
+# include, not a substitute for it.
+include = ["aginiti", "aginiti.*"]
+exclude = ["aginiti-demo*", "aginiti_demo*"]
 
 [tool.setuptools.package-data]
 # Bundled ground-truth dataset for the demo target agent
