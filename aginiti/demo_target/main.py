@@ -3,10 +3,12 @@ Aginiti demo target agent -- FastAPI app + console-script entry point.
 
 Start via the console script (installed with the ``demo-target`` extra):
     aginiti-demo-target
+    aginiti-demo-target --port 8010   # if 8001 is already taken
 
 Or directly:
     uvicorn aginiti.demo_target.main:app --port 8001
 """
+import argparse
 import os
 
 from dotenv import load_dotenv
@@ -52,11 +54,23 @@ def health():
     return {"status": "ok"}
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(prog="aginiti-demo-target")
+    parser.add_argument(
+        "--port", type=int, default=None,
+        help="Port to serve on. Default: AGENT_PORT env var, or 8001 if that's not set either -- "
+             "use this if 8001 is already taken by something else.",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
     """Console-script entry point (``aginiti-demo-target``). Seeds the
     ChromaDB collection if it's empty (a no-op on every run after the
     first), then starts the server."""
     from .seed import seed
+
+    args = _parse_args()
 
     print(
         "Aginiti demo target agent -- for local testing only. Run attacks "
@@ -64,7 +78,7 @@ def main() -> None:
     )
     seed()
 
-    port = int(os.getenv("AGENT_PORT", "8001"))
+    port = args.port if args.port is not None else int(os.getenv("AGENT_PORT", "8001"))
     print("=" * 60)
     print(f"  Online at:     http://localhost:{port}")
     print(f"  Health check:  http://localhost:{port}/health")
