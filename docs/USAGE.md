@@ -38,6 +38,8 @@ entirely and just point `--target` at your own URL.
 ```bash
 # Start a local target agent to try Aginiti against (seeds itself, then serves on :8001)
 aginiti-demo-target
+#   Port 8001 already taken? Run it on another one instead:
+aginiti-demo-target --port 8010
 
 # In a second terminal: aginiti scan -- let it decide (try this first)
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
@@ -55,8 +57,18 @@ aginiti attack mia --target http://localhost:8001 --dataset candidates.json --pr
 aginiti report --input findings.json
 ```
 
-Every `scan`/`attack` run auto-saves `findings.json` and a severity-sorted,
-OWASP-mapped `aginiti_assessment_report.md`. `aginiti scan --tier` accepts
+Every `scan`/`attack` run auto-saves `findings.json`, a severity-sorted,
+OWASP-mapped `aginiti_assessment_report.md`, and the same report as
+`aginiti_assessment_report.html` for opening straight in a browser — no
+Markdown viewer needed:
+
+```bash
+Start-Process aginiti_assessment_report.html   # Windows (PowerShell)
+open aginiti_assessment_report.html            # macOS
+xdg-open aginiti_assessment_report.html        # Linux
+```
+
+`aginiti scan --tier` accepts
 `data_leakage | unauthorized_actions | discovery_recon | full_assessment`;
 `aginiti scan`'s own `--budget` means "how many techniques it gets to try"
 (against the real-target pack, 11 techniques today, so above ~15-20 rarely

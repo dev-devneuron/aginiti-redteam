@@ -100,6 +100,15 @@ folder, so it finds the same `.env` file):
 aginiti-demo-target
 ```
 
+Port 8001 already taken by something else on your machine? Run it on a
+different one instead:
+
+```bash
+aginiti-demo-target --port 8010
+```
+
+(then use `http://localhost:8010` in place of `:8001` everywhere below).
+
 The first run seeds its fake records automatically, then starts serving
 on `http://localhost:8001`. Leave this terminal open for the rest of the
 demo — go back to your first terminal for everything below.
@@ -122,12 +131,19 @@ instead of `http://localhost:8001`.
 ## 3 · Choose your approach
 
 Two ways to run an assessment — pick based on what you already know. Both
-auto-save two files into your current folder when they finish:
-`findings.json` (the full structured result) and
-`aginiti_assessment_report.md` (a readable report, sorted highest
-severity first, mapped to the industry-standard OWASP LLM Top 10 — the
-file to open, share, or attach to an email). Nothing extra to write for
-that.
+auto-save three files into your current folder when they finish:
+`findings.json` (the full structured result), `aginiti_assessment_report.md`
+(a readable report, sorted highest severity first, mapped to the
+industry-standard OWASP LLM Top 10), and `aginiti_assessment_report.html`
+(the same report, styled for a browser — the one to open, share, or
+attach to an email, even for a non-technical reader). Nothing extra to
+write for that. Open the HTML report straight from your terminal:
+
+```bash
+Start-Process aginiti_assessment_report.html   # Windows (PowerShell)
+open aginiti_assessment_report.html            # macOS
+xdg-open aginiti_assessment_report.html        # Linux
+```
 
 ### `aginiti scan` — let it decide
 
@@ -345,6 +361,8 @@ pip install "aginiti-redteam[demo-target]"
 
 # --- Terminal 2: the practice chatbot (leave running) ---
 aginiti-demo-target
+# port 8001 already taken? run it on another one instead:
+aginiti-demo-target --port 8010
 
 # --- Terminal 1: aginiti scan -- let it decide (try this first) ---
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
@@ -360,6 +378,11 @@ aginiti attack secret --target http://localhost:8001 --domain "HR records" --que
 
 # --- rarely needed: regenerate a report from a saved findings.json ---
 aginiti report --input findings.json --redact
+
+# --- open the HTML report in a browser ---
+Start-Process aginiti_assessment_report.html   # Windows (PowerShell)
+open aginiti_assessment_report.html            # macOS
+xdg-open aginiti_assessment_report.html        # Linux
 
 # --- already have your own target? use its URL everywhere above instead ---
 aginiti attack spe --target https://your-agent.example.com

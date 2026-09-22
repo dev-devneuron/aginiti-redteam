@@ -75,6 +75,8 @@ export GEMINI_API_KEY=your_key_here   # or put it in a .env file in your working
 
 # 3. Start the local target agent (seeds itself on first run, then serves on :8001)
 aginiti-demo-target
+#    Port 8001 already taken? Run it on another one instead:
+aginiti-demo-target --port 8010
 
 # 4. In a second terminal: aginiti scan -- let it decide (try this first)
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
@@ -88,9 +90,24 @@ aginiti attack ikea --target http://localhost:8001 --topic "HR records" --querie
 ```
 
 Every `scan`/`attack` run prints one authorized-use reminder, then auto-saves
-`findings.json` (the full structured result) and `aginiti_assessment_report.md` (a
-human-readable, OWASP LLM Top 10–mapped Markdown report) into the current directory
-(`--output-dir` to redirect). `aginiti scan --tier` accepts `data_leakage |
+`findings.json` (the full structured result), `aginiti_assessment_report.md` (a
+human-readable, OWASP LLM Top 10–mapped Markdown report), and
+`aginiti_assessment_report.html` (the same report, styled for a browser — open it directly,
+no Markdown viewer needed) into the current directory (`--output-dir` to redirect). Open the
+HTML report from your terminal:
+
+```bash
+# Windows (PowerShell)
+Start-Process aginiti_assessment_report.html
+
+# macOS
+open aginiti_assessment_report.html
+
+# Linux
+xdg-open aginiti_assessment_report.html
+```
+
+`aginiti scan --tier` accepts `data_leakage |
 unauthorized_actions | discovery_recon | full_assessment`, or use `--attack-category` for
 one of the 11 precise named groups (`aginiti scan --list-attack-categories` to see all of
 them). `aginiti attack {ikea,secret,mia,spe}` runs one technique on its own — see
@@ -104,84 +121,6 @@ is a thin wrapper, not a separate/lighter tool. The git-clone path below adds th
 contributor workflow, the Python API for scripting your own assessments, and
 `scripts/run_campaign.py`'s CLI (functionally equivalent to `aginiti scan`, plus a couple of
 git-clone-only conveniences).
-
----
-
-## 🚀 Quickstart (2 minutes, zero targets to set up)
-
-The fastest way to see Aginiti actually plan and execute a live campaign — no servers, no
-seeding, one API key:
-
-```bash
-# 1. Clone and enter the project
-git clone https://github.com/dev-devneuron/aginiti-redteam.git
-cd aginiti-redteam
-
-# 2. Create a virtual environment and install
-python3 -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
-
-# 3. Add one LLM API key (Aginiti's own reasoning — the judge, the planner's
-#    ranking calls — needs a provider; the in-memory demo target needs no key at all)
-cp .env.example .env
-#   edit .env and set GEMINI_API_KEY=... or GROQ_API_KEY=...
-
-# 4. Run a full campaign against the built-in mock target
-python scripts/run_campaign.py
-```
-
-That last command runs a real adaptive campaign — ranks operators, executes the winner,
-judges the response, updates the evidence graph, and repeats — against an in-memory demo
-agent (a payroll/GitHub/helpdesk assistant with a deliberately exploitable trust
-relationship). You'll see a full decision trace and a final `Security State Graph`. On an
-unmodified checkout this reliably ends with `payroll_write_unauthorized = confirmed` and
-`Ground truth -- any mission path actually achieved: True` — a real indirect-prompt-injection
-chain, planned and executed end to end, from a cold start, with no target-specific code
-written for it.
-
-**Point it at a real target instead of the mock one:**
-
-```bash
-python scripts/run_campaign.py --agent-url http://localhost:8001 \
-    --tier data_leakage --budget 15
-```
-
-`--tier` filters to one of 4 COARSE buckets — `data_leakage | unauthorized_actions |
-discovery_recon | full_assessment`. For a PRECISE selection instead, use `--attack-category`
-to pick from the 11 named attack-methodology groups directly (`direct_prompt_attack`,
-`encoding_attack`, `rag_poisoning`, `indirect_injection`, `tool_discovery`,
-`tool_manipulation`, `markdown_network_exfiltration`, `multi_step_chain`, plus 3
-planner-evaluation controls) — run `python scripts/run_campaign.py --list-attack-categories`
-to see every option with a one-line description before choosing:
-
-```bash
-# Only encoding-evasion attacks:
-python scripts/run_campaign.py --agent-url http://localhost:8001 \
-    --attack-category encoding_attack --budget 20
-
-# Two categories at once (a union):
-python scripts/run_campaign.py --agent-url http://localhost:8001 \
-    --attack-category encoding_attack rag_poisoning --budget 25
-```
-
-`--tier` and `--attack-category` are mutually exclusive (pick one granularity). `--budget` caps
-how many prompts the campaign may spend; `--model` overrides the attacker LLM used by the
-deep-attack operators (IKEA/SECRET/MIA). The same category filter is available directly in
-Python via `OperatorLibrary.by_category("encoding_attack", ...)`
-([`aginiti/operators/library.py`](aginiti/operators/library.py)) for any other caller, not
-just this script. See `scripts/run_campaign.py`'s own module docstring for the full flag
-reference.
-
-**Want to run one specific attack technique on its own** (IKEA, SECRET, Interrogation, or
-SPE-LLM), rather than letting the planner decide? See [§ Standalone attack library](#-standalone-attack-library) below.
-
-**Windows users:** native `onnxruntime` (used by the default local embedding backend) can hit
-DLL-loading issues on native Windows. Running inside **WSL2** or Docker
-(`docker build -t aginiti-redteam . && docker compose up` — see the [`Dockerfile`](Dockerfile)
-and [`docker-compose.yml`](docker-compose.yml) at the repo root) is the smoothest path; the
-Quickstart above also works natively on Windows in most environments, it's only the optional
-local-embedding path that's more reliable under WSL2/Docker.
 
 ---
 
@@ -222,7 +161,7 @@ aginiti-redteam/
 ├── experiments/                  # Offline, deterministic dry-run scripts validating specific
 │                                 #   planner claims — zero setup, no target/API key required
 ├── scripts/
-│   ├── run_campaign.py           # The general-purpose entry point — see Quickstart above
+│   ├── run_campaign.py           # The general-purpose entry point — see Installation & Developer Setup below
 │   ├── run_ikea.py / run_secret.py / run_interrogation.py   # Standalone single-attack runners
 │   └── run_healthcare_benchmark.py  # Preset benchmark against the HealthCareMagic-1k corpus
 ├── docs/                         # ARCHITECTURE.md, BENCHMARKS.md, ROADMAP.md
@@ -238,8 +177,12 @@ aginiti-redteam/
 * A valid API key for any LiteLLM-supported provider (`GEMINI_API_KEY`, `GROQ_API_KEY`,
   `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …) — the planner's reasoning, the judge, and the
   attack loops are all provider-agnostic via [LiteLLM](https://github.com/BerriAI/litellm).
-* **Windows users:** see the Quickstart note above — WSL2 or Docker is the most reliable
-  path for anything that touches the local ONNX embedding backend.
+* **Windows users:** native `onnxruntime` (used by the default local embedding backend) can
+  hit DLL-loading issues on native Windows. Running inside **WSL2** or Docker
+  (`docker build -t aginiti-redteam . && docker compose up` — see the [`Dockerfile`](Dockerfile)
+  and [`docker-compose.yml`](docker-compose.yml) at the repo root) is the smoothest path for
+  anything that touches the local ONNX embedding backend; everything else below works
+  natively on Windows in most environments.
 
 ### Install & Configure
 
@@ -275,8 +218,62 @@ uvicorn benchmarks.dev_fixtures.agents.reference_agent_blackbox.main:app --port 
 uvicorn benchmarks.dev_fixtures.agents.reference_agent_otel.main:app --port 8002
 ```
 
-Then point the campaign engine or a standalone attack at `http://localhost:8001` (see
-Quickstart above, or the standalone-attack section below).
+Then point the campaign engine or a standalone attack at `http://localhost:8001` (see the
+adaptive-campaign walkthrough right below, or the standalone-attack section further down).
+
+### Run a full adaptive campaign (`scripts/run_campaign.py`)
+
+This is the git-clone equivalent of `aginiti scan` — same campaign engine underneath, plus a
+couple of git-clone-only conveniences (the built-in mock target below, the Python API):
+
+```bash
+# Against the built-in mock target -- no server, no seeding, nothing else to start
+python scripts/run_campaign.py
+```
+
+That command runs a real adaptive campaign — ranks operators, executes the winner, judges
+the response, updates the evidence graph, and repeats — against an in-memory demo agent (a
+payroll/GitHub/helpdesk assistant with a deliberately exploitable trust relationship). You'll
+see a full decision trace and a final `Security State Graph`. On an unmodified checkout this
+reliably ends with `payroll_write_unauthorized = confirmed` and `Ground truth -- any mission
+path actually achieved: True` — a real indirect-prompt-injection chain, planned and executed
+end to end, from a cold start, with no target-specific code written for it.
+
+**Point it at a real target instead of the mock one** (e.g. the reference agent started above):
+
+```bash
+python scripts/run_campaign.py --agent-url http://localhost:8001 \
+    --tier data_leakage --budget 15
+```
+
+`--tier` filters to one of 4 COARSE buckets — `data_leakage | unauthorized_actions |
+discovery_recon | full_assessment`. For a PRECISE selection instead, use `--attack-category`
+to pick from the 11 named attack-methodology groups directly (`direct_prompt_attack`,
+`encoding_attack`, `rag_poisoning`, `indirect_injection`, `tool_discovery`,
+`tool_manipulation`, `markdown_network_exfiltration`, `multi_step_chain`, plus 3
+planner-evaluation controls) — run `python scripts/run_campaign.py --list-attack-categories`
+to see every option with a one-line description before choosing:
+
+```bash
+# Only encoding-evasion attacks:
+python scripts/run_campaign.py --agent-url http://localhost:8001 \
+    --attack-category encoding_attack --budget 20
+
+# Two categories at once (a union):
+python scripts/run_campaign.py --agent-url http://localhost:8001 \
+    --attack-category encoding_attack rag_poisoning --budget 25
+```
+
+`--tier` and `--attack-category` are mutually exclusive (pick one granularity). `--budget` caps
+how many prompts the campaign may spend; `--model` overrides the attacker LLM used by the
+deep-attack operators (IKEA/SECRET/MIA). The same category filter is available directly in
+Python via `OperatorLibrary.by_category("encoding_attack", ...)`
+([`aginiti/operators/library.py`](aginiti/operators/library.py)) for any other caller, not
+just this script. See `scripts/run_campaign.py`'s own module docstring for the full flag
+reference.
+
+**Want to run one specific attack technique on its own** (IKEA, SECRET, Interrogation, or
+SPE-LLM), rather than letting the planner decide? See [§ Standalone attack library](#-standalone-attack-library) below.
 
 ---
 
