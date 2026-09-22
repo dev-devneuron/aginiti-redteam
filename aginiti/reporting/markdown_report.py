@@ -53,11 +53,6 @@ _OWASP_MAPPING = {
 }
 _OWASP_DEFAULT = "OWASP LLM Top 10 mapping not yet defined for this attack type"
 
-# Paper-reported reference numbers (Wang et al., ICLR 2026, arXiv:2505.15420,
-# Table 1, LLaMA + MPNet, No Defense row) — same source scripts/run_benchmark.py
-# uses. Hardcoded, not measured; shown for context only.
-_PAPER_BASELINE = {"asr": 0.92, "ee": 0.87, "crr": 0.28, "ss": 0.71}
-
 # Attack registry key ("run_metadata"/report-level "attack" field, e.g.
 # scripts/run_benchmark.py's --attack choice or a standalone script's own
 # hardcoded value) -> display name. "ikea" and "spe" are the two values
@@ -449,24 +444,19 @@ def generate_markdown_report(
 
     metrics = data["metrics"]
     lines.append("## Key Metrics")
-    lines.append("| Metric | Value | Paper Baseline |")
-    lines.append("|--------|-------|----------------|")
+    lines.append("| Metric | Value |")
+    lines.append("|--------|-------|")
     if metrics is not None:
         if 'asr' in metrics:
-            lines.append(
-                f"| ASR | {metrics['asr'] * 100:.0f}% | "
-                f"{_PAPER_BASELINE['asr'] * 100:.0f}% |"
-            )
+            lines.append(f"| ASR | {metrics['asr'] * 100:.0f}% |")
         if 'ee' in metrics:
-            lines.append(f"| EE | {metrics['ee']:.2f} | {_PAPER_BASELINE['ee']:.2f}* |")
+            lines.append(f"| EE | {metrics['ee']:.2f} |")
         if 'crr_mean' in metrics:
-            lines.append(
-                f"| CRR | {metrics['crr_mean']:.2f} | {_PAPER_BASELINE['crr']:.2f} |"
-            )
+            lines.append(f"| CRR | {metrics['crr_mean']:.2f} |")
         if 'ss_mean' in metrics:
-            lines.append(f"| SS | {metrics['ss_mean']:.2f} | {_PAPER_BASELINE['ss']:.2f} |")
+            lines.append(f"| SS | {metrics['ss_mean']:.2f} |")
         if 'avg_cosine' in metrics:
-            lines.append(f"| Avg Cosine | {metrics['avg_cosine']:.2f} | — |")
+            lines.append(f"| Avg Cosine | {metrics['avg_cosine']:.2f} |")
     else:
         # queries_sent, not the budget ("queries") — an ASR computed against
         # the budget would be artificially low for a run that stopped early
@@ -488,24 +478,17 @@ def generate_markdown_report(
         # disclosure is reportable but not `confirmed`; excluding it here
         # while counting it below would just move the inconsistency).
         asr = (len(reportable) / data["queries_sent"]) if data["queries_sent"] else 0.0
-        lines.append(f"| ASR | {asr * 100:.0f}% | {_PAPER_BASELINE['asr'] * 100:.0f}% |")
-    lines.append(
-        f"| Classifier | LLM-as-judge ({data['llm_provider']}) | — |"
-    )
+        lines.append(f"| ASR | {asr * 100:.0f}% |")
+    lines.append(f"| Classifier | LLM-as-judge ({data['llm_provider']}) |")
     lines.append("")
-    if metrics is not None:
-        lines.append(
-            "*Paper used all-mpnet-base-v2 embeddings on both attacker and "
-            "target. See Methodology below."
-        )
-    else:
+    if metrics is None:
         lines.append(
             "*EE/CRR/SS require scoring against a ground-truth dataset, not "
             "available for this run. Use `scripts/run_benchmark.py` against "
             "a ground-truth dataset (e.g. HealthCareMagic-1k) for full "
             "metric scoring."
         )
-    lines.append("")
+        lines.append("")
 
     buckets = _bucket(reportable)
 

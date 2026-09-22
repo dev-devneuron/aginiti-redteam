@@ -292,15 +292,15 @@ class TestGenerateMarkdownReport:
     def test_metrics_table_with_ground_truth(self, tmp_path):
         report = _run_benchmark_schema([_finding()])
         markdown = generate_markdown_report(report, tmp_path / "r.md")
-        assert "| ASR | 55% | 92% |" in markdown
-        assert "| EE | 0.34 | 0.87* |" in markdown
-        assert "| CRR | 0.20 | 0.28 |" in markdown
-        assert "| SS | 0.60 | 0.71 |" in markdown
+        assert "| ASR | 55% |" in markdown
+        assert "| EE | 0.34 |" in markdown
+        assert "| CRR | 0.20 |" in markdown
+        assert "| SS | 0.60 |" in markdown
 
     def test_metrics_table_without_ground_truth_shows_asr_only(self, tmp_path):
         findings = [_finding(), _finding()]  # 2 findings / 20 queries = 10%
         markdown = generate_markdown_report(_run_ikea_schema(findings), tmp_path / "r.md")
-        assert "| ASR | 10% | 92% |" in markdown
+        assert "| ASR | 10% |" in markdown
         assert "EE/CRR/SS require scoring against a ground-truth dataset" in markdown
 
     def test_asr_counts_only_reportable_findings_not_raw_response_count(self, tmp_path):
@@ -323,7 +323,7 @@ class TestGenerateMarkdownReport:
         markdown = generate_markdown_report(_run_ikea_schema(findings), tmp_path / "r.md")
         # 1 reportable finding / 20 queries = 5% -- NOT 3/20 = 15%, and
         # nowhere near the naive "3 non-refused responses" reading.
-        assert "| ASR | 5% | 92% |" in markdown
+        assert "| ASR | 5% |" in markdown
         # Sanity-check the fix didn't disturb the *other* metric that's
         # already correctly reportable-only.
         risk_summary = markdown.split("## Risk Summary")[1].split("## Key Metrics")[0]
@@ -331,7 +331,7 @@ class TestGenerateMarkdownReport:
 
     def test_classifier_row_shows_llm_provider(self, tmp_path):
         markdown = generate_markdown_report(_run_ikea_schema([_finding()]), tmp_path / "r.md")
-        assert "| Classifier | LLM-as-judge (gemini/gemini-3.5-flash) | — |" in markdown
+        assert "| Classifier | LLM-as-judge (gemini/gemini-3.5-flash) |" in markdown
 
     def test_critical_findings_section(self, tmp_path):
         findings = [_finding(leak_type="pii", severity="critical", probe="p1")]
@@ -475,7 +475,7 @@ class TestQueriesSentHeader:
         markdown = generate_markdown_report(
             _run_ikea_schema([_finding()], queries_sent=5), tmp_path / "r.md"
         )
-        assert "| ASR | 20% | 92% |" in markdown
+        assert "| ASR | 20% |" in markdown
 
 
 class TestRefusedQueriesSection:
