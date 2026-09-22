@@ -2,7 +2,7 @@
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)]()
-[![Tests](https://img.shields.io/badge/tests-1893%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-1912%20passing-brightgreen.svg)]()
 [![Attack Categories](https://img.shields.io/badge/attack%20categories-11-blueviolet.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)]()
 
@@ -50,7 +50,7 @@ baselines and an industry-standard scanner, on real, independently-built targets
   multi-step MCP tool-chain composition, grounded in **10+ published, cited research
   papers** — ArtPrompt, Crescendo, PAIR, CipherChat/MetaCipher, the Interrogation Attack,
   IKEA, SECRET, SPE-LLM, InjecAgent, and STAC among them.
-- **1,893 tests, fully offline** — every LLM and network call mocked, full suite in
+- **1,912 tests, fully offline** — every LLM and network call mocked, full suite in
   under 30 seconds, zero API cost.
 
 Full methodology, numbers, and citations: [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md).
@@ -63,7 +63,9 @@ Run a real assessment from your terminal with zero Python code and zero repo che
 just the package and one LLM API key:
 
 ```bash
-# 1. Install the CLI + a local target agent to try it against
+# 1. Install the CLI + a local target agent to try it against.
+#    Already have your own target and don't need the demo one?
+#    Just `pip install aginiti-redteam` instead — skip straight to step 4.
 pip install "aginiti-redteam[demo-target]"
 
 # 2. Add one LLM API key (standard env var names — GEMINI_API_KEY, OPENAI_API_KEY,
@@ -221,7 +223,7 @@ aginiti-redteam/
 │   ├── run_ikea.py / run_secret.py / run_interrogation.py   # Standalone single-attack runners
 │   └── run_healthcare_benchmark.py  # Preset benchmark against the HealthCareMagic-1k corpus
 ├── docs/                         # ARCHITECTURE.md, BENCHMARKS.md, ROADMAP.md
-└── tests/                        # 1,893 tests, fully offline (every LLM/HTTP call mocked)
+└── tests/                        # 1,912 tests, fully offline (every LLM/HTTP call mocked)
 ```
 
 ---
@@ -360,7 +362,7 @@ offline, in seconds, at zero API cost:
 pytest tests/ -v
 ```
 
-1,893 tests currently pass on a clean checkout.
+1,912 tests currently pass on a clean checkout.
 
 ---
 
