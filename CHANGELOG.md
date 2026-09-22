@@ -9,6 +9,40 @@ changes.
 
 ## [Unreleased]
 
+## [0.3.2]
+
+### Added
+
+- `aginiti-demo-target --port` — no way to run the demo target on a
+  different port existed before this (short of setting `AGENT_PORT` and
+  remembering to unset it again) -- a real problem for anyone with port
+  8001 already taken. `--port` now takes priority over `AGENT_PORT`,
+  which remains the fallback default; 8001 stays the final fallback if
+  neither is set.
+- Every `scan`/`attack`/`report` run now also auto-saves a self-contained
+  HTML report (`aginiti_assessment_report.html`) alongside the existing
+  `.md` one -- same severity-sorted findings, same OWASP mapping, styled
+  with this project's own monochrome documentation design system, meant
+  to be opened straight in a browser. New
+  `aginiti.reporting.generate_html_report()`.
+
+### Changed
+
+- Every report's Key Metrics table (ASR/EE/CRR/SS) no longer shows a
+  "Paper Baseline" comparison column -- a user testing their own agent
+  has no reason to care what the original research paper measured on a
+  completely different target.
+- User-facing docs (`README_pypi.md`, `docs/USAGE.md`, `docs/index.html`'s
+  "Using the library" section) no longer mention the `[adaptive]` extra
+  (LangChain/OTel/MCP/DVLA), `[dev]`/`[benchmarks]`, or the benchmarking/
+  testing workflow -- none of that is relevant to someone installing the
+  library to test their own agent. `README.md`'s contributor-facing
+  git-clone sections are unaffected; that's exactly where this content
+  still belongs.
+- Every CLI quickstart example now shows all 4 `aginiti scan --tier`
+  values (`data_leakage`/`unauthorized_actions`/`discovery_recon`/
+  `full_assessment`) instead of just one.
+
 ## [0.3.1]
 
 ### Fixed — real bugs found running `aginiti scan`/`attack` live
