@@ -12,7 +12,7 @@ speed.
 **Proven, not just architected:** benchmarked head-to-head against fixed-order
 enumeration (~5x fewer requests to the same outcomes) and validated against NVIDIA's
 garak (findings agreed exactly on every comparable category) on real, production-realistic
-targets. 11 attack methodologies, grounded in 10+ published research papers, 1,893 tests.
+targets. 11 attack methodologies, grounded in 10+ published research papers, 1,912 tests.
 Full numbers: [`docs/BENCHMARKS.md`](https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/BENCHMARKS.md).
 
 ---
@@ -29,6 +29,8 @@ own required:
 ```bash
 pip install "aginiti-redteam[demo-target]"
 ```
+**Already have your own target agent and don't need the demo one?** The plain
+`pip install aginiti-redteam` above is all you need — skip the extra.
 
 If you plan to run the autonomous campaign orchestrator with advanced integrations (like LangChain agents, OpenTelemetry tracing, or Model Control Protocol stdio servers), install the adaptive extras:
 ```bash

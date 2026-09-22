@@ -1,20 +1,13 @@
 # Usage Guide
 
-Aginiti is a red-teaming framework for enterprise agentic AI. Four
-research-grade data-leakage attacks you can run standalone (**Direct
-Mode**), and an adaptive campaign engine that decides for itself which of
-them — and everything else in its operator library — is worth the budget
-(**Adaptive Mode**). This page covers exactly how to run each, from a
+Aginiti is a red-teaming framework for enterprise agentic AI. The `aginiti`
+CLI runs a real assessment with no code (`aginiti scan` lets the campaign
+engine decide what to try; `aginiti attack` runs one specific, named
+technique directly), and the same library underneath is fully usable as
+plain Python for scripting your own assessments — **Direct Mode** (one
+attack, every parameter by hand) and **Adaptive Mode** (a target + a
+budget, it decides). This page covers exactly how to run each, from a
 plain `pip install`.
-
-- **Direct Mode**: run one attack — IKEA, SECRET, Interrogation, or
-  SPE-LLM — straight against a target URL. You control every parameter by
-  hand. Works from a bare `pip install`.
-- **Adaptive Mode**: hand the campaign engine a target and a budget; it
-  ranks every eligible operator by expected value, executes the winner,
-  and repeats. The `scripts/run_campaign.py` CLI needs a git checkout —
-  the same engine is also a plain Python call that works from
-  `pip install` alone.
 
 New to the library? [docs/TUTORIAL.md](TUTORIAL.md) is a narrower,
 hands-on walkthrough — copy-paste commands from an empty folder through
@@ -26,24 +19,58 @@ reference once you're past that.
 ## Installation
 
 ```bash
-# Core library — the 4 attacks, HTTP target adapters, the campaign engine
+# CLI + the 4 attacks + campaign engine
 pip install aginiti-redteam
+
+# + a local target agent to try it against, no target of your own required
+pip install "aginiti-redteam[demo-target]"
 
 # + LangChain agents, OTel tracing, MCP stdio servers, the DVLA reference target
 pip install aginiti-redteam[adaptive]
 ```
 
-> **The one thing `pip install` does not give you.** `pip install
-> aginiti-redteam` installs the `aginiti` Python package only — no
-> `scripts/`, no `aginiti` command, no CLI. Verified directly against a
-> clean install: `import scripts.run_campaign` fails with
-> `ModuleNotFoundError`. Every attack and the full campaign engine are
-> fully usable as a Python library from a plain `pip install` (see the
-> code examples throughout this page) — the `--tier`/`--attack-category`
-> *command-line* convenience in [Adaptive Mode](#adaptive-mode—the-campaign-engine)
-> specifically needs `git clone` + `pip install -e ".[dev]"`. A dedicated
-> `aginiti` CLI wrapper that ships with the package is on the roadmap, not
-> shipped yet.
+**Already have your own target agent and don't need the demo one?** The
+plain `pip install aginiti-redteam` above already gets you the full
+`aginiti` CLI (`aginiti scan`/`attack`/`report`) — skip `[demo-target]`
+entirely and just point `--target` at your own URL.
+
+---
+
+## CLI Quickstart — no code required
+
+```bash
+# Start a local target agent to try Aginiti against (seeds itself, then serves on :8001)
+aginiti-demo-target
+
+# In a second terminal: a use-case-driven scan, filtered by security concern (try this first)
+aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
+
+# ...or run one specific technique directly
+aginiti attack spe --target http://localhost:8001
+aginiti attack ikea --target http://localhost:8001 --topic "HR records" --queries 10
+aginiti attack secret --target http://localhost:8001 --domain "HR records" --queries 5
+aginiti attack mia --target http://localhost:8001 --dataset candidates.json --probes 3
+
+# Regenerate a report from a saved findings.json, without re-running anything (rarely needed)
+aginiti report --input findings.json
+```
+
+Every `scan`/`attack` run auto-saves `findings.json` and a severity-sorted,
+OWASP-mapped `aginiti_assessment_report.md`. `aginiti scan --tier` accepts
+`data_leakage | unauthorized_actions | discovery_recon | full_assessment`;
+`aginiti scan`'s own `--budget` means "how many techniques it gets to try"
+(against the real-target pack, 11 techniques today, so above ~15-20 rarely
+finds more) — a different number from how deep any one named technique
+can go with `aginiti attack` directly (see that attack's own section
+below for real ranges). Every subcommand has its own `--help`. Full
+walkthrough: [docs/TUTORIAL.md](TUTORIAL.md).
+
+The rest of this page covers the **Python API** underneath the CLI — for
+scripting your own assessments, or anything the CLI doesn't expose yet.
+`scripts/run_campaign.py` (git-clone only) is `aginiti scan`'s
+predecessor — still around for two things the CLI doesn't cover: the
+zero-setup mock "DemoAgent" target, and an explicit `--model` override
+for the deep-attack operators' own LLM provider.
 
 ---
 
