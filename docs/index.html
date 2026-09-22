@@ -262,8 +262,6 @@
         <li><a href="#u-internals">How the framework thinks</a></li>
         <li><a href="#u-output">Output &amp; results files</a></li>
         <li><a href="#u-cache">Cache files</a></li>
-        <li><a href="#u-benchmark">Benchmarking defended targets</a></li>
-        <li><a href="#u-testing">Testing</a></li>
         <li><a href="#u-reference">CLI &amp; env var reference</a></li>
         <li><a href="#u-faq">Gotchas &amp; FAQ</a></li>
       </ul>
@@ -635,10 +633,7 @@ python scripts/run_campaign.py</code></pre>
 pip install aginiti-redteam
 
 # + a local target agent to try it against, with no target of your own required
-pip install "aginiti-redteam[demo-target]"
-
-# + LangChain agents, OTel tracing, MCP stdio servers, the DVLA reference target
-pip install aginiti-redteam[adaptive]</code></pre>
+pip install "aginiti-redteam[demo-target]"</code></pre>
       <div class="note">
         <div class="note-label">Note</div>
         <p><strong>Already have your own target agent and don't need the demo one?</strong> The plain
@@ -649,22 +644,6 @@ pip install aginiti-redteam[adaptive]</code></pre>
       <p>Requirements: Python 3.10+, and a valid API key for any <a href="https://github.com/BerriAI/litellm">LiteLLM</a>-supported
         provider (Gemini, OpenAI, Groq, Anthropic, Mistral, …) — the CLI auto-detects whichever single one
         you set; the planner's reasoning, the judge, and the attack loops are all provider-agnostic.</p>
-      <p>Optional install extras, for reference:</p>
-      <div class="tablewrap">
-        <table>
-          <tr><th>Extra</th><th>Adds</th></tr>
-          <tr><td><code>pip install aginiti-redteam</code></td><td>Core: the <code>aginiti</code> CLI, the 4
-            attacks, HTTP adapters, the campaign engine, litellm, chromadb (local embeddings).</td></tr>
-          <tr><td><code>[demo-target]</code></td><td>A local, installable practice target agent + the
-            <code>aginiti-demo-target</code> console script — no clone, no separate venv.</td></tr>
-          <tr><td><code>[adaptive]</code></td><td>LangChain + langchain-groq/community (for the DVLA reference
-            target's own reasoning), MCP client (for a real MCP stdio server target).</td></tr>
-          <tr><td><code>[dev]</code> <em>(git clone only)</em></td><td>pytest, FastAPI/Uvicorn (local reference
-            target servers), Faker — the full contributor/local-dev workflow.</td></tr>
-          <tr><td><code>[benchmarks]</code> <em>(git clone only)</em></td><td>datasets, rouge-score — the
-            public-dataset benchmarking layer against real corpora.</td></tr>
-        </table>
-      </div>
 
       <h3 class="h-anchor" id="u-cli">CLI Quickstart — no code required</h3>
       <p>Two ways to run an assessment: <code>aginiti scan</code> gives it a target and a security
@@ -675,10 +654,13 @@ pip install aginiti-redteam[adaptive]</code></pre>
       <pre><code># Start a local target agent to try Aginiti against (seeds itself, then serves on :8001)
 aginiti-demo-target
 
-# In a second terminal: a use-case-driven scan, filtered by security concern (try this first)
+# In a second terminal: aginiti scan -- let it decide (try this first)
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
+aginiti scan --target http://localhost:8001 --tier unauthorized_actions --budget 15
+aginiti scan --target http://localhost:8001 --tier discovery_recon --budget 10
+aginiti scan --target http://localhost:8001 --tier full_assessment --budget 20
 
-# ...or run one specific technique directly
+# ...or aginiti attack -- you decide, one technique at a time
 aginiti attack spe --target http://localhost:8001
 aginiti attack ikea --target http://localhost:8001 --topic "HR records" --queries 10
 aginiti attack secret --target http://localhost:8001 --domain "HR records" --queries 5
@@ -778,6 +760,8 @@ findings = attack.execute_black_box(
 for f in findings:
     if f.confirmed:
         print(f.severity, f.leaked_content)</code></pre>
+      <p style="font-size:.83rem;color:var(--text-faint);">Full implementation:
+        <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/aginiti/attacks/dra/ikea.py">aginiti/attacks/dra/ikea.py</a>.</p>
 
       <h4 id="u-secret">SECRET — jailbreak-optimized DRA</h4>
       <div class="pill-row"><span class="pill">IEEE TIFS 2026 · arXiv:2510.02964</span><span class="pill">Query budget: yes — two phases</span></div>
@@ -818,6 +802,11 @@ findings = attack.execute(domain="HR records", max_queries=10)  # Phase 2 budget
       <p>Phase 1's result is <strong>cached per target for 7 days</strong> — the first run against a new
         target pays the full optimizer/evaluator cost; every run after that reuses it and only Phase 2's
         budget applies. Force a fresh run with <code>force_refresh_phase1=True</code>.</p>
+      <p style="font-size:.83rem;color:var(--text-faint);">Full implementation:
+        <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/aginiti/attacks/dra/secret.py">aginiti/attacks/dra/secret.py</a>
+        (Phase 2) +
+        <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/aginiti/attacks/dra/jailbreak_optimizer.py">jailbreak_optimizer.py</a>
+        (Phase 1).</p>
 
       <h4 id="u-mia">Interrogation Attack — Membership Inference (MIA)</h4>
       <div class="pill-row"><span class="pill">ACM CCS 2025 · arXiv:2502.00306</span><span class="pill">Query budget: yes — per document</span></div>
@@ -848,6 +837,8 @@ findings = attack.execute_black_box(documents=[
     {"id": "candidate_1", "text": "the full text of the document you're testing..."},
 ])
 # findings = confirmed MEMBERS only; attack.non_member_results holds the rest</code></pre>
+      <p style="font-size:.83rem;color:var(--text-faint);">Full implementation:
+        <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/aginiti/attacks/mia/interrogation.py">aginiti/attacks/mia/interrogation.py</a>.</p>
 
       <h4 id="u-spe">SPE-LLM — System-prompt extraction</h4>
       <div class="pill-row"><span class="pill">ICLR 2026 · arXiv:2505.23817</span><span class="pill">Query budget: no — fixed at 3</span></div>
@@ -879,6 +870,8 @@ attack = SPEAttack(
 )
 
 findings = attack.execute_black_box()  # always exactly 3 probes, no budget to set</code></pre>
+      <p style="font-size:.83rem;color:var(--text-faint);">Full implementation:
+        <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/aginiti/attacks/spe/spe_llm.py">aginiti/attacks/spe/spe_llm.py</a>.</p>
 
       <h4 id="u-budgets">Query budgets, compared at a glance</h4>
       <div class="tablewrap">
@@ -917,6 +910,8 @@ python scripts/run_campaign.py --agent-url http://localhost:8001 \
 # Override the deep-attack operators' own LLM provider
 python scripts/run_campaign.py --agent-url http://localhost:8001 \
     --tier full_assessment --budget 40 --model groq/openai/gpt-oss-20b</code></pre>
+      <p style="font-size:.83rem;color:var(--text-faint);">Full implementation:
+        <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/scripts/run_campaign.py">scripts/run_campaign.py</a>.</p>
 
       <h4 id="u-adaptive-api">If you only pip-installed — the Python API</h4>
       <pre><code>from aginiti.core.campaign import run_campaign
@@ -950,6 +945,11 @@ print(result.outcome, result.prompts_used)</code></pre>
           the library first, then filter it, not <code>OperatorLibrary.by_category(...)</code> directly on
           the class.</p>
       </div>
+      <p style="font-size:.83rem;color:var(--text-faint);">Full implementation:
+        <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/aginiti/core/campaign.py">aginiti/core/campaign.py</a>
+        (the engine itself) — or
+        <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/aginiti/cli.py">aginiti/cli.py</a>
+        for exactly how <code>aginiti scan</code> wires it up.</p>
 
       <h4 id="u-adaptive-tiers">Tiers vs. attack categories</h4>
       <p>Two granularities over the same underlying tags — pick one; <code>--tier</code> and
@@ -1087,34 +1087,6 @@ generate_markdown_report(report, "my_report.md")   # pass redact=True for a seco
           hard failure in read-only or system-Python environments. No environment-variable override exists yet
           to relocate it — bypass with the <code>force_refresh</code> flags above if it's ever in your way.</p>
       </div>
-
-      <h3 class="h-anchor" id="u-benchmark">Benchmarking against real, defended targets</h3>
-      <p><code>benchmarks/scaled_evals/</code> hosts production-scale targets over real corpora (CUAD legal
-        contracts, CFPB consumer complaints, HealthCareMagic-1k medical consultations):</p>
-      <div class="card-grid">
-        <div class="card"><h4>healthcare_agent <code>:8003</code></h4><p>A stateless RAG target, no RBAC
-          split. Measures each attack's effectiveness <em>ceiling</em> against an undefended/softly-guardrailed
-          target.</p></div>
-        <div class="card"><h4>hardened_agent <code>:8004</code></h4><p>The harder question: how much do real,
-          layered defenses (RBAC-scoped retrieval, output redaction, rate limiting, conversation memory, a
-          system-prompt guardrail, a dedicated input-filter classifier, session/auth expiry, and RBAC-scoped
-          tool-calling — <strong>8 independently-toggleable layers</strong>) actually reduce extraction, and
-          what still gets through anyway?</p></div>
-      </div>
-      <pre><code>pip install -e ".[benchmarks]"
-python benchmarks/scaled_evals/datasets/prepare_healthcare.py
-python -m benchmarks.scaled_evals.agents.healthcare_agent.seed
-uvicorn benchmarks.scaled_evals.agents.healthcare_agent.main:app --port 8003
-python scripts/run_healthcare_benchmark.py</code></pre>
-      <p>The runner scores <strong>ASR</strong> (Attack Success Rate), <strong>CRR</strong> (Content
-        Reconstruction Rate — ROUGE-L against real records), <strong>SS</strong> (Semantic Similarity), and
-        <strong>EE</strong> (Exfiltration Effectiveness, a combined gating metric). Results land as timestamped
-        JSON/Markdown under <code>benchmarks/scaled_evals/results/</code>.</p>
-
-      <h3 class="h-anchor" id="u-testing">Testing</h3>
-      <p>The full test suite mocks every network call, agent endpoint, and LLM completion — it runs offline,
-        in seconds, at zero API cost:</p>
-      <pre><code>pytest tests/ -v</code></pre>
 
       <h3 class="h-anchor" id="u-reference">CLI &amp; environment-variable reference</h3>
       <div class="tablewrap">

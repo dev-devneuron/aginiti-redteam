@@ -76,10 +76,13 @@ export GEMINI_API_KEY=your_key_here   # or put it in a .env file in your working
 # 3. Start the local target agent (seeds itself on first run, then serves on :8001)
 aginiti-demo-target
 
-# 4. In a second terminal: run a use-case-driven scan against it
+# 4. In a second terminal: aginiti scan -- let it decide (try this first)
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
+aginiti scan --target http://localhost:8001 --tier unauthorized_actions --budget 15
+aginiti scan --target http://localhost:8001 --tier discovery_recon --budget 10
+aginiti scan --target http://localhost:8001 --tier full_assessment --budget 20
 
-# ...or run one specific attack technique directly
+# ...or aginiti attack -- you decide, one technique at a time
 aginiti attack spe --target http://localhost:8001
 aginiti attack ikea --target http://localhost:8001 --topic "HR records" --queries 10
 ```
