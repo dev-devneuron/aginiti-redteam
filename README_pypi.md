@@ -59,6 +59,8 @@ Run a real assessment straight from your terminal:
 ```bash
 # Start a local target agent to try Aginiti against (seeds itself, then serves on :8001)
 aginiti-demo-target
+#   Port 8001 already taken? Run it on another one instead:
+aginiti-demo-target --port 8010
 
 # In a second terminal: aginiti scan -- let it decide (try this first)
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
@@ -77,9 +79,13 @@ aginiti report --input findings.json
 ```
 
 Every `scan`/`attack` run prints one authorized-use reminder, then auto-saves
-`findings.json` (the full structured result) and `aginiti_assessment_report.md` (a
-human-readable, OWASP LLM Top 10–mapped Markdown report) into the current directory
-(`--output-dir` to redirect). `--tier` accepts `data_leakage | unauthorized_actions |
+`findings.json` (the full structured result), `aginiti_assessment_report.md` (a
+human-readable, OWASP LLM Top 10–mapped Markdown report), and `aginiti_assessment_report.html`
+(the same report, styled for a browser) into the current directory (`--output-dir` to
+redirect). Open the HTML report straight from your terminal — `Start-Process
+aginiti_assessment_report.html` (Windows), `open aginiti_assessment_report.html` (macOS), or
+`xdg-open aginiti_assessment_report.html` (Linux) — no Markdown viewer needed, so it's easy
+to hand to a non-technical reader too. `--tier` accepts `data_leakage | unauthorized_actions |
 discovery_recon | full_assessment`; use `--attack-category` instead for one of 11 precise
 named groups (`aginiti scan --list-attack-categories` to see all of them). Every subcommand
 has its own `--help`; `aginiti attack mia --dataset` expects a JSON file shaped
@@ -234,5 +240,5 @@ for claim in result.ssg.claims:
 *   **Full Usage Guide:** [`docs/USAGE.md`](https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/USAGE.md) — every attack's parameters and query budget, target authentication, where results/cache files land, and a gotchas/FAQ list.
 *   **Hands-on Tutorial:** [`docs/TUTORIAL.md`](https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/TUTORIAL.md) — a copy-paste walkthrough of the full CLI and Python API, start to finish.
 *   **Detailed Documentation:** Refer to the `docs/` folder in the repository for detailed papers on the Aginiti planning model, evidence classification, and mitigation guides.
-*   **Contributors:** [Omer Bin Dawood](https://github.com/OmerBinDawood), [Muhammad Hammad Irfan](https://github.com/MuhammadHammadIrfan)
+*   **Contributors:** [Muhammad Hammad Irfan](https://github.com/MuhammadHammadIrfan), [Omer Bin Dawood](https://github.com/OmerBinDawood)
 *   **License:** MIT

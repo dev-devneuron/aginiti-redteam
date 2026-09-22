@@ -648,11 +648,14 @@ pip install "aginiti-redteam[demo-target]"</code></pre>
       <h3 class="h-anchor" id="u-cli">CLI Quickstart — no code required</h3>
       <p>Two ways to run an assessment: <code>aginiti scan</code> gives it a target and a security
         concern and lets it decide for itself which technique to try; <code>aginiti attack</code> runs
-        one specific, named technique directly. Both auto-save <code>findings.json</code> and a
-        severity-sorted, OWASP-mapped <code>aginiti_assessment_report.md</code> — nothing extra to write
-        for that.</p>
+        one specific, named technique directly. Both auto-save <code>findings.json</code>, a
+        severity-sorted, OWASP-mapped <code>aginiti_assessment_report.md</code>, and the same report as
+        <code>aginiti_assessment_report.html</code> for opening straight in a browser — nothing extra to
+        write for that.</p>
       <pre><code># Start a local target agent to try Aginiti against (seeds itself, then serves on :8001)
 aginiti-demo-target
+#   Port 8001 already taken? Run it on another one instead:
+aginiti-demo-target --port 8010
 
 # In a second terminal: aginiti scan -- let it decide (try this first)
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
@@ -688,6 +691,16 @@ aginiti report --input findings.json</code></pre>
       <p>Point <code>--target</code> at any real, HTTP-reachable agent you're authorized to test instead
         of the local demo target — nothing about the CLI requires it. Every subcommand has its own
         <code>--help</code>. Full CLI walkthrough: <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/TUTORIAL.md">docs/TUTORIAL.md</a>.</p>
+      <p>Open the HTML report straight from your terminal — no Markdown viewer needed, so it's easy to
+        hand to a non-technical reader too:</p>
+      <pre><code># Windows (PowerShell)
+Start-Process aginiti_assessment_report.html
+
+# macOS
+open aginiti_assessment_report.html
+
+# Linux
+xdg-open aginiti_assessment_report.html</code></pre>
 
       <h3 class="h-anchor" id="u-python-api">Python API — for programmatic or custom use</h3>
       <p>Everything the CLI does is also a plain library call, for scripting your own assessments or
@@ -1141,8 +1154,8 @@ generate_markdown_report(report, "my_report.md")   # pass redact=True for a seco
     </section>
 
     <footer>
-      <p>Aginiti Redteam — MIT licensed. Built by <a href="https://github.com/OmerBinDawood">Omer Bin
-        Dawood</a> and <a href="https://github.com/MuhammadHammadIrfan">Muhammad Hammad Irfan</a>, under
+      <p>Aginiti Redteam — MIT licensed. Built by <a href="https://github.com/MuhammadHammadIrfan">Muhammad
+        Hammad Irfan</a> and <a href="https://github.com/OmerBinDawood">Omer Bin Dawood</a>, under
         <a href="https://github.com/dev-devneuron">dev-devneuron</a>.</p>
       <p>
         <a href="https://github.com/dev-devneuron/aginiti-redteam">Repository</a> ·
