@@ -294,3 +294,124 @@ def test_provider_is_never_mutated_by_a_fallback(monkeypatch):
     provider_llm.chat([{"role": "user", "content": "hi"}])
 
     assert provider_llm._PROVIDER == "groq"  # unchanged
+
+
+# ---------------------------------------------------------------------------
+# Multi-provider auto-detection (fix for a real, live-reported crash: a user
+# with only GEMINI_API_KEY -- or only OPENAI/ANTHROPIC/MISTRAL -- configured
+# got a hard RuntimeError from _load_groq_keys() on aginiti scan's very first
+# judge call, since this module previously only ever tried Groq by default,
+# with Gemini as the sole alternative and only reachable via an explicit
+# AGINITI_LLM_PROVIDER=gemini). Every test here clears ALL 5 provider keys
+# first (its own autouse fixture below, layered on top of the module-level
+# one above) rather than relying on the ambient shell/CI environment having
+# none of the OTHER 4 set -- a real ambient GEMINI_API_KEY (e.g. left over
+# from an interactive session testing the CLI) would otherwise silently
+# outrank whichever single key an individual test means to test in
+# isolation, since gemini sits first in _AUTO_DETECT_ORDER.
+# ---------------------------------------------------------------------------
+
+class TestMultiProviderAutoDetection:
+    @pytest.fixture(autouse=True)
+    def clear_all_provider_keys(self, monkeypatch):
+        for env_var in ("GROQ_API_KEY", "GEMINI_API_KEY", "OPENAI_API_KEY",
+                         "ANTHROPIC_API_KEY", "MISTRAL_API_KEY"):
+            monkeypatch.delenv(env_var, raising=False)
+
+    def test_falls_back_to_gemini_when_groq_key_is_simply_absent(self, monkeypatch):
+        monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
+
+        assert provider_llm._resolve_active_provider() == "gemini"
+
+    def test_falls_back_to_openai_when_only_openai_key_present(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-fake")
+
+        assert provider_llm._resolve_active_provider() == "openai"
+        assert provider_llm._model_string("openai") == f"openai/{provider_llm._OPENAI_MODEL}"
+
+    def test_falls_back_to_anthropic_when_only_anthropic_key_present(self, monkeypatch):
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-fake")
+
+        assert provider_llm._resolve_active_provider() == "anthropic"
+
+    def test_falls_back_to_mistral_when_only_mistral_key_present(self, monkeypatch):
+        monkeypatch.setenv("MISTRAL_API_KEY", "fake-mistral-key")
+
+        assert provider_llm._resolve_active_provider() == "mistral"
+
+    def test_prefers_groq_over_everything_else_when_its_key_is_present(self, monkeypatch):
+        # Groq's rotation pool is the original default whenever it's
+        # actually usable -- adding other keys too must not change that.
+        monkeypatch.setenv("GROQ_API_KEY", "k0")
+        monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-fake")
+
+        assert provider_llm._resolve_active_provider() == "groq"
+
+    def test_auto_detect_priority_order_matches_the_cli(self, monkeypatch):
+        # gemini before openai before anthropic before mistral, mirroring
+        # aginiti/cli.py's own _PROVIDER_DEFAULTS priority -- so a user with
+        # multiple keys gets the same provider chosen for the campaign
+        # judge as the CLI would auto-select for a direct attack.
+        monkeypatch.setenv("MISTRAL_API_KEY", "fake-mistral")
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-fake")
+        monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
+
+        assert provider_llm._resolve_active_provider() == "gemini"
+
+    def test_explicit_provider_override_still_works_for_gemini(self, monkeypatch):
+        monkeypatch.setenv("AGINITI_LLM_PROVIDER", "gemini")
+        monkeypatch.setattr(provider_llm, "_PROVIDER", "gemini")
+        monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
+
+        assert provider_llm._resolve_active_provider() == "gemini"
+
+    def test_explicit_provider_override_supports_openai(self, monkeypatch):
+        monkeypatch.setattr(provider_llm, "_PROVIDER", "openai")
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-fake")
+
+        assert provider_llm._resolve_active_provider() == "openai"
+
+    def test_no_key_anywhere_still_falls_through_to_the_original_groq_error(self, monkeypatch):
+        assert provider_llm._resolve_active_provider() == "groq"
+        with pytest.raises(RuntimeError, match="No GROQ_API_KEY"):
+            provider_llm.chat([{"role": "user", "content": "hi"}])
+
+    def test_chat_uses_the_auto_detected_provider_end_to_end(self, monkeypatch):
+        monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
+        calls = []
+
+        def fake_completion(model, messages, **kwargs):
+            calls.append(model)
+            return _fake_response("gemini-said-hi")
+
+        monkeypatch.setattr(litellm, "completion", fake_completion)
+        result = provider_llm.chat([{"role": "user", "content": "hi"}])
+
+        assert result == "gemini-said-hi"
+        assert calls == [f"gemini/{provider_llm._GEMINI_MODEL}"]
+        # _call_with_rotation / _load_groq_keys were never touched, so no
+        # RuntimeError -- the exact crash this fixes.
+
+    def test_chat_json_uses_the_auto_detected_provider_end_to_end(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-fake")
+
+        monkeypatch.setattr(litellm, "completion",
+                             lambda model, messages, **kw: _fake_response('{"ok": true}'))
+        result = provider_llm.chat_json([{"role": "user", "content": "hi"}])
+
+        assert result == {"ok": True}
+
+    def test_chat_tools_uses_the_auto_detected_provider_end_to_end(self, monkeypatch):
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-fake")
+        sentinel_message = type("Msg", (), {"content": None, "tool_calls": ["fake_call"]})()
+
+        def fake_completion(model, messages, **kwargs):
+            assert model.startswith("anthropic/")
+            choice = type("Choice", (), {"message": sentinel_message})()
+            return type("Resp", (), {"choices": [choice]})()
+
+        monkeypatch.setattr(litellm, "completion", fake_completion)
+        result = provider_llm.chat_tools([{"role": "user", "content": "hi"}], tools=[])
+
+        assert result is sentinel_message

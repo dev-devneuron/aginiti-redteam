@@ -223,37 +223,49 @@ def _overall_risk_verdict(reportable: list[dict]) -> str:
 def _bucket(findings: list[dict]) -> dict[str, list[dict]]:
     """
     Split findings (already filtered to leak_type != "none") into
-    Critical/High/Medium buckets.
+    Critical/High/Medium/Low buckets, purely by each finding's own
+    ``severity`` field -- so the ``[SEVERITY]`` label printed on a finding
+    (see ``_render_finding``) always matches the section it's rendered
+    under.
 
-    Priority order (judgment call — the three named sections in the spec
-    overlap at the edges, e.g. a leak_type="sensitive_data" finding the
-    classifier marked severity="critical"): every leak_type != "none"
-    finding must land in exactly one bucket, none silently dropped.
+    A previous version forced any ``leak_type in ("pii", "verbatim")``
+    finding into "critical" regardless of its assigned ``severity``, on
+    the theory that those categories are inherently the most severe. In
+    practice this produced self-contradictory reports, live-confirmed: a
+    finding printed as e.g. ``[HIGH]`` (its real ``severity``) would sit
+    under the "## Critical Findings" header, while "## High Findings"
+    right below it claimed "No high-severity findings in this run" even
+    though one was visibly just above -- and the same for medium findings
+    stranded under "Critical" while "## Medium Findings" undercounted
+    them. If a classifier's severity assignment for pii/verbatim content
+    is ever too low, the fix belongs at the classification step (where
+    severity is actually decided), not by silently overriding it here
+    while leaving the printed label wrong.
 
-    1. leak_type in (pii, verbatim), or severity == "critical" -> Critical
-       (pii/verbatim are inherently the most severe categories regardless
-       of what severity string the classifier attached).
-    2. severity == "high" -> High.
-    3. Everything else (medium, low, or any other value) -> Medium, as the
-       catch-all so a leak_type="schema"/"sensitive_data" finding with
-       severity="low" is still surfaced rather than disappearing.
+    Every leak_type != "none" finding lands in exactly one bucket, none
+    silently dropped: any value other than critical/high/medium/low
+    (missing, or an unrecognized string from a custom classifier) falls
+    through to Low as a visible catch-all.
     """
-    buckets: dict[str, list[dict]] = {"critical": [], "high": [], "medium": []}
+    buckets: dict[str, list[dict]] = {"critical": [], "high": [], "medium": [], "low": []}
     for f in findings:
-        leak_type = f.get("leak_type", "unknown")
-        severity = f.get("severity", "")
-        if leak_type in ("pii", "verbatim") or severity == "critical":
-            buckets["critical"].append(f)
-        elif severity == "high":
-            buckets["high"].append(f)
-        else:
-            buckets["medium"].append(f)
+        severity = f.get("severity", "").lower()
+        buckets[severity if severity in buckets else "low"].append(f)
     return buckets
 
 
 def _render_finding(f: dict, index: int, attack_code: str, redact: bool = False) -> list[str]:
     sev = f.get("severity", "").upper()
-    owasp = _OWASP_MAPPING.get(f.get("attack_type", ""), _OWASP_DEFAULT)
+    # owasp_override: an optional, additive key a caller can set directly on
+    # a finding dict when it already knows the real OWASP category (e.g.
+    # aginiti/cli.py's scan report, translating a campaign operator's own
+    # owasp_llm_category tag) -- _OWASP_MAPPING only covers the 3 named
+    # attack_type values (DRA/MIA/SPE) this project's 4 standalone attacks
+    # use, so anything else would otherwise always fall through to the
+    # generic "not yet defined" default even when the true category is
+    # known. Never set on a real LeakFinding-derived dict, so this changes
+    # nothing for any existing caller.
+    owasp = f.get("owasp_override") or _OWASP_MAPPING.get(f.get("attack_type", ""), _OWASP_DEFAULT)
 
     # Confirmed-vs-schema status line: without this, a
     # schema-only disclosure (structure/field names, no real record content)
@@ -519,6 +531,14 @@ def generate_markdown_report(
         lines.append("")
     else:
         for f in buckets["medium"]:
+            lines.extend(_render_finding(f, finding_ids[id(f)], attack_code, redact))
+
+    lines.append("## Low Findings")
+    if not buckets["low"]:
+        lines.append("No low-severity findings in this run.")
+        lines.append("")
+    else:
+        for f in buckets["low"]:
             lines.extend(_render_finding(f, finding_ids[id(f)], attack_code, redact))
 
     lines.append("## Non-Findings Summary")

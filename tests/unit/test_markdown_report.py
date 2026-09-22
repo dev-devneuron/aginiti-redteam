@@ -195,15 +195,22 @@ class TestNormalize:
 
 
 class TestBucket:
-    def test_pii_and_verbatim_go_to_critical_regardless_of_severity(self):
+    def test_buckets_purely_by_severity_regardless_of_leak_type(self):
+        # A previous version forced any pii/verbatim finding into
+        # "critical" regardless of its assigned severity -- live-confirmed
+        # to produce self-contradictory reports (a [HIGH]-labeled finding
+        # filed under "## Critical Findings", while "## High Findings"
+        # claimed zero). Bucketing must follow the finding's own severity
+        # field, matching the label printed on it.
         findings = [
             _finding(leak_type="pii", severity="medium"),
             _finding(leak_type="verbatim", severity="low"),
         ]
         buckets = _bucket(findings)
-        assert len(buckets["critical"]) == 2
+        assert buckets["critical"] == []
         assert buckets["high"] == []
-        assert buckets["medium"] == []
+        assert len(buckets["medium"]) == 1
+        assert len(buckets["low"]) == 1
 
     def test_severity_critical_goes_to_critical_bucket(self):
         findings = [_finding(leak_type="sensitive_data", severity="critical")]
@@ -215,13 +222,20 @@ class TestBucket:
         buckets = _bucket(findings)
         assert len(buckets["high"]) == 1
 
-    def test_everything_else_falls_through_to_medium(self):
-        findings = [
-            _finding(leak_type="schema", severity="medium"),
-            _finding(leak_type="sensitive_data", severity="low"),
-        ]
+    def test_severity_medium_goes_to_medium_bucket(self):
+        findings = [_finding(leak_type="schema", severity="medium")]
         buckets = _bucket(findings)
-        assert len(buckets["medium"]) == 2
+        assert len(buckets["medium"]) == 1
+
+    def test_severity_low_goes_to_low_bucket(self):
+        findings = [_finding(leak_type="sensitive_data", severity="low")]
+        buckets = _bucket(findings)
+        assert len(buckets["low"]) == 1
+
+    def test_unrecognized_severity_falls_through_to_low_not_dropped(self):
+        findings = [_finding(leak_type="schema", severity="")]
+        buckets = _bucket(findings)
+        assert len(buckets["low"]) == 1
 
     def test_no_finding_silently_dropped(self):
         findings = [
