@@ -9,6 +9,38 @@ changes.
 
 ## [Unreleased]
 
+## [0.3.1]
+
+### Fixed — real bugs found running `aginiti scan`/`attack` live
+
+- `aginiti/providers/llm.py` (the core planner/judge's own reasoning)
+  hardcoded Groq as the default provider, with no awareness of
+  OpenAI/Anthropic/Mistral, and crashed with a bare `RuntimeError` if
+  `GROQ_API_KEY` was simply absent -- disconnected from the CLI's own
+  "any single key works" auto-detection. A user with only
+  `GEMINI_API_KEY` configured got a crash on `aginiti scan`'s very
+  first judge call. Now auto-detects the first available key among all
+  5 supported providers (same priority order the CLI uses), preserving
+  Groq's multi-key rotation pool exactly when it's actually configured.
+- `aginiti scan` stopped at the first confirmed finding instead of
+  spending its full `--budget`. Now runs with
+  `stop_on_mission_success=False` and a budget-matched `max_steps`.
+- `aginiti/reporting/markdown_report.py`'s severity bucketing forced any
+  `pii`/`verbatim` finding into "Critical" regardless of its own
+  assigned severity -- live-confirmed to produce self-contradictory
+  reports (a finding printed `[HIGH]` filed under "## Critical
+  Findings", while "## High Findings" claimed zero). Now buckets purely
+  by each finding's own severity, with a new "## Low Findings" section
+  added for full critical/high/medium/low coverage.
+- `aginiti scan`'s own report was a thin custom summary that discarded
+  the real per-finding detail a deep-attack step (IKEA/SECRET/MIA/SPE
+  wrapped as an operator) had already computed. It now reuses the same
+  rich, severity-sorted report `aginiti attack` produces.
+- `aginiti scan`'s terminal logs were far thinner than `aginiti
+  attack`'s. Added `[PROMPT->]`/`[RESPONSE<-]`/`[JUDGE]`/`[VERDICT]`
+  logging to the campaign's prompt-operator execution path, matching
+  the standalone attacks' own progress-output granularity.
+
 ## [0.3.0]
 
 ### Added — `aginiti` CLI + installable demo target agent
