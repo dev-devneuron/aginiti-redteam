@@ -424,18 +424,40 @@ class TestCollectScanFindings:
 # aginiti report
 # ---------------------------------------------------------------------------
 class TestCmdReport:
-    def test_wraps_generate_markdown_report_from_file_by_default(self, tmp_path):
+    def test_default_output_path_writes_md_and_html_alongside_input(self, tmp_path, capsys):
         input_path = tmp_path / "findings.json"
-        input_path.write_text("{}", encoding="utf-8")
+        input_path.write_text(json.dumps({"run_metadata": {}, "findings": []}), encoding="utf-8")
 
         parser = cli._build_parser()
         args = parser.parse_args(["report", "--input", str(input_path)])
 
-        with patch("aginiti.reporting.generate_markdown_report_from_file",
-                   return_value=tmp_path / "findings.md") as fn:
+        with patch("aginiti.reporting.generate_markdown_report", return_value="# Some Report") as md_fn, \
+             patch("aginiti.reporting.generate_html_report", return_value="<html></html>") as html_fn:
             cli._cmd_report(args)
 
-        fn.assert_called_once_with(str(input_path), redact=False)
+        md_fn.assert_called_once()
+        html_fn.assert_called_once()
+        assert md_fn.call_args.args[1] == tmp_path / "findings.md"
+        assert html_fn.call_args.args[1] == tmp_path / "findings.html"
+        out = capsys.readouterr().out
+        assert f"Wrote {tmp_path / 'findings.md'}" in out
+        assert f"Wrote {tmp_path / 'findings.html'}" in out
+
+    def test_redact_uses_the_redacted_naming_convention(self, tmp_path):
+        input_path = tmp_path / "findings.json"
+        input_path.write_text(json.dumps({"run_metadata": {}, "findings": []}), encoding="utf-8")
+
+        parser = cli._build_parser()
+        args = parser.parse_args(["report", "--input", str(input_path), "--redact"])
+
+        with patch("aginiti.reporting.generate_markdown_report", return_value="# Some Report") as md_fn, \
+             patch("aginiti.reporting.generate_html_report", return_value="<html></html>") as html_fn:
+            cli._cmd_report(args)
+
+        assert md_fn.call_args.args[1] == tmp_path / "findings_redacted.md"
+        assert html_fn.call_args.args[1] == tmp_path / "findings_redacted.html"
+        assert md_fn.call_args.kwargs["redact"] is True
+        assert html_fn.call_args.kwargs["redact"] is True
 
     def test_explicit_output_reads_json_and_calls_generate_markdown_report(self, tmp_path, capsys):
         input_path = tmp_path / "findings.json"
@@ -449,7 +471,8 @@ class TestCmdReport:
         # (not a Path) -- the mock's return value deliberately looks
         # nothing like a path, so a caller that wrongly prints the return
         # value instead of the path it passed in fails this assertion.
-        with patch("aginiti.reporting.generate_markdown_report", return_value="# Some Report\n...") as fn:
+        with patch("aginiti.reporting.generate_markdown_report", return_value="# Some Report\n...") as fn, \
+             patch("aginiti.reporting.generate_html_report", return_value="<html></html>"):
             cli._cmd_report(args)
 
         fn.assert_called_once()

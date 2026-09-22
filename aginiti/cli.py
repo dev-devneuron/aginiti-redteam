@@ -157,10 +157,12 @@ def _write_attack_outputs(
     redact: bool,
 ) -> None:
     """Shared output path for all 4 `aginiti attack` subcommands -- writes
-    findings.json (run_metadata + raw findings) and, via the same
-    OWASP-mapped generator every other report in this project uses,
-    aginiti_assessment_report.md."""
-    from aginiti.reporting import generate_markdown_report
+    findings.json (run_metadata + raw findings), aginiti_assessment_report.md
+    (the same OWASP-mapped generator every other report in this project
+    uses), and its .html sibling -- a self-contained, styled version of the
+    exact same report, meant to be opened straight in a browser rather than
+    read as plain text."""
+    from aginiti.reporting import generate_html_report, generate_markdown_report
 
     output_dir.mkdir(parents=True, exist_ok=True)
     report = {
@@ -176,13 +178,17 @@ def _write_attack_outputs(
         "findings": [dataclasses.asdict(f) for f in findings],
     }
     _write_json(output_dir / "findings.json", report)
-    # generate_markdown_report() returns the rendered Markdown STRING (and
-    # writes it to output_path as a side effect) -- not a Path, unlike
-    # generate_markdown_report_from_file() below. Print the path we passed
-    # in, not the return value.
+    # generate_markdown_report()/generate_html_report() both return the
+    # rendered document STRING (and write it to output_path as a side
+    # effect) -- not a Path, unlike generate_markdown_report_from_file()
+    # below. Print the path we passed in, not the return value.
     md_path = output_dir / report_name
     generate_markdown_report(report, md_path, redact=redact)
     print(f"Wrote {md_path}")
+
+    html_path = md_path.with_suffix(".html")
+    generate_html_report(report, html_path, redact=redact)
+    print(f"Wrote {html_path}")
 
     confirmed = sum(1 for f in findings if f.confirmed)
     print(f"\n{len(findings)} finding(s), {confirmed} confirmed.")
@@ -256,11 +262,12 @@ def _collect_scan_findings(execution_log, library) -> list[dict]:
 
 def _write_scan_outputs(output_dir: Path, report_name: str, target: Optional[str], result, library,
                          started: float) -> None:
-    """`aginiti scan`'s output writer -- reuses generate_markdown_report()
-    (the same OWASP-mapped, severity-sorted report `aginiti attack`
-    produces) over findings translated from the campaign's execution_log
-    by `_collect_scan_findings`, rather than a separate, thinner format."""
-    from aginiti.reporting import generate_markdown_report
+    """`aginiti scan`'s output writer -- reuses generate_markdown_report()/
+    generate_html_report() (the same OWASP-mapped, severity-sorted reports
+    `aginiti attack` produces) over findings translated from the campaign's
+    execution_log by `_collect_scan_findings`, rather than a separate,
+    thinner format."""
+    from aginiti.reporting import generate_html_report, generate_markdown_report
 
     from aginiti.providers.llm import active_provider_name
 
@@ -291,6 +298,10 @@ def _write_scan_outputs(output_dir: Path, report_name: str, target: Optional[str
     md_path = output_dir / report_name
     generate_markdown_report(report, md_path)
     print(f"Wrote {md_path}")
+
+    html_path = md_path.with_suffix(".html")
+    generate_html_report(report, html_path)
+    print(f"Wrote {html_path}")
 
     confirmed = sum(1 for f in findings if f.get("confirmed"))
     print(f"\n{len(findings)} step(s) evaluated, {confirmed} confirmed.")
@@ -472,17 +483,29 @@ def _cmd_attack_spe(args: argparse.Namespace) -> None:
 # aginiti report
 # ---------------------------------------------------------------------------
 def _cmd_report(args: argparse.Namespace) -> None:
-    from aginiti.reporting import generate_markdown_report, generate_markdown_report_from_file
+    from aginiti.reporting import generate_html_report, generate_markdown_report
+
+    # Read once, write both formats from the same in-memory report dict --
+    # generate_markdown_report_from_file() would re-read the same file
+    # internally for the .md side alone, an unnecessary second read now
+    # that this also needs the parsed dict for the .html side.
+    input_path = Path(args.input)
+    report = json.loads(input_path.read_text(encoding="utf-8"))
 
     if args.output:
-        # generate_markdown_report() returns the rendered Markdown STRING,
-        # not a Path -- unlike generate_markdown_report_from_file() below.
-        report = json.loads(Path(args.input).read_text(encoding="utf-8"))
-        out_path = Path(args.output)
-        generate_markdown_report(report, out_path, redact=args.redact)
+        md_path = Path(args.output)
     else:
-        out_path = generate_markdown_report_from_file(args.input, redact=args.redact)
-    print(f"Wrote {out_path}")
+        # Same default-naming convention generate_markdown_report_from_file()
+        # itself uses: alongside the input, .md suffix (or _redacted.md).
+        suffix = "_redacted.md" if args.redact else ".md"
+        md_path = input_path.with_name(input_path.stem + suffix)
+
+    generate_markdown_report(report, md_path, redact=args.redact)
+    print(f"Wrote {md_path}")
+
+    html_path = md_path.with_suffix(".html")
+    generate_html_report(report, html_path, redact=args.redact)
+    print(f"Wrote {html_path}")
 
 
 # ---------------------------------------------------------------------------
