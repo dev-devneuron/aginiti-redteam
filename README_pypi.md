@@ -32,11 +32,6 @@ pip install "aginiti-redteam[demo-target]"
 **Already have your own target agent and don't need the demo one?** The plain
 `pip install aginiti-redteam` above is all you need — skip the extra.
 
-If you plan to run the autonomous campaign orchestrator with advanced integrations (like LangChain agents, OpenTelemetry tracing, or Model Control Protocol stdio servers), install the adaptive extras:
-```bash
-pip install aginiti-redteam[adaptive]
-```
-
 ---
 
 ## ⚙️ Configuration & Prerequisites
@@ -65,10 +60,13 @@ Run a real assessment straight from your terminal:
 # Start a local target agent to try Aginiti against (seeds itself, then serves on :8001)
 aginiti-demo-target
 
-# In a second terminal: a use-case-driven scan, filtered by security concern
+# In a second terminal: aginiti scan -- let it decide (try this first)
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
+aginiti scan --target http://localhost:8001 --tier unauthorized_actions --budget 15
+aginiti scan --target http://localhost:8001 --tier discovery_recon --budget 10
+aginiti scan --target http://localhost:8001 --tier full_assessment --budget 20
 
-# ...or one specific attack technique directly
+# ...or aginiti attack -- you decide, one technique at a time
 aginiti attack spe --target http://localhost:8001
 aginiti attack ikea --target http://localhost:8001 --topic "HR records" --queries 10
 aginiti attack secret --target http://localhost:8001 --domain "HR records" --queries 10

@@ -24,9 +24,6 @@ pip install aginiti-redteam
 
 # + a local target agent to try it against, no target of your own required
 pip install "aginiti-redteam[demo-target]"
-
-# + LangChain agents, OTel tracing, MCP stdio servers, the DVLA reference target
-pip install aginiti-redteam[adaptive]
 ```
 
 **Already have your own target agent and don't need the demo one?** The
@@ -42,10 +39,13 @@ entirely and just point `--target` at your own URL.
 # Start a local target agent to try Aginiti against (seeds itself, then serves on :8001)
 aginiti-demo-target
 
-# In a second terminal: a use-case-driven scan, filtered by security concern (try this first)
+# In a second terminal: aginiti scan -- let it decide (try this first)
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
+aginiti scan --target http://localhost:8001 --tier unauthorized_actions --budget 15
+aginiti scan --target http://localhost:8001 --tier discovery_recon --budget 10
+aginiti scan --target http://localhost:8001 --tier full_assessment --budget 20
 
-# ...or run one specific technique directly
+# ...or aginiti attack -- you decide, one technique at a time
 aginiti attack spe --target http://localhost:8001
 aginiti attack ikea --target http://localhost:8001 --topic "HR records" --queries 10
 aginiti attack secret --target http://localhost:8001 --domain "HR records" --queries 5
