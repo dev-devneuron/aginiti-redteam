@@ -484,14 +484,20 @@ class TestCmdScan:
         assert kwargs["stop_on_mission_success"] is False
         assert kwargs["max_steps"] >= 15
 
-    def test_deep_attack_queries_flag_sets_operator_env_vars_before_build(self, tmp_path, monkeypatch):
-        """Regression test for the reported bug: `aginiti scan --budget 20`
-        ran SECRET at a fixed max_queries=10 no matter how large --budget
-        was, because deep_attack_operators.py used to read these env vars
-        at MODULE IMPORT time (far too early for any CLI flag to matter --
-        see that module's own docstring). --deep-attack-queries is the
-        fix's CLI-facing half: it must set the relevant env vars BEFORE
-        build_campaign() (and therefore deep_attack_operators()) runs."""
+    def test_scan_never_touches_deep_attack_query_env_vars(self, tmp_path, monkeypatch):
+        """`aginiti scan` must never write IKEA_OPERATOR_MAX_QUERIES/
+        SECRET_OPERATOR_MAX_QUERIES/MIA_OPERATOR_N_PROBE_QUESTIONS, no
+        matter what --budget is -- each deep-attack Operator keeps its own
+        fixed, small query cap (IKEA 20 / SECRET 10 / MIA 4 probe
+        questions) regardless of --budget, by design: --budget controls
+        how many DIFFERENT techniques a scan tries (breadth), not how deep
+        any one goes (depth) -- letting a single Operator selection eat
+        the whole scan's budget would defeat the point of trying multiple
+        techniques. (An earlier version of this fix briefly added a
+        --deep-attack-queries flag that let one CLI value override all
+        three at once -- correctly rejected: it's not aginiti scan's job
+        to deepen an individual technique; that's what `aginiti attack`
+        is for. This test guards against silently reintroducing it.)"""
         for var in ("IKEA_OPERATOR_MAX_QUERIES", "SECRET_OPERATOR_MAX_QUERIES",
                     "MIA_OPERATOR_N_PROBE_QUESTIONS"):
             monkeypatch.delenv(var, raising=False)
@@ -508,50 +514,28 @@ class TestCmdScan:
             captured["IKEA_OPERATOR_MAX_QUERIES"] = os.environ.get("IKEA_OPERATOR_MAX_QUERIES")
             captured["SECRET_OPERATOR_MAX_QUERIES"] = os.environ.get("SECRET_OPERATOR_MAX_QUERIES")
             captured["MIA_OPERATOR_N_PROBE_QUESTIONS"] = os.environ.get("MIA_OPERATOR_N_PROBE_QUESTIONS")
-            return MagicMock(), MagicMock(budget=20), MagicMock()
+            return MagicMock(), MagicMock(budget=200), MagicMock()
 
         parser = cli._build_parser()
         args = parser.parse_args([
-            "scan", "--target", "http://x", "--deep-attack-queries", "18",
-            "--output-dir", str(tmp_path),
+            "scan", "--target", "http://x", "--budget", "200", "--output-dir", str(tmp_path),
         ])
 
         with patch("aginiti.core.campaign_builder.build_campaign", side_effect=_fake_build_campaign), \
              patch("aginiti.core.campaign.run_campaign", return_value=mock_result):
             cli._cmd_scan(args)
 
-        assert captured["IKEA_OPERATOR_MAX_QUERIES"] == "18"
-        assert captured["SECRET_OPERATOR_MAX_QUERIES"] == "18"
-        assert captured["MIA_OPERATOR_N_PROBE_QUESTIONS"] == "18"
-
-    def test_deep_attack_queries_defaults_to_unset(self, tmp_path, monkeypatch):
-        """Without the flag, --deep-attack-queries must not touch the
-        environment at all -- each attack keeps its own documented default
-        (IKEA 20 / SECRET 10 / MIA 4 probe questions)."""
-        for var in ("IKEA_OPERATOR_MAX_QUERIES", "SECRET_OPERATOR_MAX_QUERIES",
-                    "MIA_OPERATOR_N_PROBE_QUESTIONS"):
-            monkeypatch.delenv(var, raising=False)
-
-        from aginiti.core.campaign import CampaignResult
-
-        mock_result = CampaignResult(
-            outcome="SUCCESS", steps_executed=1, prompts_used=1,
-            operators_executed=["op_a"], operators_considered_total=1,
-        )
-        captured = {}
-
-        def _fake_build_campaign(**kwargs):
-            captured["IKEA_OPERATOR_MAX_QUERIES"] = os.environ.get("IKEA_OPERATOR_MAX_QUERIES")
-            return MagicMock(), MagicMock(budget=20), MagicMock()
-
-        parser = cli._build_parser()
-        args = parser.parse_args(["scan", "--target", "http://x", "--output-dir", str(tmp_path)])
-
-        with patch("aginiti.core.campaign_builder.build_campaign", side_effect=_fake_build_campaign), \
-             patch("aginiti.core.campaign.run_campaign", return_value=mock_result):
-            cli._cmd_scan(args)
-
         assert captured["IKEA_OPERATOR_MAX_QUERIES"] is None
+        assert captured["SECRET_OPERATOR_MAX_QUERIES"] is None
+        assert captured["MIA_OPERATOR_N_PROBE_QUESTIONS"] is None
+
+    def test_scan_has_no_deep_attack_queries_flag(self):
+        """Explicit regression guard: --deep-attack-queries must not exist
+        as a scan argument -- see test_scan_never_touches_deep_attack_
+        query_env_vars's own docstring for why."""
+        parser = cli._build_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["scan", "--target", "http://x", "--deep-attack-queries", "18"])
 
 
 class TestCollectScanFindings:

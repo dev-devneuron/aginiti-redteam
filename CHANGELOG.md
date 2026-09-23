@@ -30,33 +30,27 @@ changes.
   compose down` tears it down. Sidesteps every Windows onnxruntime/native-
   binary and PATH/global-install issue entirely, since everything runs
   inside a consistent Linux container regardless of host OS.
-- `aginiti scan --deep-attack-queries N` -- overrides IKEA's/SECRET's own
-  query budget and MIA's probe-question count all at once, for just that
-  scan. `--budget` alone only ever controlled how many *different*
-  techniques a scan tries (breadth); this is the first way to make a
-  chosen deep-attack technique itself go deeper without switching to
-  `aginiti attack`.
-
 ### Fixed
 
-- `aginiti scan`'s deep-attack Operators (IKEA/SECRET/MIA) previously
-  read their own LLM provider and query-depth config (`IKEA_OPERATOR_
-  MAX_QUERIES`, `SECRET_OPERATOR_MAX_QUERIES`, etc.) from bare
-  MODULE-LEVEL constants, computed exactly once, the first time
-  `deep_attack_operators.py` was ever imported anywhere in the process --
-  which happens far earlier than expected, via `aginiti/cli.py`'s own
-  `_build_parser()` (built before any argument is even parsed). Two real,
-  confirmed, live-reported consequences, now both fixed: `aginiti scan
-  --model` silently did nothing for the deep-attack Operators (dead
-  code -- the env var it set was written after the module's constants had
-  already been frozen), and there was no way at all to raise a deep-attack
-  operator's own depth per scan run, no matter how large `--budget` was
-  set (reported live: SECRET stayed at exactly `max_queries=10` regardless
-  of `--budget 20`). Every env-derived value now resolves fresh each time
-  `deep_attack_operators()`/`hardened_deep_attack_operators()` run (once
-  per `aginiti scan` invocation), via a small per-attack config dataclass
-  instead of a module-level constant -- see `deep_attack_operators.py`'s
-  own module docstring for the full root-cause writeup.
+- `aginiti scan --model` previously did nothing for the deep-attack
+  Operators (IKEA/SECRET/MIA) -- dead code, confirmed and fixed: their LLM
+  provider config was read from bare MODULE-LEVEL constants, computed
+  exactly once, the first time `deep_attack_operators.py` was ever
+  imported anywhere in the process -- which happens far earlier than
+  expected, via `aginiti/cli.py`'s own `_build_parser()` (built before any
+  argument is even parsed), so the env var `--model` set afterward had
+  nothing left to affect. Every env-derived value now resolves fresh each
+  time `deep_attack_operators()`/`hardened_deep_attack_operators()` run
+  (once per `aginiti scan` invocation), via a small per-attack config
+  dataclass instead of a module-level constant -- see
+  `deep_attack_operators.py`'s own module docstring for the full
+  root-cause writeup. `aginiti scan`'s deep-attack Operators otherwise
+  keep their existing fixed, small query caps (IKEA 20 / SECRET 10 / MIA
+  4 probe questions) regardless of `--budget`, unchanged and by design --
+  that cap is what stops a single Operator from silently consuming an
+  entire scan's budget by itself. Use `aginiti attack` directly (its own
+  `--queries`/`--phase1-iter`/`--probes`, never capped) for a deep run of
+  one specific technique.
 
 - `aginiti scan` (the campaign engine's deep-attack Operators) no longer
   crashes SECRET's Phase 1 optimizer/evaluator or MIA's shadow-LLM role

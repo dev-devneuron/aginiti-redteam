@@ -144,8 +144,9 @@ class TestConfigResolvedFreshNotFrozenAtImportTime:
     TIER_CHOICES` -> this module's top-level import chain, well before
     `argparse` even parses `--model`/any other flag. Setting an env var
     from Python AFTER that point (exactly what `_cmd_scan`'s `--model`
-    handling, and the new `--deep-attack-queries` handling, both do) used
-    to have zero effect. These tests simulate exactly that: import the
+    handling does, and what a user's own `.env`/shell env var is doing by
+    the time `aginiti scan` actually runs) used to have zero effect. These
+    tests simulate exactly that: import the
     module first (as it always already is, in any real process), THEN set
     an env var, THEN call `deep_attack_operators()` -- proving the env var
     is genuinely honored, not frozen from whatever `os.environ` looked

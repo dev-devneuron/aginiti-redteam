@@ -308,9 +308,13 @@ def _build_ikea_attack(endpoint: AgentEndpoint, config: _IKEAConfig) -> IKEAAtta
 # queries=15): a campaign-embedded Operator runs inside a shared prompt
 # budget alongside other operators, not as a dedicated standalone run, so
 # a lighter default keeps a single Operator selection from dominating an
-# entire campaign's budget by default. All independently overridable via
-# env var (or `aginiti scan --deep-attack-queries`, see cli.py) for a
-# deliberately larger run.
+# entire campaign's budget by default. Independently overridable via env
+# var (SECRET_OPERATOR_MAX_QUERIES etc.) for a deliberately larger run --
+# deliberately NOT exposed as an `aginiti scan` CLI flag: that cap exists
+# specifically so `--budget` can't be used to let one technique silently
+# consume an entire scan's budget by itself; `aginiti attack` (own
+# --queries, never capped) is the right tool for a deliberately deeper
+# single-technique run instead.
 # ---------------------------------------------------------------------------
 # Phase 1's OPTIMIZER/EVALUATOR LLM -- see aginiti/operators/hardened_deep_
 # attack_operators.py's identical constant for the full root-cause

@@ -87,13 +87,17 @@ xdg-open results/2026-09-23_154012/aginiti_assessment_report.html        # Linux
 `aginiti scan`'s own `--budget` means "how many techniques it gets to try"
 (against the real-target pack, 11 techniques today, so above ~15-20 rarely
 finds more) — a different number from how deep any one named technique
-can go. Two separate ways to go deeper on IKEA/SECRET/MIA specifically
-(the 3 of the 11 with a real query budget) once `scan` picks them:
-`--deep-attack-queries N` overrides all three at once for THIS scan run
-(IKEA's/SECRET's own `max_queries`, MIA's probe-question count — default
-20/10/4); or run `aginiti attack` directly against just that one technique
-(see that attack's own section below for real ranges). Every subcommand
-has its own `--help`. Full walkthrough: [docs/TUTORIAL.md](TUTORIAL.md).
+can go. Each deep-attack technique (IKEA/SECRET/MIA — the 3 of the 11
+with a real query budget) keeps its own fixed, small cap inside a scan
+(IKEA 20 queries, SECRET 10, MIA 4 probe questions per document — SPE is
+always exactly 3, non-configurable) no matter how large `--budget` is —
+so one technique can never silently eat an entire scan's budget by
+itself. Want one specific technique to use a much larger budget of its
+own? Run `aginiti attack` directly against just that technique instead
+(see that attack's own section below for real ranges) — its
+`--queries`/`--phase1-iter`/`--probes` are never capped the way the same
+technique is inside `scan`. Every subcommand has its own `--help`. Full
+walkthrough: [docs/TUTORIAL.md](TUTORIAL.md).
 
 The rest of this page covers the **Python API** underneath the CLI — for
 scripting your own assessments, or anything the CLI doesn't expose yet.
@@ -564,21 +568,29 @@ no way to opt out beyond bypassing it per-call:
 
 ## Gotchas & FAQ
 
-**`aginiti scan --model`/`--budget` didn't seem to change SECRET's own
-depth — it always ran at max_queries=10 no matter what**
-Fixed. Two separate things were going on, both real bugs: (1) `--model`
-genuinely did nothing for the deep-attack Operators (IKEA/SECRET/MIA) —
-their LLM provider was frozen from whatever the environment looked like
-at process startup, before `--model` was even parsed, so setting it later
-in Python had no effect. (2) `--budget` was never supposed to control
-SECRET's own internal `max_queries` at all — it controls how many
-*different* techniques the scan tries (breadth), not how deep any one
-goes (depth); SECRET's own depth is a separate, small default (10) sized
-so one technique can't eat an entire scan's budget by itself. If you want
-deeper IKEA/SECRET/MIA runs within a scan, use the new
-`--deep-attack-queries N` flag (overrides all three at once, just for
-that run) — see the note under [CLI Quickstart](#cli-quickstart--no-code-required)
-above.
+**`aginiti scan --model` didn't seem to change the deep-attack Operators'
+LLM provider at all**
+Fixed — this was a real bug, not intended behavior. Their LLM provider
+used to be frozen from whatever the environment looked like at process
+startup, before `--model` was even parsed, so setting it later in Python
+had no effect. It now resolves fresh every scan.
+
+**`aginiti scan --budget 20` still only ran SECRET at max_queries=10 —
+shouldn't a bigger budget mean a deeper SECRET run?**
+No, and this is deliberate, not a bug: `--budget` controls how many
+*different* techniques a scan tries (breadth) — it was never meant to
+control how deep any ONE of them goes (depth). Each deep-attack technique
+(IKEA/SECRET/MIA) keeps its own fixed, small query cap inside a scan
+(20/10/4) specifically so one technique picked early can't silently
+consume the entire scan's budget, leaving nothing for the other
+techniques a scan exists to try in the first place. If you want one
+specific technique to genuinely use a large budget, run it directly —
+`aginiti attack secret --target ... --queries 50` — which is never
+capped the way the same technique is inside `scan`. (An earlier version
+of this fix briefly added a `--deep-attack-queries` flag to `scan` that
+let one CLI value override all three caps at once — reconsidered and
+removed: overriding a shared safety cap defeats its own purpose, and
+`aginiti attack` already exists for exactly this use case.)
 
 **I pip-installed but `python scripts/run_campaign.py` says "No module
 named scripts"**
