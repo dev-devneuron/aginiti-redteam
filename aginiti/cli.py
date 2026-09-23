@@ -61,6 +61,49 @@ _AUTH_BANNER = (
 )
 
 # ---------------------------------------------------------------------------
+# --help text -- written for someone with no knowledge of this project's
+# internals and no particular technical background, NOT reused from this
+# module's own docstring above (that one is written for a developer reading
+# the source file, and has internal file paths/reST-style double-backtick
+# markup that would render literally -- ugly and meaningless -- in a plain
+# terminal). Every --help string in this file (this top-level description,
+# every subcommand's own description=, every individual flag's help=)
+# follows the same rule: explain what it DOES and what happens if you use
+# it, in plain words, before any jargon; a term like "system prompt" or
+# "jailbreak" is defined inline the first time it's used, not assumed
+# already known.
+# ---------------------------------------------------------------------------
+_CLI_DESCRIPTION = """\
+aginiti checks a chatbot or AI agent for security problems -- things like
+leaking private data it shouldn't share, revealing its own hidden setup
+instructions, or being tricked into ignoring its own safety rules.
+
+Three commands:
+
+  aginiti scan      Point it at a target and tell it how much effort to
+                    spend; it decides for itself which techniques to
+                    try, in what order. The best place to start with a
+                    target you haven't tested before.
+  aginiti attack    Run one specific, named technique yourself, with
+                    full control over its settings. Use this once you
+                    already know which kind of weakness you want to
+                    test for.
+  aginiti report    Rebuilds the report files from a results file you
+                    already have, without running anything again.
+
+Every scan/attack run prints a one-line reminder that this tool is for
+authorized testing only, then saves three files into a new folder named
+after the date and time (e.g. results/2026-09-24_101500/): the raw
+results (findings.json), a plain-text report
+(aginiti_assessment_report.md), and the same report styled for a web
+browser (aginiti_assessment_report.html) -- which opens automatically in
+your browser as soon as the run finishes.
+
+Only run this against a system you own, or that you have clear, explicit
+permission to test.
+"""
+
+# ---------------------------------------------------------------------------
 # Model auto-detection -- standard AI-ecosystem env var conventions. Order
 # is the fixed priority when more than one provider's key is present.
 # ---------------------------------------------------------------------------
@@ -622,69 +665,248 @@ def _cmd_report(args: argparse.Namespace) -> None:
 # Argument parsing
 # ---------------------------------------------------------------------------
 def _add_common_output_args(parser: argparse.ArgumentParser, default_report: str) -> None:
-    parser.add_argument("--output-dir", default="results", help="Parent directory for this run's own timestamped results folder (findings.json/report inside it). Default: ./results")
-    parser.add_argument("--report", default=default_report, help=f"Markdown report filename. Default: {default_report}")
-    parser.add_argument("--redact", action="store_true", help="Also write a PII-redacted copy of the report.")
-    parser.add_argument("--model", default=None, help="Attacker/judge LLM, e.g. openai/gpt-4o. Default: auto-detected from whichever *_API_KEY is set.")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Show full LiteLLM/HTTP logs instead of the default clean output.")
-    parser.add_argument("--no-open-report", action="store_true", help="Don't automatically open the HTML report in a browser when the run finishes.")
+    parser.add_argument(
+        "--output-dir", default="results",
+        help="Where to save results. Each run gets its own new folder, named after the date "
+             "and time, inside this directory. Default: ./results",
+    )
+    parser.add_argument(
+        "--report", default=default_report,
+        help=f"File name for the plain-text report inside that folder. Default: {default_report}",
+    )
+    parser.add_argument(
+        "--redact", action="store_true",
+        help="Also save a second copy of the report with private details blacked out, safe to "
+             "share more widely.",
+    )
+    parser.add_argument(
+        "--model", default=None,
+        help="Which AI model aginiti itself uses to run the attack and judge the results, e.g. "
+             "openai/gpt-4o. Default: automatically uses whichever provider's API key you have "
+             "set (Gemini, OpenAI, Groq, Anthropic, or Mistral).",
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true",
+        help="Show detailed technical logs instead of the normal, simplified output.",
+    )
+    parser.add_argument(
+        "--no-open-report", action="store_true",
+        help="Don't automatically open the report in your web browser when the run finishes.",
+    )
 
 
 def _build_parser() -> argparse.ArgumentParser:
     from aginiti.core.campaign_builder import TIER_CHOICES
     from aginiti.core.graph.attack_category import ALL_CATEGORIES
 
-    parser = argparse.ArgumentParser(prog="aginiti", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(prog="aginiti", description=_CLI_DESCRIPTION, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_scan = sub.add_parser("scan", help="Use-case-driven adaptive campaign (--tier/--attack-category).")
-    p_scan.add_argument("--target", required=True, help="Base URL of the target agent, e.g. http://localhost:8001")
+    p_scan = sub.add_parser(
+        "scan",
+        help="Let aginiti decide what to test for (good for a first look at a target).",
+        description=(
+            "Give it a target and a security concern, and it decides for itself which "
+            "technique to try next, learning from what worked and what didn't as it goes -- "
+            "instead of you having to pick one specific technique yourself. The best place to "
+            "start with a target you haven't tested before."
+        ),
+    )
+    p_scan.add_argument(
+        "--target", required=True,
+        help="Web address of the chatbot or AI agent you're testing, e.g. http://localhost:8001",
+    )
     _tier_group = p_scan.add_mutually_exclusive_group()
-    _tier_group.add_argument("--tier", default=None, choices=TIER_CHOICES, help="Coarse test tier. Default: full_assessment (no filter).")
-    _tier_group.add_argument("--attack-category", nargs="+", default=None, metavar="CATEGORY", choices=sorted(ALL_CATEGORIES), help="One or more precise attack-methodology categories (union). See --list-attack-categories.")
-    p_scan.add_argument("--list-attack-categories", action="store_true", help="Print every valid --attack-category value and exit.")
-    p_scan.add_argument("--budget", type=int, default=None, help="How many techniques the campaign gets to try in total (breadth) -- NOT how deep any one deep-attack goes. Each deep-attack Operator keeps its own fixed query cap (IKEA 20 / SECRET 10 / MIA 4 probe questions / SPE 3) regardless of --budget; use `aginiti attack` directly for a deeper run of one specific technique.")
+    _tier_group.add_argument(
+        "--tier", default=None, choices=TIER_CHOICES,
+        help="Which broad kind of security problem to focus on. Default: full_assessment "
+             "(tries everything).",
+    )
+    _tier_group.add_argument(
+        "--attack-category", nargs="+", default=None, metavar="CATEGORY", choices=sorted(ALL_CATEGORIES),
+        help="A more precise alternative to --tier: one or more specific technique groups to "
+             "focus on instead (list more than one to combine them). Run "
+             "--list-attack-categories to see every option with a short description.",
+    )
+    p_scan.add_argument(
+        "--list-attack-categories", action="store_true",
+        help="List every valid --attack-category option, with a plain-language description of "
+             "each, then exit without testing anything.",
+    )
+    p_scan.add_argument(
+        "--budget", type=int, default=None,
+        help="How many different techniques aginiti is allowed to try in total before it "
+             "stops. This is not how hard it pushes any ONE technique -- each technique has "
+             "its own fixed limit, so trying more techniques never comes at the cost of "
+             "under-testing one. To push a single technique much harder, run it directly with "
+             "'aginiti attack' instead.",
+    )
     _add_common_output_args(p_scan, "aginiti_assessment_report.md")
     p_scan.set_defaults(func=_cmd_scan)
 
-    p_attack = sub.add_parser("attack", help="Run one standalone attack directly.")
+    p_attack = sub.add_parser(
+        "attack",
+        help="Run one specific, named technique yourself (use this once you know what to test for).",
+        description=(
+            "Run one specific attack technique directly against your target, with full "
+            "control over its own settings -- use this once you already know which kind of "
+            "weakness you want to test for. Pick a technique below to see its own options."
+        ),
+    )
     attack_sub = p_attack.add_subparsers(dest="technique", required=True)
 
-    p_ikea = attack_sub.add_parser("ikea", help="Benign-query RAG knowledge extraction (ICLR 2026).")
-    p_ikea.add_argument("--target", required=True)
-    p_ikea.add_argument("--topic", required=True, help='Topic keyword for the target\'s knowledge base, e.g. "HR records".')
-    p_ikea.add_argument("--queries", type=int, default=20, help="Query budget. Default: 20.")
+    p_ikea = attack_sub.add_parser(
+        "ikea",
+        help="Ask ordinary-sounding questions to see if private records leak out.",
+        description=(
+            "IKEA asks the target many normal, innocent-looking questions in a row, then "
+            "pieces the answers together to see whether it accidentally reveals private "
+            "records it was only supposed to use internally -- no trickery, just ordinary "
+            "questions. Based on a real, published research paper (ICLR 2026)."
+        ),
+    )
+    p_ikea.add_argument(
+        "--target", required=True,
+        help="Web address of the chatbot or AI agent you're testing, e.g. http://localhost:8001",
+    )
+    p_ikea.add_argument(
+        "--topic", required=True,
+        help='A short description of the kind of private data you\'re testing for, e.g. "HR '
+             'records". Required, so the attack knows what to ask about.',
+    )
+    p_ikea.add_argument(
+        "--queries", type=int, default=20,
+        help="How many questions to send to the target. A higher number can find more, but "
+             "costs more and takes longer. Default: 20.",
+    )
     _add_common_output_args(p_ikea, "aginiti_assessment_report.md")
     p_ikea.set_defaults(func=_cmd_attack_ikea)
 
-    p_secret = attack_sub.add_parser("secret", help="Jailbreak-optimized extraction attack (IEEE TIFS 2026).")
-    p_secret.add_argument("--target", required=True)
-    p_secret.add_argument("--domain", default="the target's knowledge base", help='Domain description for the classifier, e.g. "HR records".')
-    p_secret.add_argument("--queries", type=int, default=20, help="Phase 2 (extraction) query budget. Default: 20.")
-    p_secret.add_argument("--phase1-iter", type=int, default=3, help="Phase 1 jailbreak-calibration iterations. Default: 3.")
-    p_secret.add_argument("--phase1-cand", type=int, default=2, help="Phase 1 candidates drafted per iteration. Default: 2.")
-    p_secret.add_argument("--corpus", default=None, help="Path to a text file, one sentence per line, for Global Exploration. Default: a small generic placeholder.")
-    p_secret.add_argument("--optimizer-model", default=None, help="Override the Phase 1 optimizer's model (default: auto-prefers Groq -- see docs).")
+    p_secret = attack_sub.add_parser(
+        "secret",
+        help="Work out a trick to bypass the target's safety rules, then extract records with it.",
+        description=(
+            "SECRET first works out a 'jailbreak' -- a trick prompt that gets the target to "
+            "drop its guard -- then uses that same trick repeatedly to pull private records "
+            "out of its knowledge base. More aggressive, and usually slower, than 'ikea'. "
+            "Based on a real, published research paper (IEEE TIFS 2026)."
+        ),
+    )
+    p_secret.add_argument(
+        "--target", required=True,
+        help="Web address of the chatbot or AI agent you're testing, e.g. http://localhost:8001",
+    )
+    p_secret.add_argument(
+        "--domain", default="the target's knowledge base",
+        help='A short description of the kind of private data you\'re testing for, e.g. "HR '
+             'records".',
+    )
+    p_secret.add_argument(
+        "--queries", type=int, default=20,
+        help="How many questions to send once the jailbreak trick is ready. Default: 20.",
+    )
+    p_secret.add_argument(
+        "--phase1-iter", type=int, default=3,
+        help="How many rounds to spend perfecting the jailbreak trick before using it for "
+             "real. Default: 3.",
+    )
+    p_secret.add_argument(
+        "--phase1-cand", type=int, default=2,
+        help="How many different trick attempts to try per round while perfecting it. "
+             "Default: 2.",
+    )
+    p_secret.add_argument(
+        "--corpus", default=None,
+        help="Optional: a text file (one plain sentence per line, unrelated to the target's "
+             "own data) this technique uses internally as filler material. Default: a small "
+             "built-in placeholder -- most people never need to set this.",
+    )
+    p_secret.add_argument(
+        "--optimizer-model", default=None,
+        help="Which AI model builds the jailbreak trick itself (a different model sometimes "
+             "works better for this one step than your main model does). Default: "
+             "automatically prefers a Groq model if you have a Groq API key set, otherwise "
+             "falls back to your main --model.",
+    )
     _add_common_output_args(p_secret, "aginiti_assessment_report.md")
     p_secret.set_defaults(func=_cmd_attack_secret)
 
-    p_mia = attack_sub.add_parser("mia", help="Membership inference against specific documents you hold (ACM CCS 2025).")
-    p_mia.add_argument("--target", required=True)
-    p_mia.add_argument("--dataset", required=True, help='JSON file: {"documents": [{"id","text"}...], "non_member_reference_docs": [{"id","text"}...]}')
-    p_mia.add_argument("--probes", type=int, default=10, help="Probe questions per document. Default: 10.")
+    p_mia = attack_sub.add_parser(
+        "mia",
+        help="Check whether a specific document you already have is stored in the target.",
+        description=(
+            "Doesn't try to steal new information -- instead, it answers one narrow question: "
+            "does a specific document you already possess exist somewhere in the target's "
+            "private knowledge base? Needs the document's own text as input, unlike the other "
+            "three techniques. Based on a real, published research paper (ACM CCS 2025)."
+        ),
+    )
+    p_mia.add_argument(
+        "--target", required=True,
+        help="Web address of the chatbot or AI agent you're testing, e.g. http://localhost:8001",
+    )
+    p_mia.add_argument(
+        "--dataset", required=True,
+        help="Path to a JSON file listing the document(s) you want to check, plus some other "
+             "documents you already know are NOT in the target (needed for comparison). "
+             'Format: {"documents": [{"id": "...", "text": "..."}, ...], '
+             '"non_member_reference_docs": [{"id": "...", "text": "..."}, ...]}. '
+             "See docs/USAGE.md for a full worked example.",
+    )
+    p_mia.add_argument(
+        "--probes", type=int, default=10,
+        help="How many yes/no questions to ask per document. More is more reliable but "
+             "slower. Default: 10.",
+    )
     _add_common_output_args(p_mia, "aginiti_assessment_report.md")
     p_mia.set_defaults(func=_cmd_attack_mia)
 
-    p_spe = attack_sub.add_parser("spe", help="System prompt extraction, 3 fixed probes (ICLR 2026).")
-    p_spe.add_argument("--target", required=True)
+    p_spe = attack_sub.add_parser(
+        "spe",
+        help="Try to get the target to reveal its own hidden setup instructions.",
+        description=(
+            "Every chatbot/AI agent is given a private set of instructions by whoever built "
+            "it (its 'system prompt') -- things like its personality, rules, and what it's "
+            "allowed to talk about. SPE asks the target to reveal those instructions, three "
+            "different ways. The cheapest and quickest of the four techniques, with no "
+            "settings to tune -- a good first thing to try on any new target. Based on a "
+            "real, published research paper (ICLR 2026)."
+        ),
+    )
+    p_spe.add_argument(
+        "--target", required=True,
+        help="Web address of the chatbot or AI agent you're testing, e.g. http://localhost:8001",
+    )
     _add_common_output_args(p_spe, "aginiti_assessment_report.md")
     p_spe.set_defaults(func=_cmd_attack_spe)
 
-    p_report = sub.add_parser("report", help="Convert a saved findings.json into a Markdown report.")
-    p_report.add_argument("--input", required=True, help="Path to a findings.json produced by scan/attack.")
-    p_report.add_argument("--output", default=None, help="Output .md path. Default: alongside --input.")
-    p_report.add_argument("--redact", action="store_true", help="Write a PII-redacted report instead.")
-    p_report.add_argument("--no-open-report", action="store_true", help="Don't automatically open the HTML report in a browser.")
+    p_report = sub.add_parser(
+        "report",
+        help="Rebuild the report files from a results file you already have.",
+        description=(
+            "Turns a findings.json file (saved automatically by a previous 'scan' or "
+            "'attack' run) back into a report, without running anything again. Useful if you "
+            "want a redacted copy after the fact, or lost the original report file."
+        ),
+    )
+    p_report.add_argument(
+        "--input", required=True,
+        help="Path to the findings.json file to rebuild the report from (saved automatically "
+             "by 'aginiti scan'/'aginiti attack').",
+    )
+    p_report.add_argument(
+        "--output", default=None,
+        help="Where to save the new report file. Default: right next to the --input file.",
+    )
+    p_report.add_argument(
+        "--redact", action="store_true",
+        help="Save a version with private details blacked out, safe to share more widely, "
+             "instead of the full report.",
+    )
+    p_report.add_argument(
+        "--no-open-report", action="store_true",
+        help="Don't automatically open the report in your web browser when it's done.",
+    )
     p_report.set_defaults(func=_cmd_report)
 
     return parser

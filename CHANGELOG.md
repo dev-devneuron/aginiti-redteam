@@ -9,8 +9,41 @@ changes.
 
 ## [Unreleased]
 
-### Added
+### Changed
 
+- Every `--help` screen (`aginiti --help`, and every subcommand/technique's
+  own) rewritten for a reader with no knowledge of this project's internals
+  and no particular technical background -- the previous text assumed
+  familiarity with internal terms (Operator, RAG, "Phase 1 optimizer") and
+  in the top-level description even included literal file paths and
+  reST-style double-backtick markup meant for a documentation renderer, not
+  a plain terminal. `--target` (previously undocumented on every `aginiti
+  attack` technique) and every other flag now has a plain-language
+  description; each technique's own description explains what it actually
+  does before mentioning its source paper. The technical module docstring
+  developers see in the source is unchanged; a new, separate
+  `_CLI_DESCRIPTION` constant is what `--help` actually shows.
+- Markdown/HTML report generation: removed the hardcoded "Authorization:
+  Not recorded for this run" line (omitted entirely when not supplied,
+  instead of a discouraging placeholder); the assessment-scope note is now
+  concise and points users toward running complementary scan tiers/attack
+  modules instead of reading as a disclaimer; the Key Metrics table now
+  spells out "Attack Success Rate (ASR)" with a plain-language description
+  column, moved the Classifier field out of Key Metrics into the report
+  header, and only ever shows EE/CRR/SS when real ground-truth metrics are
+  present (`aginiti scan`/`aginiti attack` never populate them, only
+  `scripts/run_benchmark.py`'s own ground-truth-scored runs do); every
+  finding's field label (Status, Probe, What leaked, Why flagged,
+  Confidence, OWASP LLM, Remediation) now carries a short plain-language
+  description in the label itself, not appended after the value (appending
+  after the OWASP LLM field's own value, which already contains a hyphen,
+  produced a confusing double-hyphen chain -- fixed by moving the
+  description to the label side, which is unambiguous regardless of what
+  the value contains); every `leak_type` status tag (e.g. `pii`) now always
+  expands to its full plain-language name (e.g. "Personally Identifiable
+  Information (PII)"), with a safe Title Case fallback for any value not
+  in the lookup table. Remaining stray em-dashes in report *output* text
+  (not source comments/docstrings) replaced with plain hyphens.
 - `aginiti-demo-target --hardened` (the default, `--vanilla`, is unchanged
   and byte-for-byte identical to before this addition) -- an A/B-comparison
   mode with 4 defenses adapted from `benchmarks/scaled_evals/agents/
