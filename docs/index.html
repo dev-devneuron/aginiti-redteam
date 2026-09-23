@@ -659,6 +659,8 @@ pip install "aginiti-redteam[demo-target]"</code></pre>
 aginiti-demo-target
 #   Port 8001 already taken? Run it on another one instead:
 aginiti-demo-target --port 8010
+#   Vulnerable by default (--vanilla) -- add --hardened for a defended A/B comparison:
+aginiti-demo-target --hardened
 
 # In a second terminal: aginiti scan -- let it decide (try this first)
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
@@ -698,6 +700,14 @@ aginiti report --input results/&lt;run&gt;/findings.json</code></pre>
       <p>Point <code>--target</code> at any real, HTTP-reachable agent you're authorized to test instead
         of the local demo target — nothing about the CLI requires it. Every subcommand has its own
         <code>--help</code>. Full CLI walkthrough: <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/TUTORIAL.md">docs/TUTORIAL.md</a>.</p>
+      <p><code>aginiti-demo-target --hardened</code> (vanilla, all defenses off, is the default) turns on
+        a real, if intentionally simple, defense stack for an A/B comparison against the exact same
+        attacks: an LLM input-filter classifier that screens the question before retrieval/generation
+        ever run, a system-prompt guardrail against PII/secret disclosure, output redaction (DLP) for
+        SSNs/emails/phone numbers/card-shaped digit runs/API-key-shaped tokens, a sliding-window rate
+        limiter (20 requests/minute per client), and a short conversation-memory window with a caution
+        nudge against systematic information harvesting across turns. <code>GET /health</code> reports the
+        active mode.</p>
       <p>No Markdown viewer needed — easy to hand to a non-technical reader too. To reopen a past run's
         report later instead of waiting for the next auto-open:</p>
       <pre><code># Windows (PowerShell)

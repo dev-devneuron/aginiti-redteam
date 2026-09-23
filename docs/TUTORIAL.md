@@ -114,7 +114,23 @@ on `http://localhost:8001`. Leave this terminal open for the rest of the
 demo — go back to your first terminal for everything below.
 
 > **Checkpoint.** Open <http://localhost:8001/health> in a browser — you
-> should see `{"status":"ok"}`.
+> should see `{"status":"ok","hardened":false}`.
+
+**Want to see what real defenses look like?** By default (`--vanilla`,
+implied) the practice chatbot has zero defenses — every attack below gets
+a fair, unobstructed look at the raw model. Run it with `--hardened`
+instead for an A/B comparison — an input-filter classifier that blocks
+attacks before they even reach retrieval, a system-prompt guardrail, output
+PII/secret redaction, a rate limiter, and short-term conversation memory,
+all switched on at once:
+
+```bash
+aginiti-demo-target --hardened
+```
+
+Then run the exact same `aginiti scan`/`aginiti attack` commands below
+against it and compare the reports — same target data, same attacks,
+defenses the only variable.
 
 ### Option B — your own target
 
@@ -371,6 +387,8 @@ pip install "aginiti-redteam[demo-target]"
 aginiti-demo-target
 # port 8001 already taken? run it on another one instead:
 aginiti-demo-target --port 8010
+# want an A/B comparison against real defenses instead of the vulnerable default?
+aginiti-demo-target --hardened
 
 # --- Terminal 1: aginiti scan -- let it decide (try this first) ---
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15

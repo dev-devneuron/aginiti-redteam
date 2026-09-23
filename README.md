@@ -77,6 +77,8 @@ export GEMINI_API_KEY=your_key_here   # or put it in a .env file in your working
 aginiti-demo-target
 #    Port 8001 already taken? Run it on another one instead:
 aginiti-demo-target --port 8010
+#    Vulnerable by default (--vanilla) -- add --hardened for a defended A/B comparison:
+aginiti-demo-target --hardened
 
 # 4. In a second terminal: aginiti scan -- let it decide (try this first)
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15

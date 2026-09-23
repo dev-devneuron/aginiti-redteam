@@ -61,6 +61,8 @@ Run a real assessment straight from your terminal:
 aginiti-demo-target
 #   Port 8001 already taken? Run it on another one instead:
 aginiti-demo-target --port 8010
+#   Vulnerable by default (--vanilla) -- add --hardened for a defended A/B comparison:
+aginiti-demo-target --hardened
 
 # In a second terminal: aginiti scan -- let it decide (try this first)
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15

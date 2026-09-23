@@ -47,6 +47,8 @@ regardless of your host OS.
 aginiti-demo-target
 #   Port 8001 already taken? Run it on another one instead:
 aginiti-demo-target --port 8010
+#   Vulnerable by default (--vanilla) -- add --hardened for a defended A/B comparison:
+aginiti-demo-target --hardened
 
 # In a second terminal: aginiti scan -- let it decide (try this first)
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
@@ -98,6 +100,17 @@ own? Run `aginiti attack` directly against just that technique instead
 `--queries`/`--phase1-iter`/`--probes` are never capped the way the same
 technique is inside `scan`. Every subcommand has its own `--help`. Full
 walkthrough: [docs/TUTORIAL.md](TUTORIAL.md).
+
+`aginiti-demo-target --hardened` (vanilla, all defenses off, is the
+default) turns on a real, if intentionally simple, defense stack for an
+A/B comparison against the exact same attacks: an LLM input-filter
+classifier that screens the question before retrieval/generation ever
+run, a system-prompt guardrail against PII/secret disclosure, output
+redaction (DLP) for SSNs/emails/phone numbers/card-shaped digit runs/
+API-key-shaped tokens, a sliding-window rate limiter (20 requests/minute
+per client), and a short conversation-memory window with a caution nudge
+against systematic information harvesting across turns. `GET /health`
+reports the active mode (`{"status": "ok", "hardened": true|false}`).
 
 The rest of this page covers the **Python API** underneath the CLI — for
 scripting your own assessments, or anything the CLI doesn't expose yet.

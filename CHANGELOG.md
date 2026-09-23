@@ -11,6 +11,21 @@ changes.
 
 ### Added
 
+- `aginiti-demo-target --hardened` (the default, `--vanilla`, is unchanged
+  and byte-for-byte identical to before this addition) -- an A/B-comparison
+  mode with 4 defenses adapted from `benchmarks/scaled_evals/agents/
+  hardened_agent/agent.py`: an LLM input-filter classifier (blocks before
+  retrieval/generation run), a system-prompt guardrail against PII/secret
+  disclosure, output redaction (DLP) for SSNs/emails/phone numbers/card-
+  shaped digit runs/API-key-shaped tokens, and a short conversation-memory
+  window with a caution nudge against systematic information harvesting.
+  A 5th, a sliding-window rate limiter (20 requests/minute per client IP),
+  is enforced in `main.py` at the request boundary, before any retrieval/
+  generation work runs. RBAC/tool-calling/session-expiry/audit-logging
+  were deliberately not ported -- this target has no personas or tools to
+  scope, unlike the benchmark target those exist for. `GET /health` now
+  reports the active mode (`{"status": "ok", "hardened": true|false}`). No
+  new dependencies (regex/rate-limiter/memory are all stdlib).
 - `aginiti scan` now runs a second (third, ...) round once every eligible
   operator has run and budget remains, instead of stopping the moment the
   ~11-operator target-agnostic pack runs dry -- `aginiti scan --budget 100`
