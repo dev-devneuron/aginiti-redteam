@@ -15,11 +15,14 @@ Three subcommands:
     aginiti report  Convert a previously-saved findings.json into a
                     Markdown report on its own, without re-running anything.
 
-Every ``scan``/``attack`` run prints one authorized-use reminder, then
-auto-saves ``findings.json`` (the full structured result) and
+Every ``scan``/``attack``/``report`` run prints one authorized-use
+reminder, then auto-saves ``findings.json`` (the full structured result),
 ``aginiti_assessment_report.md`` (a human-readable, OWASP-Top-10-mapped
-Markdown report) into the current directory (override with
-``--output-dir``).
+Markdown report), and ``aginiti_assessment_report.html`` (the same report,
+styled for a browser) into the current directory (override with
+``--output-dir``) -- then opens that HTML report in the default browser
+automatically (``--no-open-report`` to skip this, e.g. in a headless/CI/
+Docker environment).
 
 Authorized use only. This tool is intended exclusively for security testing
 of systems you own or have explicit written permission to test.
@@ -33,6 +36,7 @@ import logging
 import os
 import sys
 import time
+import webbrowser
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -151,10 +155,30 @@ def _write_json(path: Path, data: dict) -> None:
     print(f"Wrote {path}")
 
 
+def _open_report(html_path: Path) -> None:
+    """Best-effort: opens the just-written HTML report in the user's
+    default browser. `webbrowser.open()` is the one stdlib call that
+    already handles this across all three OSes with no branching here --
+    `os.startfile` on Windows, `open` on macOS, `xdg-open`/a registered
+    handler on Linux -- so nothing OS-specific lives in this function.
+
+    Never raises: a headless/CI/Docker environment with no browser
+    available (or no display at all) must not turn an otherwise-successful
+    scan/attack/report run into a crash on its very last line -- the
+    findings/report files are already written and their paths already
+    printed above regardless of whether this succeeds."""
+    try:
+        opened = webbrowser.open(html_path.resolve().as_uri())
+    except Exception:
+        opened = False
+    if not opened:
+        print(f"(Could not auto-open {html_path} in a browser -- open it manually.)")
+
+
 def _write_attack_outputs(
     output_dir: Path, report_name: str, attack: str, target: str,
     findings: list, started: float, embed_model: str, llm_provider: str,
-    redact: bool,
+    redact: bool, open_report: bool = True,
 ) -> None:
     """Shared output path for all 4 `aginiti attack` subcommands -- writes
     findings.json (run_metadata + raw findings), aginiti_assessment_report.md
@@ -192,6 +216,9 @@ def _write_attack_outputs(
 
     confirmed = sum(1 for f in findings if f.confirmed)
     print(f"\n{len(findings)} finding(s), {confirmed} confirmed.")
+
+    if open_report:
+        _open_report(html_path)
 
 
 def _format_owasp_category(raw: str) -> str:
@@ -261,7 +288,7 @@ def _collect_scan_findings(execution_log, library) -> list[dict]:
 
 
 def _write_scan_outputs(output_dir: Path, report_name: str, target: Optional[str], result, library,
-                         started: float) -> None:
+                         started: float, open_report: bool = True) -> None:
     """`aginiti scan`'s output writer -- reuses generate_markdown_report()/
     generate_html_report() (the same OWASP-mapped, severity-sorted reports
     `aginiti attack` produces) over findings translated from the campaign's
@@ -305,6 +332,9 @@ def _write_scan_outputs(output_dir: Path, report_name: str, target: Optional[str
 
     confirmed = sum(1 for f in findings if f.get("confirmed"))
     print(f"\n{len(findings)} step(s) evaluated, {confirmed} confirmed.")
+
+    if open_report:
+        _open_report(html_path)
 
 
 # ---------------------------------------------------------------------------
@@ -351,7 +381,8 @@ def _cmd_scan(args: argparse.Namespace) -> None:
                                stop_on_mission_success=False, max_steps=max(25, mission.budget))
         print(f"\nOutcome: {result.outcome} | steps: {result.steps_executed} | "
               f"prompts used: {result.prompts_used}/{mission.budget}")
-        _write_scan_outputs(Path(args.output_dir), args.report, args.target, result, library, started)
+        _write_scan_outputs(Path(args.output_dir), args.report, args.target, result, library, started,
+                            open_report=not args.no_open_report)
     finally:
         if args.target and agent is not None:
             agent.endpoint.close()
@@ -377,6 +408,7 @@ def _cmd_attack_ikea(args: argparse.Namespace) -> None:
     _write_attack_outputs(
         Path(args.output_dir), args.report, "ikea", args.target, findings, started,
         embed_model="chromadb/all-MiniLM-L6-v2", llm_provider=model, redact=args.redact,
+        open_report=not args.no_open_report,
     )
 
 
@@ -415,6 +447,7 @@ def _cmd_attack_secret(args: argparse.Namespace) -> None:
     _write_attack_outputs(
         Path(args.output_dir), args.report, "secret", args.target, findings, started,
         embed_model="chromadb/all-MiniLM-L6-v2", llm_provider=model, redact=args.redact,
+        open_report=not args.no_open_report,
     )
 
 
@@ -450,6 +483,7 @@ def _cmd_attack_mia(args: argparse.Namespace) -> None:
     _write_attack_outputs(
         Path(args.output_dir), args.report, "mia", args.target, findings, started,
         embed_model="", llm_provider=model, redact=args.redact,
+        open_report=not args.no_open_report,
     )
 
 
@@ -476,6 +510,7 @@ def _cmd_attack_spe(args: argparse.Namespace) -> None:
     _write_attack_outputs(
         Path(args.output_dir), args.report, "spe", args.target, findings, started,
         embed_model="", llm_provider=model, redact=args.redact,
+        open_report=not args.no_open_report,
     )
 
 
@@ -507,6 +542,9 @@ def _cmd_report(args: argparse.Namespace) -> None:
     generate_html_report(report, html_path, redact=args.redact)
     print(f"Wrote {html_path}")
 
+    if not args.no_open_report:
+        _open_report(html_path)
+
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -517,6 +555,7 @@ def _add_common_output_args(parser: argparse.ArgumentParser, default_report: str
     parser.add_argument("--redact", action="store_true", help="Also write a PII-redacted copy of the report.")
     parser.add_argument("--model", default=None, help="Attacker/judge LLM, e.g. openai/gpt-4o. Default: auto-detected from whichever *_API_KEY is set.")
     parser.add_argument("-v", "--verbose", action="store_true", help="Show full LiteLLM/HTTP logs instead of the default clean output.")
+    parser.add_argument("--no-open-report", action="store_true", help="Don't automatically open the HTML report in a browser when the run finishes.")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -573,6 +612,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_report.add_argument("--input", required=True, help="Path to a findings.json produced by scan/attack.")
     p_report.add_argument("--output", default=None, help="Output .md path. Default: alongside --input.")
     p_report.add_argument("--redact", action="store_true", help="Write a PII-redacted report instead.")
+    p_report.add_argument("--no-open-report", action="store_true", help="Don't automatically open the HTML report in a browser.")
     p_report.set_defaults(func=_cmd_report)
 
     return parser

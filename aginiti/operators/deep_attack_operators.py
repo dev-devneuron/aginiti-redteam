@@ -108,6 +108,7 @@ from aginiti.attacks.dra import IKEAAttack, SECRETAttack
 from aginiti.attacks.mia import InterrogationAttack
 from aginiti.attacks.spe import SPEAttack
 from aginiti.connectors.endpoint import AgentEndpoint
+from aginiti.core.observability import get_logger
 from aginiti.core.graph.attack_category import DIRECT_PROMPT_ATTACK, MULTI_STEP_CHAIN
 from aginiti.core.graph.mitre_atlas_refs import LLM_JAILBREAK
 from aginiti.core.graph.owasp_llm_taxonomy import (
@@ -170,6 +171,51 @@ def _key_for(model: str) -> str | None:
     return key
 
 
+_logger = get_logger("operators.deep_attack_operators")
+
+
+def _resolve_role_model(env_var: str, default_groq_model: str, primary_model: str) -> tuple[str, str]:
+    """Resolve a role that PREFERS Groq for compliance reasons (SECRET's
+    Phase 1 optimizer/evaluator, MIA's shadow LLM -- see those constants
+    below for the specific, live-reproduced refusal failure modes on
+    safety-aligned commercial models) without ever hard-requiring a Groq
+    key to be present.
+
+    An explicit env var override is honored exactly as given, including
+    raising via `_key_for` if THAT provider's own key is missing -- the
+    caller deliberately chose a specific model, so they get exactly that,
+    same as every other explicit override in this codebase.
+
+    Only the unset-env-var DEFAULT case is where this actually differs
+    from the previous behavior: it now defaults to Groq only if
+    `GROQ_API_KEY` is genuinely configured; otherwise it falls back to the
+    already-resolved `primary_model` (whatever provider the user actually
+    has a key for) instead of crashing. Mirrors `aginiti/cli.py`'s own
+    `_resolve_secret_optimizer` (the `aginiti attack secret` equivalent of
+    this exact fix) -- this closes the same gap for the `aginiti scan` /
+    deep-attack-Operator path, which never had it: previously, a user with
+    e.g. only `GEMINI_API_KEY` configured saw this whole operator fail
+    outright (`attack_factory raised ValueError: GROQ_API_KEY is not set
+    in .env`), burning its allocated query budget for nothing, even though
+    a perfectly usable key was already sitting in their `.env` for the
+    primary model. LiteLLM's own provider-agnostic routing (this project's
+    locked design rule, see CLAUDE.md §3) is what makes "just use the
+    primary model instead" a safe, always-available fallback here."""
+    explicit = os.environ.get(env_var)
+    if explicit:
+        return explicit, _key_for(explicit)
+    if os.environ.get("GROQ_API_KEY"):
+        return default_groq_model, os.environ["GROQ_API_KEY"]
+    _logger.warning(
+        "%s not set and GROQ_API_KEY not configured -- using the primary model (%s) "
+        "for this role instead. Safety-aligned models often refuse this step's own "
+        "framing, so results may be weaker than with a Groq key; set GROQ_API_KEY or "
+        "%s explicitly for the most reliable results.",
+        env_var, primary_model, env_var,
+    )
+    return primary_model, _key_for(primary_model)
+
+
 def _build_ikea_attack(endpoint: AgentEndpoint) -> IKEAAttack:
     """`attack_factory` for the IKEA deep-attack Operator below --
     `ObservationAdapter._execute_deep_attack` calls this fresh on every
@@ -230,12 +276,14 @@ _SECRET_SEMANTIC_SHIFT_LLM_PROVIDER = os.environ.get(
 # Generic to ANY caller of deep_attack_operators(), not hardened_agent-
 # specific -- the bug was target-agnostic (it's in Phase 1's own LLM call,
 # before any target-specific query is ever sent).
-_SECRET_OPTIMIZER_LLM_PROVIDER = os.environ.get(
-    "SECRET_OPERATOR_OPTIMIZER_LLM_PROVIDER", "groq/openai/gpt-oss-20b"
-)
-_SECRET_EVALUATOR_LLM_PROVIDER = os.environ.get(
-    "SECRET_OPERATOR_EVALUATOR_LLM_PROVIDER", _SECRET_OPTIMIZER_LLM_PROVIDER
-)
+#
+# These two are env var NAMES/preferred-default model strings only, not
+# yet resolved against a key -- actual resolution (prefer Groq if genuinely
+# configured, else fall back to the primary model instead of crashing) is
+# `_resolve_role_model`'s job, called from `_build_secret_attack` below.
+_SECRET_OPTIMIZER_ENV_VAR = "SECRET_OPERATOR_OPTIMIZER_LLM_PROVIDER"
+_SECRET_OPTIMIZER_DEFAULT_GROQ_MODEL = "groq/openai/gpt-oss-20b"
+_SECRET_EVALUATOR_ENV_VAR = "SECRET_OPERATOR_EVALUATOR_LLM_PROVIDER"
 _SECRET_EMBED_MODEL = os.environ.get("EMBED_MODEL", "chromadb/all-MiniLM-L6-v2")
 _SECRET_DOMAIN = os.environ.get("SECRET_OPERATOR_DOMAIN", "HR records")
 _SECRET_PHASE1_N_ITER = int(os.environ.get("SECRET_OPERATOR_PHASE1_N_ITER", "3"))
@@ -298,17 +346,33 @@ def _build_secret_attack(endpoint: AgentEndpoint) -> SECRETAttack:
     401 failure hardened_agent did. Harmless no-op for an unauthenticated
     target (`endpoint.headers` is just `{}` there).
 
-    `optimizer_llm_provider`/`evaluator_llm_provider` added the same day --
-    see this module's own `_SECRET_OPTIMIZER_LLM_PROVIDER` docstring."""
+    `optimizer_llm_provider`/`evaluator_llm_provider` resolved via
+    `_resolve_role_model` -- see that function's own docstring for why:
+    prefers Groq for this role (safety-aligned commercial models tend to
+    refuse the optimizer's own framing), but only if `GROQ_API_KEY` is
+    actually configured; falls back to the primary model otherwise instead
+    of crashing this operator outright."""
+    optimizer_model, optimizer_key = _resolve_role_model(
+        _SECRET_OPTIMIZER_ENV_VAR, _SECRET_OPTIMIZER_DEFAULT_GROQ_MODEL, _SECRET_LLM_PROVIDER
+    )
+    evaluator_env = os.environ.get(_SECRET_EVALUATOR_ENV_VAR)
+    if evaluator_env:
+        evaluator_model, evaluator_key = evaluator_env, _key_for(evaluator_env)
+    else:
+        # Tracks the optimizer's own RESOLVED choice by default, whatever
+        # that turned out to be -- not a second, independently-hardcoded
+        # default (see _SECRET_SEMANTIC_SHIFT_LLM_PROVIDER's own comment
+        # above for the exact live bug this convention exists to avoid).
+        evaluator_model, evaluator_key = optimizer_model, optimizer_key
     return SECRETAttack(
         target_url=endpoint.base_url,
         llm_provider=_SECRET_LLM_PROVIDER,
         api_key=_key_for(_SECRET_LLM_PROVIDER),
         external_corpus=_SECRET_EXTERNAL_CORPUS,
-        optimizer_llm_provider=_SECRET_OPTIMIZER_LLM_PROVIDER,
-        optimizer_api_key=_key_for(_SECRET_OPTIMIZER_LLM_PROVIDER),
-        evaluator_llm_provider=_SECRET_EVALUATOR_LLM_PROVIDER,
-        evaluator_api_key=_key_for(_SECRET_EVALUATOR_LLM_PROVIDER),
+        optimizer_llm_provider=optimizer_model,
+        optimizer_api_key=optimizer_key,
+        evaluator_llm_provider=evaluator_model,
+        evaluator_api_key=evaluator_key,
         semantic_shift_llm_provider=_SECRET_SEMANTIC_SHIFT_LLM_PROVIDER,
         semantic_shift_api_key=_key_for(_SECRET_SEMANTIC_SHIFT_LLM_PROVIDER),
         embed_model=_SECRET_EMBED_MODEL,
@@ -330,7 +394,11 @@ def _build_secret_attack(endpoint: AgentEndpoint) -> SECRETAttack:
 # override attack_kwargs={"documents": [...]} for a real engagement.
 # ---------------------------------------------------------------------------
 _MIA_LLM_PROVIDER = os.environ.get("MIA_OPERATOR_LLM_PROVIDER", "gemini/gemini-3.5-flash")
-_MIA_SHADOW_LLM_PROVIDER = os.environ.get("MIA_OPERATOR_SHADOW_LLM_PROVIDER", "groq/openai/gpt-oss-20b")
+# Env var NAME/preferred-default model string only -- see
+# `_resolve_role_model`'s own docstring; resolved at call time in
+# `_build_interrogation_attack` below, same reason as SECRET's optimizer.
+_MIA_SHADOW_ENV_VAR = "MIA_OPERATOR_SHADOW_LLM_PROVIDER"
+_MIA_SHADOW_DEFAULT_GROQ_MODEL = "groq/openai/gpt-oss-20b"
 _MIA_N_PROBE_QUESTIONS = int(os.environ.get("MIA_OPERATOR_N_PROBE_QUESTIONS", "4"))
 _MIA_TIMEOUT_SECONDS = 600.0
 
@@ -436,14 +504,22 @@ _MIA_COST_PROMPTS = len(_MIA_CANDIDATE_DOCUMENTS) * _MIA_N_PROBE_QUESTIONS
 
 def _build_interrogation_attack(endpoint: AgentEndpoint) -> InterrogationAttack:
     """`attack_factory` for the Interrogation/MIA deep-attack Operator
-    below -- same lazy-construction contract as `_build_ikea_attack`."""
+    below -- same lazy-construction contract as `_build_ikea_attack`.
+
+    `shadow_llm_provider`/`shadow_llm_api_key` resolved via
+    `_resolve_role_model` -- see that function's own docstring: prefers
+    Groq for this role, but only if `GROQ_API_KEY` is actually configured;
+    falls back to the primary model otherwise instead of crashing."""
+    shadow_model, shadow_key = _resolve_role_model(
+        _MIA_SHADOW_ENV_VAR, _MIA_SHADOW_DEFAULT_GROQ_MODEL, _MIA_LLM_PROVIDER
+    )
     return InterrogationAttack(
         target_url=endpoint.base_url,
         llm_provider=_MIA_LLM_PROVIDER,
         api_key=_key_for(_MIA_LLM_PROVIDER),
         non_member_reference_docs=_MIA_NON_MEMBER_REFERENCE_DOCS,
-        shadow_llm_provider=_MIA_SHADOW_LLM_PROVIDER,
-        shadow_llm_api_key=_key_for(_MIA_SHADOW_LLM_PROVIDER),
+        shadow_llm_provider=shadow_model,
+        shadow_llm_api_key=shadow_key,
         n_probe_questions=_MIA_N_PROBE_QUESTIONS,
         endpoint=endpoint,
         endpoint_kwargs={"headers": endpoint.headers},

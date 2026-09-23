@@ -251,12 +251,12 @@ _SECRET_SEMANTIC_SHIFT_LLM_PROVIDER = os.environ.get(
 # no evidence of the same failure mode there yet, since it only ran once
 # against an easy already-refused seed response in exp32, but there's no
 # reason to risk it either).
-_SECRET_OPTIMIZER_LLM_PROVIDER = os.environ.get(
-    "SECRET_OPERATOR_OPTIMIZER_LLM_PROVIDER", "groq/openai/gpt-oss-20b"
-)
-_SECRET_EVALUATOR_LLM_PROVIDER = os.environ.get(
-    "SECRET_OPERATOR_EVALUATOR_LLM_PROVIDER", _SECRET_OPTIMIZER_LLM_PROVIDER
-)
+#
+# The actual env var name/default-model constants and call-time resolution
+# now live further below, right before `_MIA_LLM_PROVIDER` -- grouped with
+# the `_resolve_role_model` import they depend on, rather than duplicated
+# here. See that function's own docstring (in deep_attack_operators.py)
+# for why this is no longer a bare os.environ.get(..., "groq/...") default.
 _SECRET_EMBED_MODEL = os.environ.get("EMBED_MODEL", "chromadb/all-MiniLM-L6-v2")
 _SECRET_PHASE1_N_ITER = int(os.environ.get("SECRET_OPERATOR_PHASE1_N_ITER", "3"))
 _SECRET_PHASE1_N_CAND = int(os.environ.get("SECRET_OPERATOR_PHASE1_N_CAND", "2"))
@@ -267,10 +267,28 @@ _SECRET_TIMEOUT_SECONDS = 1500.0
 # deep_attack_operators.py's own _SECRET_EXTERNAL_CORPUS -- the paper's own
 # design wants a domain-UNRELATED baseline for semantic-shift detection,
 # so this does not need a hardened_agent-specific version.
-from aginiti.operators.deep_attack_operators import _SECRET_EXTERNAL_CORPUS  # noqa: E402
+#
+# _resolve_role_model is imported too (not duplicated) -- prefers Groq for
+# SECRET's optimizer/evaluator and MIA's shadow LLM below, but only if
+# GROQ_API_KEY is genuinely configured, falling back to the primary model
+# instead of crashing otherwise. See that function's own docstring in
+# deep_attack_operators.py for the full root-cause writeup (a real live
+# bug this fixes: a user without GROQ_API_KEY lost this operator's whole
+# query budget to `attack_factory raised ValueError`).
+from aginiti.operators.deep_attack_operators import _SECRET_EXTERNAL_CORPUS, _resolve_role_model  # noqa: E402
+
+# Env var NAME/preferred-default model string only, not yet resolved --
+# see _resolve_role_model's own docstring; resolved at call time in
+# _build_secret_attack below.
+_SECRET_OPTIMIZER_ENV_VAR = "SECRET_OPERATOR_OPTIMIZER_LLM_PROVIDER"
+_SECRET_OPTIMIZER_DEFAULT_GROQ_MODEL = "groq/openai/gpt-oss-20b"
+_SECRET_EVALUATOR_ENV_VAR = "SECRET_OPERATOR_EVALUATOR_LLM_PROVIDER"
 
 _MIA_LLM_PROVIDER = os.environ.get("MIA_OPERATOR_LLM_PROVIDER", "gemini/gemini-3.5-flash")
-_MIA_SHADOW_LLM_PROVIDER = os.environ.get("MIA_OPERATOR_SHADOW_LLM_PROVIDER", "groq/openai/gpt-oss-20b")
+# Same deferred-resolution treatment as SECRET's optimizer above -- resolved
+# at call time in _build_interrogation_attack below.
+_MIA_SHADOW_ENV_VAR = "MIA_OPERATOR_SHADOW_LLM_PROVIDER"
+_MIA_SHADOW_DEFAULT_GROQ_MODEL = "groq/openai/gpt-oss-20b"
 _MIA_N_PROBE_QUESTIONS = int(os.environ.get("MIA_OPERATOR_N_PROBE_QUESTIONS", "4"))
 _MIA_TIMEOUT_SECONDS = 600.0
 
@@ -332,16 +350,29 @@ def _build_secret_attack(endpoint: AgentEndpoint) -> SECRETAttack:
     SAME bearer token (a separate HTTP session from `endpoint` itself, so
     Phase 1's own responses still won't feed this adapter's independent
     verbatim/fuzzy oracle via `_raw_responses` -- a real, smaller,
-    accepted gap, NOT the 401 failure this fixes)."""
+    accepted gap, NOT the 401 failure this fixes).
+
+    `optimizer_llm_provider`/`evaluator_llm_provider` resolved via
+    `_resolve_role_model` (imported from deep_attack_operators.py) --
+    prefers Groq for this role but only if `GROQ_API_KEY` is actually
+    configured, falling back to the primary model otherwise."""
+    optimizer_model, optimizer_key = _resolve_role_model(
+        _SECRET_OPTIMIZER_ENV_VAR, _SECRET_OPTIMIZER_DEFAULT_GROQ_MODEL, _SECRET_LLM_PROVIDER
+    )
+    evaluator_env = os.environ.get(_SECRET_EVALUATOR_ENV_VAR)
+    if evaluator_env:
+        evaluator_model, evaluator_key = evaluator_env, _key_for(evaluator_env)
+    else:
+        evaluator_model, evaluator_key = optimizer_model, optimizer_key
     return SECRETAttack(
         target_url=endpoint.base_url,
         llm_provider=_SECRET_LLM_PROVIDER,
         api_key=_key_for(_SECRET_LLM_PROVIDER),
         external_corpus=_SECRET_EXTERNAL_CORPUS,
-        optimizer_llm_provider=_SECRET_OPTIMIZER_LLM_PROVIDER,
-        optimizer_api_key=_key_for(_SECRET_OPTIMIZER_LLM_PROVIDER),
-        evaluator_llm_provider=_SECRET_EVALUATOR_LLM_PROVIDER,
-        evaluator_api_key=_key_for(_SECRET_EVALUATOR_LLM_PROVIDER),
+        optimizer_llm_provider=optimizer_model,
+        optimizer_api_key=optimizer_key,
+        evaluator_llm_provider=evaluator_model,
+        evaluator_api_key=evaluator_key,
         semantic_shift_llm_provider=_SECRET_SEMANTIC_SHIFT_LLM_PROVIDER,
         semantic_shift_api_key=_key_for(_SECRET_SEMANTIC_SHIFT_LLM_PROVIDER),
         embed_model=_SECRET_EMBED_MODEL,
@@ -371,15 +402,23 @@ def _build_interrogation_attack(reference_docs: list[dict]):
     1, but not reachable from `hardened_deep_attack_operators()`'s own
     wiring (nothing here calls `score_documents()` directly), so left
     disclosed rather than patched in this pass. `endpoint_kwargs` covers
-    it anyway, for free, if that ever changes."""
+    it anyway, for free, if that ever changes.
+
+    `shadow_llm_provider`/`shadow_llm_api_key` resolved via
+    `_resolve_role_model` -- prefers Groq for this role but only if
+    `GROQ_API_KEY` is actually configured, falling back to the primary
+    model otherwise."""
     def factory(endpoint: AgentEndpoint) -> InterrogationAttack:
+        shadow_model, shadow_key = _resolve_role_model(
+            _MIA_SHADOW_ENV_VAR, _MIA_SHADOW_DEFAULT_GROQ_MODEL, _MIA_LLM_PROVIDER
+        )
         return InterrogationAttack(
             target_url=endpoint.base_url,
             llm_provider=_MIA_LLM_PROVIDER,
             api_key=_key_for(_MIA_LLM_PROVIDER),
             non_member_reference_docs=reference_docs,
-            shadow_llm_provider=_MIA_SHADOW_LLM_PROVIDER,
-            shadow_llm_api_key=_key_for(_MIA_SHADOW_LLM_PROVIDER),
+            shadow_llm_provider=shadow_model,
+            shadow_llm_api_key=shadow_key,
             n_probe_questions=_MIA_N_PROBE_QUESTIONS,
             endpoint=endpoint,
             endpoint_kwargs={"headers": endpoint.headers},

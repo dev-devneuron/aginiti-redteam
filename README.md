@@ -122,6 +122,26 @@ contributor workflow, the Python API for scripting your own assessments, and
 `scripts/run_campaign.py`'s CLI (functionally equivalent to `aginiti scan`, plus a couple of
 git-clone-only conveniences).
 
+**Prefer Docker instead — no Python/pip/venv on your machine at all?**
+[`docker/`](docker/) has a small, standalone `Dockerfile` + `docker-compose.yml` (separate
+from the contributor one below, which is a different, heavier image) built specifically for
+this: the same `pip install aginiti-redteam[demo-target]` install, running inside a container.
+This also sidesteps the Windows `onnxruntime`/`chromadb` native-binary issues below entirely,
+with no WSL2 setup needed.
+
+```bash
+cd docker
+docker compose up -d                                   # start the practice target on :8001
+docker compose run --rm cli aginiti scan --target http://demo-target:8001 \
+    --tier data_leakage --budget 15
+docker compose down                                     # stop and remove everything
+```
+
+Already have your own target? Skip `docker compose up` and point `--target` at it directly —
+see [`docker/docker-compose.yml`](docker/docker-compose.yml)'s own header comment for the full
+usage, including how `.env`/your LLM API key and the written `findings.json`/report reach your
+host filesystem.
+
 ---
 
 ## 📁 Repository Structure

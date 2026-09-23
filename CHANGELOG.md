@@ -9,6 +9,43 @@ changes.
 
 ## [Unreleased]
 
+### Added
+
+- `aginiti scan`/`attack`/`report` now auto-open the just-written HTML
+  report in your default browser when the run finishes (`--no-open-report`
+  to skip this, e.g. in a headless/CI/Docker environment) -- no separate
+  command needed to view the result.
+- `docker/` -- a standalone `Dockerfile` + `docker-compose.yml` for the
+  end-user CLI workflow (`aginiti scan`/`attack`/`report` and
+  `aginiti-demo-target`, installed from the real published package, not an
+  editable checkout), separate from the existing contributor/benchmark
+  image at the repo root. `docker compose up -d` starts the practice
+  target; `docker compose run --rm cli aginiti ...` runs a command; `docker
+  compose down` tears it down. Sidesteps every Windows onnxruntime/native-
+  binary and PATH/global-install issue entirely, since everything runs
+  inside a consistent Linux container regardless of host OS.
+
+### Fixed
+
+- `aginiti scan` (the campaign engine's deep-attack Operators) no longer
+  crashes SECRET's Phase 1 optimizer/evaluator or MIA's shadow-LLM role
+  with `attack_factory raised ValueError: GROQ_API_KEY is not set in .env`
+  for a user who configured any OTHER provider (Gemini, OpenAI, Anthropic,
+  Mistral) instead of Groq -- these two roles prefer Groq for compliance
+  reasons (safety-aligned commercial models tend to refuse their framing)
+  but now only default to it when `GROQ_API_KEY` is genuinely configured,
+  falling back to the primary attacker/judge model otherwise instead of
+  burning the operator's whole query budget on a crash. `aginiti attack
+  secret`'s equivalent path was already correct; this closes the same gap
+  for `aginiti scan`.
+- `docs/USAGE.md`'s cache-directory FAQ entry described stale, long-since-
+  fixed behavior (claimed the disk cache lands inside `site-packages/`) --
+  corrected to describe the real, current `platformdirs`-based per-user
+  cache location, and expanded with new entries on global (non-venv)
+  installs and `.env` discovery.
+- `aginiti_assessment_report.md`/`.html` (and their `_redacted` variants)
+  were never gitignored, unlike `findings.json` -- added.
+
 ## [0.3.2]
 
 ### Added

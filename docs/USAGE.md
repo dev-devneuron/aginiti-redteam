@@ -31,6 +31,13 @@ plain `pip install aginiti-redteam` above already gets you the full
 `aginiti` CLI (`aginiti scan`/`attack`/`report`) — skip `[demo-target]`
 entirely and just point `--target` at your own URL.
 
+**Prefer not to install Python/pip at all?** [`docker/`](../docker/) runs
+the exact same install inside a container — `docker compose up -d` for the
+practice target, `docker compose run --rm cli aginiti scan ...` for the
+CLI. Also sidesteps every gotcha below tagged Windows-native-binary/PATH
+related, since everything runs inside a consistent Linux container
+regardless of your host OS.
+
 ---
 
 ## CLI Quickstart — no code required
@@ -540,6 +547,7 @@ no way to opt out beyond bypassing it per-call:
 | `GROQ_API_KEY` | Attacker/judge LLM (Groq via LiteLLM) — also SECRET's recommended optimizer provider |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | Attacker/judge LLM, respective providers |
 | `IKEA_OPERATOR_LLM_PROVIDER` etc. | Per-attack operator defaults, read at import time by `deep_attack_operators.py` — set *before* importing it, or use `--model` |
+| `SECRET_OPERATOR_OPTIMIZER_LLM_PROVIDER` / `MIA_OPERATOR_SHADOW_LLM_PROVIDER` | Only matters for `aginiti scan`/the campaign engine (not `aginiti attack`, which has its own `--optimizer-model`). Prefers Groq for these two specific roles (see the SECRET FAQ entry below for why), but ONLY if `GROQ_API_KEY` is actually set — falls back to your primary attacker/judge model otherwise, it never requires a Groq key. Set explicitly to force a specific model for just this role. |
 
 ---
 
@@ -586,18 +594,67 @@ authorized to test. The repo's local reference agents
 zero-consequence target to learn against; nothing about the attacks
 themselves requires them.
 
-**Where do my results actually go — and what's this `.cache` folder I
-found inside my venv?**
+**Where do my results actually go — and what's this cache folder I
+found?**
 Two separate things. Your **findings** are in-memory only — nothing is
-written unless you call `generate_markdown_report()` yourself (see
-[Output & results files](#output--results-files) for the exact schema it
-needs). Separately, IKEA/SECRET/MIA each cache expensive intermediate
-work (anchors, jailbreak prompts, calibration thresholds) automatically,
-and that cache currently lands inside your venv's own install directory
-(`site-packages/.cache/...`) — a real, known quirk, not a bug in your
-setup. Bypass it per-call with
+written unless you call `generate_markdown_report()` yourself (or use the
+CLI, which does this for you — see
+[Output & results files](#output--results-files) for the exact schema).
+Separately, IKEA/SECRET/MIA each cache expensive intermediate work
+(anchors, jailbreak prompts, calibration thresholds) automatically, in a
+real per-user cache directory resolved via
+[`platformdirs`](https://github.com/tox-dev/platformdirs) — e.g.
+`%LOCALAPPDATA%\aginiti-redteam\Cache\` on Windows, `~/.cache/aginiti-redteam/`
+on Linux, `~/Library/Caches/aginiti-redteam/` on macOS — never inside
+your venv or `site-packages`, and never wiped by a reinstall/upgrade.
+Override the base directory with `AGINITI_CACHE_DIR`, or bypass the cache
+per-call with
 `force_refresh=True`/`force_refresh_phase1=True`/`force_recalibrate=True`
 if it's ever in your way.
+
+**I `pip install`-ed without a venv (a plain global install) and the
+`aginiti`/`aginiti-demo-target` commands aren't found**
+Two real, separate causes, in order of likelihood:
+1. **You already had an older version installed.** `pip install
+   aginiti-redteam` does *not* upgrade an already-satisfied requirement —
+   if any version (even a very old one, from before the CLI existed) is
+   already sitting in that Python environment, plain `pip install
+   aginiti-redteam` silently no-ops with "Requirement already satisfied"
+   and you keep the old, command-less version. Always use `pip install
+   --upgrade aginiti-redteam` (`-U` for short) to be sure you actually get
+   the latest release. Check what's really installed with `pip show
+   aginiti-redteam` before assuming anything else is wrong.
+2. **The Python install's own Scripts directory isn't on `PATH`.** A venv
+   adds its own `Scripts`/`bin` directory to `PATH` automatically on
+   activation; a bare global Python install may not have its `Scripts`
+   directory (Windows) or `~/.local/bin` (`pip install --user` on
+   macOS/Linux) on `PATH` at all. Two ways around it, in order of
+   preference:
+   - **Use [`pipx`](https://pipx.pypa.io/) instead of plain `pip`** for a
+     global CLI install: `pipx install aginiti-redteam` (or `pipx install
+     "aginiti-redteam[demo-target]"`). It builds an isolated environment
+     for the tool automatically *and* puts its commands on `PATH` for
+     you — the standard, purpose-built answer to "I want this CLI
+     available everywhere without managing a venv myself."
+   - Or run it as a module instead of relying on `PATH` at all: `python -m
+     aginiti.cli scan ...` always works as long as `python` itself
+     resolves to the right interpreter, regardless of where its `Scripts`
+     directory is. (`aginiti-demo-target` doesn't have a module-invocation
+     equivalent since it's a separate console script — `python -m
+     aginiti.demo_target.main` works the same way for it.)
+
+   Either way, a project-local venv (this guide's default recommendation)
+   sidesteps both of these entirely, since it starts from a clean,
+   version-pinned, `PATH`-configured environment every time.
+
+**Does a `.env` file still get picked up without a venv?**
+Yes, identically either way — `.env` loading
+([`python-dotenv`](https://github.com/theskumar/python-dotenv)'s
+`load_dotenv()`) searches your **current working directory** (and its
+parents) for a `.env` file, completely independent of which Python
+interpreter or environment is running. Run the CLI from the directory
+containing your `.env` (or `cd` there first) and it's found the same way
+whether you're in a venv, a global install, or a `pipx`-managed one.
 
 ---
 

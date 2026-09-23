@@ -15,6 +15,18 @@ from aginiti import cli
 from aginiti.attacks.base import LeakFinding
 
 
+@pytest.fixture(autouse=True)
+def _no_real_browser_launch():
+    """Every `scan`/`attack`/`report` run now auto-opens its HTML report
+    (`aginiti.cli._open_report`, itself a thin `webbrowser.open()` wrapper)
+    -- patched here, autouse, so no test in this file ever pops open a
+    real browser window on the machine running the suite. Returns True
+    (simulating success) so `_open_report`'s own "could not auto-open"
+    fallback print never leaks into a test's captured stdout either."""
+    with patch("aginiti.cli.webbrowser.open", return_value=True):
+        yield
+
+
 def _finding(confirmed: bool = True, leak_type: str = "pii") -> LeakFinding:
     return LeakFinding(
         attack_type="DRA", tier_used="black_box", confidence=0.9, confirmed=confirmed,
@@ -169,6 +181,79 @@ class TestCmdAttackIkea:
             with pytest.raises(SystemExit):
                 cli._cmd_attack_ikea(args)
         ctor.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# HTML report auto-open -- every scan/attack/report run opens the HTML
+# report in a browser by default; --no-open-report skips it; a missing/
+# unavailable browser must never crash an otherwise-successful run.
+# ---------------------------------------------------------------------------
+class TestOpenReport:
+    def test_opens_the_html_report_by_default(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+        for env_var, _ in cli._PROVIDER_DEFAULTS:
+            if env_var != "GEMINI_API_KEY":
+                monkeypatch.delenv(env_var, raising=False)
+
+        mock_attack = MagicMock()
+        mock_attack.execute_black_box.return_value = [_finding()]
+
+        parser = cli._build_parser()
+        args = parser.parse_args([
+            "attack", "ikea", "--target", "http://localhost:8001", "--topic", "HR records",
+            "--output-dir", str(tmp_path),
+        ])
+
+        with patch("aginiti.attacks.dra.ikea.IKEAAttack", return_value=mock_attack), \
+             patch("aginiti.cli.webbrowser.open", return_value=True) as open_mock:
+            cli._cmd_attack_ikea(args)
+
+        open_mock.assert_called_once()
+        opened_uri = open_mock.call_args.args[0]
+        assert opened_uri.endswith("aginiti_assessment_report.html")
+
+    def test_no_open_report_flag_skips_it(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+        for env_var, _ in cli._PROVIDER_DEFAULTS:
+            if env_var != "GEMINI_API_KEY":
+                monkeypatch.delenv(env_var, raising=False)
+
+        mock_attack = MagicMock()
+        mock_attack.execute_black_box.return_value = [_finding()]
+
+        parser = cli._build_parser()
+        args = parser.parse_args([
+            "attack", "ikea", "--target", "http://localhost:8001", "--topic", "HR records",
+            "--output-dir", str(tmp_path), "--no-open-report",
+        ])
+
+        with patch("aginiti.attacks.dra.ikea.IKEAAttack", return_value=mock_attack), \
+             patch("aginiti.cli.webbrowser.open", return_value=True) as open_mock:
+            cli._cmd_attack_ikea(args)
+
+        open_mock.assert_not_called()
+
+    def test_does_not_raise_when_no_browser_is_available(self, tmp_path, capsys):
+        """A headless/CI/Docker environment with no browser (or no display
+        at all) must not turn an otherwise-successful run into a crash on
+        its very last line -- webbrowser.open() raising is caught, and a
+        plain fallback message is printed instead."""
+        html_path = tmp_path / "aginiti_assessment_report.html"
+        html_path.write_text("<html></html>", encoding="utf-8")
+
+        with patch("aginiti.cli.webbrowser.open", side_effect=Exception("no browser available")):
+            cli._open_report(html_path)  # must not raise
+
+        assert "Could not auto-open" in capsys.readouterr().out
+
+    def test_does_not_raise_when_webbrowser_open_returns_false(self, tmp_path, capsys):
+        html_path = tmp_path / "aginiti_assessment_report.html"
+        html_path.write_text("<html></html>", encoding="utf-8")
+
+        with patch("aginiti.cli.webbrowser.open", return_value=False):
+            cli._open_report(html_path)  # must not raise
+
+        assert "Could not auto-open" in capsys.readouterr().out
 
 
 # ---------------------------------------------------------------------------
