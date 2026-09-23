@@ -11,6 +11,19 @@ changes.
 
 ### Added
 
+- `aginiti scan` now runs a second (third, ...) round once every eligible
+  operator has run and budget remains, instead of stopping the moment the
+  ~11-operator target-agnostic pack runs dry -- `aginiti scan --budget 100`
+  previously topped out around 20-40 prompts used no matter how large
+  `--budget` was. Only the 4 deep-attack operators (IKEA/SECRET/MIA/SPE)
+  become re-eligible each round -- the cheap prompt probes
+  (`system_prompt_extraction` etc.) keep their permanent one-shot rule,
+  since a repeat run of a fixed prompt against unchanged target state is
+  provably redundant, not just unlikely to help. New `run_campaign(...,
+  enable_multi_pass=True)` parameter (default `False` -- every existing
+  caller, including the benchmark suite, is unaffected); `aginiti scan` is
+  the only caller that passes it. Terminal logging now shows the round
+  number alongside the step (`[step N | round M] ...`).
 - `aginiti scan`/`attack` now write `findings.json`/the report into their
   own fresh, timestamped subdirectory of `--output-dir` (default:
   `./results`, e.g. `results/2026-09-23_154012/`) instead of directly into

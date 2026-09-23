@@ -438,8 +438,19 @@ def _cmd_scan(args: argparse.Namespace) -> None:
         # to match the budget (its own default, 25, otherwise caps a large
         # --budget's step count before the budget itself is actually
         # exhausted, on a library with enough eligible operators).
+        #
+        # enable_multi_pass=True: once every eligible operator has run once
+        # (the pack has only 11 target-agnostic operators total) and budget
+        # remains, start a new round instead of stopping -- only the 4
+        # deep-attack operators (IKEA/SECRET/MIA/SPE) become re-eligible;
+        # the cheap prompt probes keep their permanent one-shot rule (a
+        # repeat run of those is provably redundant, see run_campaign's own
+        # docstring). This is the ONLY caller that passes this -- every
+        # other run_campaign() call (the benchmark suite, understanding_
+        # loop.py, generate_target_profile.py) is unaffected, on purpose.
         result = run_campaign(mission, library, agent=agent,
-                               stop_on_mission_success=False, max_steps=max(25, mission.budget))
+                               stop_on_mission_success=False, max_steps=max(25, mission.budget),
+                               enable_multi_pass=True)
         print(f"\nOutcome: {result.outcome} | steps: {result.steps_executed} | "
               f"prompts used: {result.prompts_used}/{mission.budget}")
         _write_scan_outputs(Path(args.output_dir), args.report, args.target, result, library, started,
