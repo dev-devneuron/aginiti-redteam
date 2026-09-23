@@ -651,7 +651,7 @@ pip install "aginiti-redteam[demo-target]"</code></pre>
         one specific, named technique directly. Both auto-save <code>findings.json</code>, a
         severity-sorted, OWASP-mapped <code>aginiti_assessment_report.md</code>, and the same report as
         <code>aginiti_assessment_report.html</code> into their own fresh, timestamped subdirectory of
-        <code>./results</code> (e.g. <code>results/20260923_154012/</code>) — so a later run never
+        <code>./results</code> (e.g. <code>results/2026-09-23_154012/</code>) — so a later run never
         overwrites an earlier one's results, and <code>results</code>' contents sort newest-first by
         name descending. The HTML report opens in your default browser automatically the moment the run
         finishes.</p>
@@ -697,13 +697,13 @@ aginiti report --input results/&lt;run&gt;/findings.json</code></pre>
       <p>No Markdown viewer needed — easy to hand to a non-technical reader too. To reopen a past run's
         report later instead of waiting for the next auto-open:</p>
       <pre><code># Windows (PowerShell)
-Start-Process results\20260923_154012\aginiti_assessment_report.html
+Start-Process results\2026-09-23_154012\aginiti_assessment_report.html
 
 # macOS
-open results/20260923_154012/aginiti_assessment_report.html
+open results/2026-09-23_154012/aginiti_assessment_report.html
 
 # Linux
-xdg-open results/20260923_154012/aginiti_assessment_report.html</code></pre>
+xdg-open results/2026-09-23_154012/aginiti_assessment_report.html</code></pre>
 
       <h3 class="h-anchor" id="u-python-api">Python API — for programmatic or custom use</h3>
       <p>Everything the CLI does is also a plain library call, for scripting your own assessments or

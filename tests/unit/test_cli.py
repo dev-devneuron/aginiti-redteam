@@ -219,8 +219,8 @@ class TestCmdAttackIkea:
 
         run_dirs = sorted(p for p in tmp_path.iterdir() if p.is_dir())
         assert len(run_dirs) == 2
-        assert run_dirs[0].name == "20260923_100000"
-        assert run_dirs[1].name == "20260923_100500"
+        assert run_dirs[0].name == "2026-09-23_100000"
+        assert run_dirs[1].name == "2026-09-23_100500"
         for run_dir in run_dirs:
             assert (run_dir / "findings.json").exists()
             assert (run_dir / "aginiti_assessment_report.md").exists()

@@ -21,7 +21,7 @@ auto-saves ``findings.json`` (the full structured result),
 Markdown report), and ``aginiti_assessment_report.html`` (the same report,
 styled for a browser) into their own fresh, timestamped subdirectory of
 ``--output-dir`` (default: ``./results``) -- e.g.
-``results/20260923_154012/findings.json`` -- so a later run never
+``results/2026-09-23_154012/findings.json`` -- so a later run never
 overwrites an earlier one's results; sort ``--output-dir``'s contents by
 name (or "date modified") descending to see the most recent run first.
 Then opens that HTML report in the default browser automatically
@@ -167,14 +167,14 @@ def _new_run_dir(base_dir: Path) -> Path:
     `aginiti_assessment_report.{md,html}` directly into `--output-dir`, so
     a second run silently overwrote the first run's results with no trace
     they ever existed. Now each run gets its own directory, named
-    `YYYYMMDD_HHMMSS` (UTC -- plain lexicographic sort order matches
-    chronological order, so sorting `base_dir`'s contents by name is the
-    same as sorting by run time; sort descending, or by "date modified" in
-    a file browser, to see the most recent run first). A numeric suffix is
-    appended only on the rare same-second collision, so a run directory is
-    never silently reused."""
+    `YYYY-MM-DD_HHMMSS` (UTC -- plain lexicographic sort order still
+    matches chronological order despite the added hyphens, so sorting
+    `base_dir`'s contents by name is the same as sorting by run time; sort
+    descending, or by "date modified" in a file browser, to see the most
+    recent run first). A numeric suffix is appended only on the rare
+    same-second collision, so a run directory is never silently reused."""
     base_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M%S")
     run_dir = base_dir / stamp
     suffix = 2
     while run_dir.exists():

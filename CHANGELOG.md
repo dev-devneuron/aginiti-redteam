@@ -13,7 +13,7 @@ changes.
 
 - `aginiti scan`/`attack` now write `findings.json`/the report into their
   own fresh, timestamped subdirectory of `--output-dir` (default:
-  `./results`, e.g. `results/20260923_154012/`) instead of directly into
+  `./results`, e.g. `results/2026-09-23_154012/`) instead of directly into
   `--output-dir` itself -- a second run no longer silently overwrites the
   first run's results with no trace they ever existed. `results`' contents
   sort newest-first by name (or "date modified") descending.

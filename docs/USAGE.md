@@ -69,7 +69,7 @@ OWASP-mapped `aginiti_assessment_report.md`, and the same report as
 `aginiti_assessment_report.html` (for opening straight in a browser — no
 Markdown viewer needed) into their own fresh, timestamped subdirectory of
 `./results` (`--output-dir` to redirect elsewhere) — e.g.
-`results/20260923_154012/findings.json` — so a later run never overwrites
+`results/2026-09-23_154012/findings.json` — so a later run never overwrites
 an earlier one's results; `results`' contents sort newest-first by name
 (or "date modified") descending. The HTML report opens in your default
 browser automatically the moment the run finishes — `--no-open-report` to
@@ -77,9 +77,9 @@ skip this (e.g. in a headless/CI environment), or reopen a past run's
 report later:
 
 ```bash
-Start-Process results\20260923_154012\aginiti_assessment_report.html   # Windows (PowerShell)
-open results/20260923_154012/aginiti_assessment_report.html            # macOS
-xdg-open results/20260923_154012/aginiti_assessment_report.html        # Linux
+Start-Process results\2026-09-23_154012\aginiti_assessment_report.html   # Windows (PowerShell)
+open results/2026-09-23_154012/aginiti_assessment_report.html            # macOS
+xdg-open results/2026-09-23_154012/aginiti_assessment_report.html        # Linux
 ```
 
 `aginiti scan --tier` accepts

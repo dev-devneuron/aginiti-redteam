@@ -94,7 +94,7 @@ Every `scan`/`attack` run prints one authorized-use reminder, then auto-saves
 human-readable, OWASP LLM Top 10–mapped Markdown report), and
 `aginiti_assessment_report.html` (the same report, styled for a browser — open it directly,
 no Markdown viewer needed) into their own fresh, timestamped subdirectory of
-`./results` (`--output-dir` to redirect elsewhere), e.g. `results/20260923_154012/` — so a
+`./results` (`--output-dir` to redirect elsewhere), e.g. `results/2026-09-23_154012/` — so a
 later run never overwrites an earlier one's results, and `results`' contents sort newest-first
 by name (or "date modified") descending. The HTML report opens in your default browser
 automatically the moment the run finishes (`--no-open-report` to skip this).

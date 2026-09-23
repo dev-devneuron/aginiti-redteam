@@ -132,7 +132,7 @@ instead of `http://localhost:8001`.
 
 Two ways to run an assessment — pick based on what you already know. Both
 auto-save three files into their own fresh, timestamped folder under
-`./results` when they finish (e.g. `results/20260923_154012/`) — so a
+`./results` when they finish (e.g. `results/2026-09-23_154012/`) — so a
 later run never overwrites an earlier one's results, and `results` sorts
 newest-first by name (or "date modified") descending: `findings.json`
 (the full structured result), `aginiti_assessment_report.md` (a readable
@@ -144,9 +144,9 @@ HTML report opens in your default browser automatically the moment the
 run finishes. To reopen a past run's report later:
 
 ```bash
-Start-Process results\20260923_154012\aginiti_assessment_report.html   # Windows (PowerShell)
-open results/20260923_154012/aginiti_assessment_report.html            # macOS
-xdg-open results/20260923_154012/aginiti_assessment_report.html        # Linux
+Start-Process results\2026-09-23_154012\aginiti_assessment_report.html   # Windows (PowerShell)
+open results/2026-09-23_154012/aginiti_assessment_report.html            # macOS
+xdg-open results/2026-09-23_154012/aginiti_assessment_report.html        # Linux
 ```
 
 ### `aginiti scan` — let it decide
@@ -304,7 +304,7 @@ you want to regenerate one afterward without re-running anything — most
 commonly, to also produce a redacted copy for wider circulation:
 
 ```bash
-aginiti report --input results/20260923_154012/findings.json --redact
+aginiti report --input results/2026-09-23_154012/findings.json --redact
 ```
 
 ---
@@ -381,12 +381,12 @@ aginiti attack mia --target http://localhost:8001 --dataset candidates.json --pr
 aginiti attack secret --target http://localhost:8001 --domain "HR records" --queries 5
 
 # --- rarely needed: regenerate a report for a past run (results/<run>/) ---
-aginiti report --input results/20260923_154012/findings.json --redact
+aginiti report --input results/2026-09-23_154012/findings.json --redact
 
 # --- each run's HTML report opens automatically; to reopen one later ---
-Start-Process results\20260923_154012\aginiti_assessment_report.html   # Windows (PowerShell)
-open results/20260923_154012/aginiti_assessment_report.html            # macOS
-xdg-open results/20260923_154012/aginiti_assessment_report.html        # Linux
+Start-Process results\2026-09-23_154012\aginiti_assessment_report.html   # Windows (PowerShell)
+open results/2026-09-23_154012/aginiti_assessment_report.html            # macOS
+xdg-open results/2026-09-23_154012/aginiti_assessment_report.html        # Linux
 
 # --- already have your own target? use its URL everywhere above instead ---
 aginiti attack spe --target https://your-agent.example.com
