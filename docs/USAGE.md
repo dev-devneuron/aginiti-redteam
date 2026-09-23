@@ -87,9 +87,13 @@ xdg-open results/2026-09-23_154012/aginiti_assessment_report.html        # Linux
 `aginiti scan`'s own `--budget` means "how many techniques it gets to try"
 (against the real-target pack, 11 techniques today, so above ~15-20 rarely
 finds more) — a different number from how deep any one named technique
-can go with `aginiti attack` directly (see that attack's own section
-below for real ranges). Every subcommand has its own `--help`. Full
-walkthrough: [docs/TUTORIAL.md](TUTORIAL.md).
+can go. Two separate ways to go deeper on IKEA/SECRET/MIA specifically
+(the 3 of the 11 with a real query budget) once `scan` picks them:
+`--deep-attack-queries N` overrides all three at once for THIS scan run
+(IKEA's/SECRET's own `max_queries`, MIA's probe-question count — default
+20/10/4); or run `aginiti attack` directly against just that one technique
+(see that attack's own section below for real ranges). Every subcommand
+has its own `--help`. Full walkthrough: [docs/TUTORIAL.md](TUTORIAL.md).
 
 The rest of this page covers the **Python API** underneath the CLI — for
 scripting your own assessments, or anything the CLI doesn't expose yet.
@@ -559,6 +563,22 @@ no way to opt out beyond bypassing it per-call:
 ---
 
 ## Gotchas & FAQ
+
+**`aginiti scan --model`/`--budget` didn't seem to change SECRET's own
+depth — it always ran at max_queries=10 no matter what**
+Fixed. Two separate things were going on, both real bugs: (1) `--model`
+genuinely did nothing for the deep-attack Operators (IKEA/SECRET/MIA) —
+their LLM provider was frozen from whatever the environment looked like
+at process startup, before `--model` was even parsed, so setting it later
+in Python had no effect. (2) `--budget` was never supposed to control
+SECRET's own internal `max_queries` at all — it controls how many
+*different* techniques the scan tries (breadth), not how deep any one
+goes (depth); SECRET's own depth is a separate, small default (10) sized
+so one technique can't eat an entire scan's budget by itself. If you want
+deeper IKEA/SECRET/MIA runs within a scan, use the new
+`--deep-attack-queries N` flag (overrides all three at once, just for
+that run) — see the note under [CLI Quickstart](#cli-quickstart--no-code-required)
+above.
 
 **I pip-installed but `python scripts/run_campaign.py` says "No module
 named scripts"**

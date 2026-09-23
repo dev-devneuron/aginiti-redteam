@@ -10,6 +10,10 @@ Three subcommands:
                     --attack-category), wrapping the adaptive planner
                     (aginiti/core/campaign_builder.py, the same logic
                     scripts/run_campaign.py uses -- one source of truth).
+                    --budget controls how many DIFFERENT techniques it
+                    tries (breadth); --deep-attack-queries controls how
+                    deep IKEA/SECRET/MIA each go once picked (depth) --
+                    two separate knobs, not the same thing.
     aginiti attack  One of the 4 standalone, paper-faithful attacks
                     (ikea/secret/mia/spe) run directly against a target.
     aginiti report  Convert a previously-saved findings.json into a
@@ -383,6 +387,23 @@ def _cmd_scan(args: argparse.Namespace) -> None:
         os.environ["SECRET_OPERATOR_LLM_PROVIDER"] = model
         os.environ["MIA_OPERATOR_LLM_PROVIDER"] = model
 
+    # Sets the SAME env vars deep_attack_operators.py's own _load_*_config()
+    # functions read -- this only works because those now resolve fresh on
+    # every deep_attack_operators() call (this module's own real,
+    # confirmed-and-fixed bug: they used to be frozen module-level
+    # constants, computed once, the first time anything imported that
+    # module -- which happens via _build_parser()'s own TIER_CHOICES
+    # import, BEFORE this function or its arguments even exist. Setting an
+    # env var here used to be silently pointless for exactly that reason;
+    # see deep_attack_operators.py's module docstring for the full
+    # root-cause writeup). Always overrides, same precedence as --model
+    # above, regardless of any pre-existing env var -- an explicit CLI flag
+    # is the most explicit signal available.
+    if args.deep_attack_queries is not None:
+        os.environ["IKEA_OPERATOR_MAX_QUERIES"] = str(args.deep_attack_queries)
+        os.environ["SECRET_OPERATOR_MAX_QUERIES"] = str(args.deep_attack_queries)
+        os.environ["MIA_OPERATOR_N_PROBE_QUESTIONS"] = str(args.deep_attack_queries)
+
     # flush=True: without it, this can appear AFTER the attack's own
     # (auto-flushed, e.g. via logging) progress output when stdout is
     # redirected to a file/pipe rather than a TTY -- Python switches to
@@ -604,7 +625,8 @@ def _build_parser() -> argparse.ArgumentParser:
     _tier_group.add_argument("--tier", default=None, choices=TIER_CHOICES, help="Coarse test tier. Default: full_assessment (no filter).")
     _tier_group.add_argument("--attack-category", nargs="+", default=None, metavar="CATEGORY", choices=sorted(ALL_CATEGORIES), help="One or more precise attack-methodology categories (union). See --list-attack-categories.")
     p_scan.add_argument("--list-attack-categories", action="store_true", help="Print every valid --attack-category value and exit.")
-    p_scan.add_argument("--budget", type=int, default=None, help="Override the mission's prompt budget.")
+    p_scan.add_argument("--budget", type=int, default=None, help="How many techniques the campaign gets to try in total (breadth) -- NOT how deep any one deep-attack goes; see --deep-attack-queries for that.")
+    p_scan.add_argument("--deep-attack-queries", type=int, default=None, help="Override IKEA/SECRET's own query budget and MIA's probe-question count for THIS scan (depth, not breadth -- default: 20/10/4). Same effect as setting IKEA_OPERATOR_MAX_QUERIES/SECRET_OPERATOR_MAX_QUERIES/MIA_OPERATOR_N_PROBE_QUESTIONS yourself.")
     _add_common_output_args(p_scan, "aginiti_assessment_report.md")
     p_scan.set_defaults(func=_cmd_scan)
 

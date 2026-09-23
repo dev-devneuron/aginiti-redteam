@@ -167,8 +167,10 @@ tries it gets, spent across whichever techniques currently look most
 promising. Each technique only runs once per scan against a real target,
 so **for this specific starting pack** (11 techniques today — the 4 named
 ones plus 7 broader probes) a budget above ~15-20 rarely finds more; it's
-a different number from how deep any one named technique itself can go
-once you run it directly with `aginiti attack` below.
+a different number from how deep any one named technique itself can go.
+Want IKEA/SECRET/MIA to go deeper once `scan` picks one of them, without
+switching to `aginiti attack`? Add `--deep-attack-queries 30` (or however
+high you want) — one flag, all three at once, for just this run.
 
 | Tier | Use this when |
 |---|---|

@@ -689,7 +689,9 @@ aginiti report --input results/&lt;run&gt;/findings.json</code></pre>
         <p><code>aginiti scan</code>'s own <code>--budget</code> means something different: each
           technique only runs once per scan, and against the real-target pack (11 techniques today) a
           budget above ~15-20 rarely finds more — a separate ceiling from how deep any one named
-          technique can go when run directly with <code>aginiti attack</code> above.</p>
+          technique can go. Want IKEA/SECRET/MIA to go deeper once <code>scan</code> picks one of them,
+          without switching to <code>aginiti attack</code>? Add <code>--deep-attack-queries 30</code>
+          (or however high you want) — one flag, all three at once, for just that run.</p>
       </div>
       <p>Point <code>--target</code> at any real, HTTP-reachable agent you're authorized to test instead
         of the local demo target — nothing about the CLI requires it. Every subcommand has its own

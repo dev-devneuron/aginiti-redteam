@@ -107,7 +107,7 @@ class TestBuildSecretAttackUsesFallback:
         monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
 
         endpoint = dao.AgentEndpoint(base_url="http://localhost:8001")
-        attack = dao._build_secret_attack(endpoint)
+        attack = dao._build_secret_attack(endpoint, dao._load_secret_config())
 
         assert attack._optimizer_llm_provider == "gemini/gemini-3.5-flash"
         assert attack._evaluator_llm_provider == "gemini/gemini-3.5-flash"
@@ -117,7 +117,7 @@ class TestBuildSecretAttackUsesFallback:
         monkeypatch.setenv("GROQ_API_KEY", "fake-groq-key")
 
         endpoint = dao.AgentEndpoint(base_url="http://localhost:8001")
-        attack = dao._build_secret_attack(endpoint)
+        attack = dao._build_secret_attack(endpoint, dao._load_secret_config())
 
         assert attack._optimizer_llm_provider == "groq/openai/gpt-oss-20b"
         assert attack._evaluator_llm_provider == "groq/openai/gpt-oss-20b"
@@ -128,6 +128,88 @@ class TestBuildInterrogationAttackUsesFallback:
         monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
 
         endpoint = dao.AgentEndpoint(base_url="http://localhost:8001")
-        attack = dao._build_interrogation_attack(endpoint)
+        attack = dao._build_interrogation_attack(endpoint, dao._load_mia_config())
 
         assert attack._shadow_llm_provider == "gemini/gemini-3.5-flash"
+
+
+class TestConfigResolvedFreshNotFrozenAtImportTime:
+    """Regression tests for a second, independently-confirmed bug (also
+    reported live, as `aginiti scan --budget 20` running SECRET at a fixed
+    max_queries=10 regardless of --budget): every `_IKEA_LLM_PROVIDER`-style
+    value used to be a bare MODULE-LEVEL constant, computed exactly once,
+    the first time `deep_attack_operators.py` was ever imported anywhere in
+    the process -- which happens far earlier than any caller expects, via
+    `aginiti/cli.py`'s own `_build_parser()` -> `campaign_builder.
+    TIER_CHOICES` -> this module's top-level import chain, well before
+    `argparse` even parses `--model`/any other flag. Setting an env var
+    from Python AFTER that point (exactly what `_cmd_scan`'s `--model`
+    handling, and the new `--deep-attack-queries` handling, both do) used
+    to have zero effect. These tests simulate exactly that: import the
+    module first (as it always already is, in any real process), THEN set
+    an env var, THEN call `deep_attack_operators()` -- proving the env var
+    is genuinely honored, not frozen from whatever `os.environ` looked
+    like at first import."""
+
+    def test_max_queries_env_var_set_after_import_is_honored(self, monkeypatch):
+        monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
+        # dao is already imported at module scope above, exactly like a
+        # real process -- this monkeypatch happens strictly AFTER that.
+        monkeypatch.setenv("SECRET_OPERATOR_MAX_QUERIES", "37")
+
+        ops = dao.deep_attack_operators()
+        secret_op = next(o for o in ops if o.id == "secret_jailbreak_exfiltration")
+
+        assert secret_op.attack_kwargs["max_queries"] == 37
+
+    def test_cost_prompts_declared_to_the_campaign_tracks_the_same_override(self, monkeypatch):
+        """The campaign's own budget bookkeeping reads cost_prompts, not
+        attack_kwargs -- both must agree, or the campaign would charge a
+        different budget than the operator actually uses."""
+        monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
+        monkeypatch.setenv("SECRET_OPERATOR_MAX_QUERIES", "37")
+        monkeypatch.setenv("SECRET_OPERATOR_PHASE1_N_ITER", "1")
+        monkeypatch.setenv("SECRET_OPERATOR_PHASE1_N_CAND", "1")
+
+        ops = dao.deep_attack_operators()
+        secret_op = next(o for o in ops if o.id == "secret_jailbreak_exfiltration")
+
+        assert secret_op.cost_prompts == 1 * 1 + 37
+
+    def test_ikea_max_queries_env_var_set_after_import_is_honored(self, monkeypatch):
+        monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
+        monkeypatch.setenv("IKEA_OPERATOR_MAX_QUERIES", "42")
+
+        ops = dao.deep_attack_operators()
+        ikea_op = next(o for o in ops if o.id == "ikea_sensitive_data_exfiltration")
+
+        assert ikea_op.attack_kwargs["max_queries"] == 42
+        assert ikea_op.cost_prompts == 42
+
+    def test_mia_probe_questions_env_var_set_after_import_is_honored(self, monkeypatch):
+        monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
+        monkeypatch.setenv("MIA_OPERATOR_N_PROBE_QUESTIONS", "9")
+
+        ops = dao.deep_attack_operators()
+        mia_op = next(o for o in ops if o.id == "mia_membership_inference")
+
+        # cost_prompts = len(fixture candidate docs) * n_probe_questions --
+        # 3 fixture docs are baked into this module (see _MIA_CANDIDATE_DOCUMENTS).
+        assert mia_op.cost_prompts == 3 * 9
+
+    def test_model_env_var_set_after_import_reaches_the_attack_factory(self, monkeypatch):
+        """The exact scenario `aginiti scan --model ...` relies on: cli.py
+        sets IKEA_OPERATOR_LLM_PROVIDER via os.environ AFTER this module
+        has already been imported (via _build_parser()'s own earlier
+        TIER_CHOICES import) -- the bound attack_factory must still use the
+        new value, not whatever was frozen at that earlier import."""
+        monkeypatch.setenv("OPENAI_API_KEY", "fake-openai-key")
+        monkeypatch.setenv("IKEA_OPERATOR_LLM_PROVIDER", "openai/gpt-4o-mini")
+
+        ops = dao.deep_attack_operators()
+        ikea_op = next(o for o in ops if o.id == "ikea_sensitive_data_exfiltration")
+
+        # attack_factory is a functools.partial with `config` pre-bound --
+        # inspect its keywords directly rather than constructing the real
+        # attack (which would need a working AgentEndpoint).
+        assert ikea_op.attack_factory.keywords["config"].llm_provider == "openai/gpt-4o-mini"
