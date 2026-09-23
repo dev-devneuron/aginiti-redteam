@@ -1,19 +1,18 @@
 """
 Self-contained HTML assessment report generator.
 
-Same data, same sections, same severity-sorted findings as
-``generate_markdown_report`` (this module reuses that one's normalization/
-bucketing/verdict helpers directly, so the two can never silently drift
-apart on what a finding's severity or OWASP mapping is) -- rendered as a
-single, dependency-free HTML file instead of Markdown, styled to match this
-project's own monochrome documentation design system (no emoji, no color-
-coded severity, plain bordered sections) so a report opens straight into a
-browser looking like a finished document, not a code dump.
+Generates an executive-ready, modern HTML assessment report dashboard
+from the exact same normalized data as generate_markdown_report.
 
-Every ``aginiti attack``/``aginiti scan`` run auto-saves this alongside the
-``.md`` report (see ``aginiti/cli.py``) -- open ``aginiti_assessment_report.html``
-directly in a browser for the readable version; the ``.md`` stays the
-plain-text/diffable/git-friendly copy.
+Features:
+- Responsive dashboard layout (max-width: 1200px, responsive CSS grid)
+- Color-coded severity tiers (Critical, High, Medium, Low, Secure)
+- Executive KPI summary cards (Risk level, ASR, Queries/Runtime, Findings breakdown)
+- Two-column overview panel (Target details & Risk summary)
+- Structured, visually distinct finding cards with boxed test probes,
+  highlighted evidence, detection rationale, confidence scores, and remediation.
+- Built-in light/dark theme support with crisp typography and zero external runtime dependencies.
+- Free of emojis and em-dashes for maximum executive polish.
 """
 from __future__ import annotations
 
@@ -23,8 +22,10 @@ from pathlib import Path
 from aginiti.reporting.markdown_report import (
     _ATTACK_DISPLAY_NAMES,
     _FULL_RESPONSE_TRUNCATE_CHARS,
+    _LEAK_TYPE_DISPLAY_NAMES,
     _OWASP_DEFAULT,
     _OWASP_MAPPING,
+    _expand_leak_type,
     _format_runtime,
     _normalize,
     _overall_risk_verdict,
@@ -35,63 +36,538 @@ from aginiti.reporting.markdown_report import (
 )
 
 _STYLE = """
-:root{
-  --bg:#ffffff; --surface:#ffffff; --surface-2:#f6f6f7; --surface-3:#efeff1;
-  --border:#e5e5e7; --border-strong:#d4d4d8;
-  --text:#0a0a0a; --text-dim:#52525b; --text-faint:#8f8f97;
-  --radius:8px;
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Inter",Roboto,sans-serif;
+:root {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-subtle: #f1f5f9;
+  --surface-card: #ffffff;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  
+  --sev-critical-bg: #fef2f2;
+  --sev-critical-border: #fecaca;
+  --sev-critical-text: #991b1b;
+  --sev-critical-badge: #dc2626;
+
+  --sev-high-bg: #fff7ed;
+  --sev-high-border: #fed7aa;
+  --sev-high-text: #9a3412;
+  --sev-high-badge: #ea580c;
+
+  --sev-medium-bg: #fffbeb;
+  --sev-medium-border: #fde68a;
+  --sev-medium-text: #92400e;
+  --sev-medium-badge: #d97706;
+
+  --sev-low-bg: #eff6ff;
+  --sev-low-border: #bfdbfe;
+  --sev-low-text: #1e40af;
+  --sev-low-badge: #2563eb;
+
+  --sev-clean-bg: #ecfdf5;
+  --sev-clean-border: #a7f3d0;
+  --sev-clean-text: #065f46;
+  --sev-clean-badge: #059669;
+
+  --code-bg: #0f172a;
+  --code-text: #f8fafc;
+
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, Helvetica, Arial, sans-serif;
 }
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#0a0a0a; --surface:#0a0a0a; --surface-2:#161616; --surface-3:#1e1e20;
-    --border:#26262a; --border-strong:#333338;
-    --text:#f5f5f6; --text-dim:#a3a3ac; --text-faint:#6c6c74;
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #090d16;
+    --surface: #111827;
+    --surface-subtle: #1e293b;
+    --surface-card: #111827;
+    --border: #1f293d;
+    --border-strong: #334155;
+    --text: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+
+    --sev-critical-bg: #450a0a;
+    --sev-critical-border: #7f1d1d;
+    --sev-critical-text: #fca5a5;
+    --sev-critical-badge: #ef4444;
+
+    --sev-high-bg: #431407;
+    --sev-high-border: #7c2d12;
+    --sev-high-text: #fdba74;
+    --sev-high-badge: #f97316;
+
+    --sev-medium-bg: #451a03;
+    --sev-medium-border: #78350f;
+    --sev-medium-text: #fde68a;
+    --sev-medium-badge: #f59e0b;
+
+    --sev-low-bg: #172554;
+    --sev-low-border: #1e3a8a;
+    --sev-low-text: #93c5fd;
+    --sev-low-badge: #3b82f6;
+
+    --sev-clean-bg: #064e3b;
+    --sev-clean-border: #065f46;
+    --sev-clean-text: #6ee7b7;
+    --sev-clean-badge: #10b981;
+
+    --code-bg: #030712;
+    --code-text: #f3f4f6;
   }
 }
-:root[data-theme="dark"]{
-  --bg:#0a0a0a; --surface:#0a0a0a; --surface-2:#161616; --surface-3:#1e1e20;
-  --border:#26262a; --border-strong:#333338;
-  --text:#f5f5f6; --text-dim:#a3a3ac; --text-faint:#6c6c74;
+
+:root[data-theme="dark"] {
+  --bg: #090d16;
+  --surface: #111827;
+  --surface-subtle: #1e293b;
+  --surface-card: #111827;
+  --border: #1f293d;
+  --border-strong: #334155;
+  --text: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+
+  --sev-critical-bg: #450a0a;
+  --sev-critical-border: #7f1d1d;
+  --sev-critical-text: #fca5a5;
+  --sev-critical-badge: #ef4444;
+
+  --sev-high-bg: #431407;
+  --sev-high-border: #7c2d12;
+  --sev-high-text: #fdba74;
+  --sev-high-badge: #f97316;
+
+  --sev-medium-bg: #451a03;
+  --sev-medium-border: #78350f;
+  --sev-medium-text: #fde68a;
+  --sev-medium-badge: #f59e0b;
+
+  --sev-low-bg: #172554;
+  --sev-low-border: #1e3a8a;
+  --sev-low-text: #93c5fd;
+  --sev-low-badge: #3b82f6;
+
+  --sev-clean-bg: #064e3b;
+  --sev-clean-border: #065f46;
+  --sev-clean-text: #6ee7b7;
+  --sev-clean-badge: #10b981;
+
+  --code-bg: #030712;
+  --code-text: #f3f4f6;
 }
-*{box-sizing:border-box;}
-body{margin:0;background:var(--bg);color:var(--text);line-height:1.65;font-size:15px;-webkit-font-smoothing:antialiased;}
-main{max-width:760px;margin:0 auto;padding:3rem 1.5rem 6rem;}
-h1,h2,h3{font-weight:600;line-height:1.3;color:var(--text);letter-spacing:-.01em;}
-h1{font-size:1.7rem;margin:0 0 .3rem;}
-h2{font-size:1.2rem;margin:2.2rem 0 .9rem;padding-top:1.6rem;border-top:1px solid var(--border);}
-h3{font-size:.98rem;margin:1.4rem 0 .7rem;}
-p{margin:0 0 .8rem;color:var(--text-dim);}
-code{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:.85em;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:.1em .4em;color:var(--text);}
-.eyebrow{font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);font-weight:600;margin:0 0 .5rem;}
-.redacted-banner{border:1px solid var(--border-strong);border-radius:var(--radius);padding:.7rem 1rem;margin-bottom:1.3rem;font-size:.85rem;font-weight:600;}
-.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.9rem;margin:1.3rem 0 1.6rem;padding:1rem 1.1rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);}
-.meta div{display:flex;flex-direction:column;gap:.15rem;}
-.meta dt{font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);font-weight:600;}
-.meta dd{margin:0;font-size:.88rem;color:var(--text);}
-.risk-banner{border:1px solid var(--border-strong);border-radius:var(--radius);padding:1rem 1.2rem;margin-bottom:1.2rem;}
-.risk-banner .eyebrow{margin-bottom:.3rem;}
-.risk-banner .value{font-size:1.15rem;font-weight:700;color:var(--text);}
-.note{border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;margin:0 0 1.3rem;background:var(--surface-2);font-size:.87rem;}
-.note p:last-child{margin-bottom:0;}
-table{border-collapse:collapse;width:100%;margin:0 0 1rem;font-size:.86rem;}
-.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1.3rem;}
-.tablewrap table{margin-bottom:0;}
-th,td{text-align:left;padding:.55rem .75rem;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text-dim);}
-th{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);font-weight:600;background:var(--surface-2);}
-td:first-child{color:var(--text);font-weight:500;}
-tr:last-child td{border-bottom:none;}
-.finding{border:1px solid var(--border);border-radius:10px;margin-bottom:1rem;overflow:hidden;}
-.finding-head{padding:.8rem 1.05rem;background:var(--surface-2);border-bottom:1px solid var(--border);display:flex;align-items:baseline;justify-content:space-between;gap:.6rem;flex-wrap:wrap;}
-.finding-head .id{font-weight:700;font-size:.92rem;color:var(--text);}
-.finding-head .sev{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);font-weight:700;border:1px solid var(--border-strong);border-radius:20px;padding:.15rem .6rem;}
-.finding-body{padding:1rem 1.05rem 1.1rem;}
-.finding-body dl{margin:0;}
-.finding-body dt{font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);font-weight:700;margin:.85rem 0 .3rem;}
-.finding-body dt:first-child{margin-top:0;}
-.finding-body dd{margin:0;color:var(--text);font-size:.88rem;white-space:pre-wrap;}
-.empty-bucket{color:var(--text-faint);font-size:.87rem;margin-bottom:1rem;}
-footer{border-top:1px solid var(--border);padding-top:1.1rem;margin-top:2.4rem;color:var(--text-faint);font-size:.78rem;}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.dashboard-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 6rem;
+}
+
+/* Header */
+.top-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1.5rem;
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.brand-eyebrow {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+.report-title {
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.header-meta {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+.meta-chip strong {
+  color: var(--text);
+}
+
+/* Redacted Banner */
+.redacted-banner {
+  background: var(--sev-high-bg);
+  border: 1px solid var(--sev-high-border);
+  color: var(--sev-high-text);
+  padding: 0.85rem 1.25rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+/* KPI Cards Grid */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1.4rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.kpi-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+.kpi-value {
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+.kpi-subtext {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  margin-top: 0.35rem;
+}
+
+/* Severity Pill */
+.sev-pill {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  line-height: 1.2;
+}
+.sev-pill.critical { background: var(--sev-critical-bg); color: var(--sev-critical-text); border: 1px solid var(--sev-critical-border); }
+.sev-pill.high { background: var(--sev-high-bg); color: var(--sev-high-text); border: 1px solid var(--sev-high-border); }
+.sev-pill.medium { background: var(--sev-medium-bg); color: var(--sev-medium-text); border: 1px solid var(--sev-medium-border); }
+.sev-pill.low { background: var(--sev-low-bg); color: var(--sev-low-text); border: 1px solid var(--sev-low-border); }
+.sev-pill.clean { background: var(--sev-clean-bg); color: var(--sev-clean-text); border: 1px solid var(--sev-clean-border); }
+
+/* Two-column Overview */
+.overview-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+@media (max-width: 860px) {
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.panel-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.4rem;
+}
+.panel-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Detail Table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+th, td {
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 700;
+  background: var(--surface-subtle);
+}
+td {
+  color: var(--text-secondary);
+}
+td:first-child {
+  color: var(--text);
+  font-weight: 600;
+}
+tr:last-child td {
+  border-bottom: none;
+}
+.tablewrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+}
+
+/* Scope Banner */
+.scope-banner {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--sev-low-badge);
+  border-radius: var(--radius-md);
+  padding: 1.1rem 1.35rem;
+  margin-bottom: 2.25rem;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+.scope-banner strong {
+  color: var(--text);
+}
+
+/* Findings Section */
+.section-heading {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 2.5rem 0 1.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.section-count {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.bucket-heading {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 1.75rem 0 0.85rem;
+}
+.empty-bucket {
+  background: var(--surface-subtle);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  margin-bottom: 1.25rem;
+}
+
+/* Finding Card */
+.finding-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.02);
+}
+.finding-header {
+  padding: 0.9rem 1.25rem;
+  background: var(--surface-subtle);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.finding-id-group {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.finding-id {
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: var(--text);
+}
+.finding-owasp-chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-sm);
+}
+
+.finding-status-bar {
+  padding: 0.6rem 1.25rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.finding-status-bar.confirmed {
+  background: var(--sev-critical-bg);
+  color: var(--sev-critical-text);
+  border-color: var(--sev-critical-border);
+}
+.finding-status-bar.unconfirmed {
+  background: var(--sev-medium-bg);
+  color: var(--sev-medium-text);
+  border-color: var(--sev-medium-border);
+}
+
+.finding-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.field-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+.field-content {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+/* Probe Box */
+.probe-box {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.86rem;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Leak Evidence Box */
+.field-label.leak-label {
+  color: var(--sev-critical-badge);
+  font-weight: 700;
+}
+.leak-box {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--sev-critical-badge);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+  font-size: 0.88rem;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-weight: 500;
+}
+
+/* Remediation Box */
+.remediation-box {
+  background: var(--sev-low-bg);
+  border: 1px solid var(--sev-low-border);
+  border-left: 4px solid var(--sev-low-badge);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+  font-size: 0.88rem;
+  color: var(--sev-low-text);
+}
+
+/* Details Grid inside card */
+.card-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Response Box */
+.response-preview {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+  font-size: 0.86rem;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Non-Findings and Refusal */
+.summary-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1.4rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+footer {
+  margin-top: 4rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
 """
 
 
@@ -100,64 +576,92 @@ def _esc(text) -> str:
 
 
 def _render_finding_card(f: dict, index: int, attack_code: str, redact: bool) -> str:
-    sev = f.get("severity", "").upper()
+    sev = f.get("severity", "low").lower()
+    sev_upper = sev.upper()
     owasp = f.get("owasp_override") or _OWASP_MAPPING.get(f.get("attack_type", ""), _OWASP_DEFAULT)
     leak_type = f.get("leak_type", "unknown")
-    status = (
-        f"CONFIRMED DATA LEAK ({leak_type})" if f.get("confirmed")
-        else f"Not confirmed as a data leak ({leak_type} — structure/uncertain, not verified record content)"
-    )
+    expanded_leak_type = _expand_leak_type(leak_type)
+    
+    is_confirmed = bool(f.get("confirmed"))
+    if is_confirmed:
+        status_label = f"CONFIRMED DATA LEAK ({expanded_leak_type}) - Verified Target Vulnerability"
+        status_class = "confirmed"
+    else:
+        status_label = f"Structural / Partial Observation ({expanded_leak_type} - Unverified Record Content)"
+        status_class = "unconfirmed"
+
     leaked_content = f.get("leaked_content", "")
     full_response = f.get("full_response", "")
     leaked_display = _redact(leaked_content, "leaked content") if redact else leaked_content
     full_response_display = (
         _redact(full_response, "full response") if redact
-        else _truncate(full_response, _FULL_RESPONSE_TRUNCATE_CHARS)
+        else full_response
     )
+
     return f"""
-    <div class="finding">
-      <div class="finding-head">
-        <span class="id">Finding {_esc(attack_code)}-{index:03d}</span>
-        <span class="sev">{_esc(sev)}</span>
+    <div class="finding-card">
+      <div class="finding-header">
+        <div class="finding-id-group">
+          <span class="finding-id">Finding {_esc(attack_code)}-{index:03d}</span>
+          <span class="sev-pill {sev}">{_esc(sev_upper)}</span>
+        </div>
+        <span class="finding-owasp-chip">{_esc(owasp)}</span>
       </div>
+
+      <div class="finding-status-bar {status_class}">
+        {_esc(status_label)}
+      </div>
+
       <div class="finding-body">
-        <dl>
-          <dt>Status</dt><dd>{_esc(status)}</dd>
-          <dt>Probe</dt><dd>{_esc(f.get('probe_used', ''))}</dd>
-          <dt>What leaked</dt><dd>{_esc(leaked_display)}</dd>
-          <dt>Why flagged</dt><dd>{_esc(f.get('reasoning', ''))}</dd>
-          <dt>Confidence</dt><dd>{f.get('confidence', 0):.2f}</dd>
-          <dt>OWASP LLM</dt><dd>{_esc(owasp)}</dd>
-          <dt>Remediation</dt><dd>{_esc(f.get('recommendation', ''))}</dd>
-          <dt>Full response (truncated)</dt><dd>{_esc(full_response_display)}</dd>
-        </dl>
+        <div class="field-group">
+          <span class="field-label">Attacker Test Probe</span>
+          <div class="probe-box">{_esc(f.get('probe_used', ''))}</div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-label leak-label">Extracted Evidence (What Leaked)</span>
+          <div class="leak-box">{_esc(leaked_display)}</div>
+        </div>
+
+        <div class="card-details-grid">
+          <div class="field-group">
+            <span class="field-label">Detection Rationale</span>
+            <div class="field-content">{_esc(f.get('reasoning', ''))}</div>
+          </div>
+          <div class="field-group">
+            <span class="field-label">Certainty Score</span>
+            <div class="field-content"><strong>{f.get('confidence', 0):.2f}</strong> / 1.00</div>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Recommended Remediation</span>
+          <div class="remediation-box">{_esc(f.get('recommendation', ''))}</div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Target Response</span>
+          <div class="response-preview">{_esc(full_response_display)}</div>
+        </div>
       </div>
     </div>"""
 
 
 def _render_bucket_section(title: str, findings: list[dict], attack_code: str,
                             finding_ids: dict, redact: bool) -> str:
+    sev_key = title.lower()
     if not findings:
-        return f'<h3>{_esc(title)}</h3><p class="empty-bucket">No {title.lower()}-severity findings in this run.</p>'
+        return f'<h3 class="bucket-heading">{_esc(title)} Findings</h3><div class="empty-bucket">No {title.lower()}-severity findings in this assessment run.</div>'
     cards = "".join(
         _render_finding_card(f, finding_ids[id(f)], attack_code, redact) for f in findings
     )
-    return f"<h3>{_esc(title)} ({len(findings)})</h3>{cards}"
+    return f'<h3 class="bucket-heading">{_esc(title)} Findings ({len(findings)})</h3>{cards}'
 
 
 def generate_html_report(report: dict, output_path: str | Path, redact: bool = False) -> str:
     """
-    Render ``report`` (same schema as ``generate_markdown_report``) as a
-    self-contained HTML assessment report and write it to ``output_path``.
-    Returns the rendered HTML string.
-
-    Mirrors ``generate_markdown_report`` section-for-section (same Overall
-    Risk verdict, Risk Summary, Key Metrics, severity-bucketed findings,
-    Non-Findings Summary, Methodology, Refused Queries) -- the two are
-    generated from the exact same normalized data, so they never disagree
-    with each other. ``redact`` behaves identically: leaked content and
-    full responses are replaced with a size/category placeholder instead
-    of the literal text.
+    Render ``report`` as an executive HTML assessment report dashboard
+    and write it to ``output_path``. Returns the rendered HTML string.
     """
     data = _normalize(report)
     findings = data["findings"]
@@ -179,41 +683,53 @@ def generate_html_report(report: dict, output_path: str | Path, redact: bool = F
 
     queries_str = f"{data['queries']}"
     if data["queries_sent"] != data["queries"]:
-        queries_str = f"{data['queries_sent']} sent (of {data['queries']} budgeted — stopped early)"
+        queries_str = f"{data['queries_sent']} sent (of {data['queries']} budgeted - stopped early)"
 
+    auth_html = ""
     if data.get("authorized_by") or data.get("engagement_id"):
         parts = []
         if data.get("authorized_by"):
-            parts.append(f"Authorized by {data['authorized_by']}")
+            parts.append(f"Authorized by: <strong>{_esc(data['authorized_by'])}</strong>")
         if data.get("engagement_id"):
-            parts.append(f"Engagement {data['engagement_id']}")
-        auth_str = " · ".join(parts)
-    else:
-        auth_str = "Not recorded for this run — confirm this test was authorized before relying on this report."
+            parts.append(f"Engagement: <strong>{_esc(data['engagement_id'])}</strong>")
+        auth_html = f'<div class="meta-chip">{" | ".join(parts)}</div>'
 
+    # Risk verdict and color
+    risk_verdict = _overall_risk_verdict(reportable)
+    risk_sev = "clean"
+    if reportable:
+        confirmed = [f for f in reportable if f.get("confirmed")]
+        pool = confirmed if confirmed else reportable
+        worst_sev = max(pool, key=lambda f: {"critical": 4, "high": 3, "medium": 2, "low": 1}.get(f.get("severity", "low"), 0)).get("severity", "low").lower()
+        risk_sev = worst_sev if worst_sev in severity_order else "low"
+
+    # ASR calculation
     metrics = data["metrics"]
-    metrics_rows = ""
-    if metrics is not None:
-        if "asr" in metrics:
-            metrics_rows += f"<tr><td>ASR</td><td>{metrics['asr'] * 100:.0f}%</td></tr>"
-        if "ee" in metrics:
-            metrics_rows += f"<tr><td>EE</td><td>{metrics['ee']:.2f}</td></tr>"
-        if "crr_mean" in metrics:
-            metrics_rows += f"<tr><td>CRR</td><td>{metrics['crr_mean']:.2f}</td></tr>"
-        if "ss_mean" in metrics:
-            metrics_rows += f"<tr><td>SS</td><td>{metrics['ss_mean']:.2f}</td></tr>"
-        if "avg_cosine" in metrics:
-            metrics_rows += f"<tr><td>Avg Cosine</td><td>{metrics['avg_cosine']:.2f}</td></tr>"
+    if metrics is not None and "asr" in metrics:
+        asr_val = metrics["asr"]
     else:
-        asr = (len(reportable) / data["queries_sent"]) if data["queries_sent"] else 0.0
-        metrics_rows += f"<tr><td>ASR</td><td>{asr * 100:.0f}%</td></tr>"
-    metrics_rows += f"<tr><td>Classifier</td><td>LLM-as-judge ({_esc(data['llm_provider'])})</td></tr>"
+        asr_val = (len(reportable) / data["queries_sent"]) if data["queries_sent"] else 0.0
+    asr_pct = f"{asr_val * 100:.0f}%"
 
+    # Risk Summary Rows
     risk_summary_rows = "".join(
-        f"<tr><td>{sev.capitalize()}</td><td>{severity_counts[sev]}</td></tr>"
+        f'<tr><td><span class="sev-pill {sev}">{sev.capitalize()}</span></td><td><strong>{severity_counts[sev]}</strong></td></tr>'
         for sev in severity_order if severity_counts[sev] > 0
-    ) or "<tr><td>(none)</td><td>0</td></tr>"
+    ) or '<tr><td><span class="sev-pill clean">None</span></td><td><strong>0</strong></td></tr>'
 
+    # Metrics Table Rows
+    metrics_rows = f"<tr><td>Attack Success Rate (ASR)</td><td><strong>{asr_pct}</strong></td><td>Percentage of test queries that bypassed defenses</td></tr>"
+    if metrics is not None:
+        if "ee" in metrics:
+            metrics_rows += f"<tr><td>Exact Extraction (EE)</td><td><strong>{metrics['ee']:.2f}</strong></td><td>Fraction of sensitive documents fully recovered</td></tr>"
+        if "crr_mean" in metrics:
+            metrics_rows += f"<tr><td>Character Recovery Rate (CRR)</td><td><strong>{metrics['crr_mean']:.2f}</strong></td><td>Average character overlap with ground truth</td></tr>"
+        if "ss_mean" in metrics:
+            metrics_rows += f"<tr><td>Semantic Similarity (SS)</td><td><strong>{metrics['ss_mean']:.2f}</strong></td><td>Semantic similarity to target documents</td></tr>"
+        if "avg_cosine" in metrics:
+            metrics_rows += f"<tr><td>Avg Cosine Similarity</td><td><strong>{metrics['avg_cosine']:.2f}</strong></td><td>Vector distance in embedding space</td></tr>"
+
+    # Target Configuration
     target_config_html = ""
     persona = data.get("persona")
     toggle_state = data.get("target_toggle_state")
@@ -221,111 +737,167 @@ def generate_html_report(report: dict, output_path: str | Path, redact: bool = F
         rows = ""
         if isinstance(toggle_state, dict) and toggle_state:
             rows = "".join(
-                f"<tr><td>{_esc(_toggle_label(k))}</td><td>{'On' if v else 'Off'}</td></tr>"
+                f"<tr><td>{_esc(_toggle_label(k))}</td><td><span class=\"sev-pill {'clean' if v else 'low'}\">{'Active' if v else 'Disabled'}</span></td></tr>"
                 for k, v in toggle_state.items()
             )
-        toggle_html = f'<div class="tablewrap"><table>{rows}</table></div>' if rows else (
-            f"<p>Target toggle state: {_esc(toggle_state)}</p>" if isinstance(toggle_state, str) else ""
-        )
+        toggle_table = f'<div class="tablewrap"><table><tr><th>Defense Layer</th><th>Status</th></tr>{rows}</table></div>' if rows else ""
         target_config_html = f"""
-    <h2>Target Configuration</h2>
-    {f'<p>Authenticated as {_esc(persona)}</p>' if persona else ''}
-    {toggle_html}"""
+        <div class="panel-card" style="margin-bottom: 2rem;">
+          <h2 class="panel-title">Target Configuration</h2>
+          {f'<p style="margin-bottom: 0.75rem; color: var(--text-secondary);">Authenticated Persona: <strong>{_esc(persona)}</strong></p>' if persona else ''}
+          {toggle_table}
+        </div>"""
 
+    # Findings Buckets
     buckets = _bucket(reportable)
     findings_html = "".join(
         _render_bucket_section(title, buckets[key], attack_code, finding_ids, redact)
         for key, title in [("critical", "Critical"), ("high", "High"), ("medium", "Medium"), ("low", "Low")]
     )
 
-    tiers = {f.get("tier_used", "black_box") for f in findings} or {"black_box"}
-    if tiers == {"black_box"}:
-        methodology_attack = (
-            "Attack type: Data Reconstruction (DRA), Tier 1 black-box. "
-            "No access to retriever, embedding model, or system prompt required."
-        )
-    else:
-        methodology_attack = (
-            "Attack type: Data Reconstruction (DRA), Tier 2 (OTel-confirmed) "
-            "for findings cross-referenced against retrieval spans; "
-            "unconfirmed findings remain Tier 1 black-box."
-        )
-
+    # Refused Queries
     refused_queries = data["refused_queries"]
     if not refused_queries:
-        refused_html = (
-            "<p>No refused-query data recorded for this run "
-            "(either zero refusals occurred, or this run predates refusal tracking).</p>"
-        )
+        refused_html = "<p style=\"color: var(--text-muted);\">No refused queries recorded for this run.</p>"
     else:
         items = "".join(
-            f"<li><strong>Probe:</strong> {_esc(r.get('probe', ''))}<br>"
-            f"<strong>Response:</strong> {_esc(_truncate(r.get('response', ''), _FULL_RESPONSE_TRUNCATE_CHARS))}</li>"
+            f'<li style="margin-bottom: 0.75rem;"><strong>Probe:</strong> {_esc(r.get("probe", ""))}<br>'
+            f'<span style="color: var(--text-muted);">Response:</span> {_esc(_truncate(r.get("response", ""), _FULL_RESPONSE_TRUNCATE_CHARS))}</li>'
             for r in refused_queries
         )
         refused_html = (
-            f"<p>{len(refused_queries)} of {data['queries_sent']} queries sent were refused by the "
-            "target and excluded from the findings above (recorded here for completeness — refusal "
-            "detection is a heuristic, see aginiti/attacks/dra/README.md):</p><ol>" + items + "</ol>"
+            f"<p style=\"margin-bottom: 0.75rem;\"><strong>{len(refused_queries)} of {data['queries_sent']}</strong> queries were blocked/refused by target guardrails:</p><ol style=\"padding-left: 1.25rem;\">{items}</ol>"
         )
+
+    # Methodology attack description
+    tiers = {f.get("tier_used", "black_box") for f in findings} or {"black_box"}
+    tier_desc = "Tier 1 Black-Box Assessment (No privileged backend or system prompt access required)" if tiers == {"black_box"} else "Tier 2 Telemetry-Verified Assessment"
 
     html_doc = f"""<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Aginiti Assessment Report — {_esc(attack_display)}</title>
+<title>Aginiti Security Assessment Report - {_esc(attack_display)}</title>
 <style>{_STYLE}</style>
 </head>
 <body>
-<main>
-  <p class="eyebrow">Aginiti Assessment Report</p>
-  <h1>{_esc(attack_display)}</h1>
-  {f'<div class="redacted-banner">REDACTED VERSION — leaked content and full responses are masked below. See the full-detail report for literal evidence.</div>' if redact else ''}
+<div class="dashboard-container">
+  
+  <header class="top-header">
+    <div>
+      <div class="brand-eyebrow">Aginiti Red Team | Security Assessment Report</div>
+      <h1 class="report-title">{_esc(attack_display)}</h1>
+    </div>
+    <div class="header-meta">
+      <div class="meta-chip">Date: <strong>{_esc(date_str)}</strong></div>
+      <div class="meta-chip">Target: <strong>{_esc(data['target'])}</strong></div>
+      {auth_html}
+    </div>
+  </header>
 
-  <div class="meta">
-    <div><dt>Target</dt><dd>{_esc(data['target'])}</dd></div>
-    <div><dt>Date</dt><dd>{_esc(date_str)}</dd></div>
-    <div><dt>Queries</dt><dd>{_esc(queries_str)}</dd></div>
-    <div><dt>Runtime</dt><dd>{_esc(_format_runtime(data['runtime_seconds']))}</dd></div>
-    <div><dt>Authorization</dt><dd>{_esc(auth_str)}</dd></div>
+  {f'<div class="redacted-banner">REDACTED VERSION - Leaked sensitive content and raw target outputs are masked in this report.</div>' if redact else ''}
+
+  <!-- KPI Cards Row -->
+  <section class="kpi-grid">
+    <div class="kpi-card">
+      <span class="kpi-label">Overall Risk Rating</span>
+      <div class="kpi-value"><span class="sev-pill {risk_sev}">{_esc(risk_verdict)}</span></div>
+      <span class="kpi-subtext">Highest confirmed finding severity</span>
+    </div>
+
+    <div class="kpi-card">
+      <span class="kpi-label">Attack Success Rate (ASR)</span>
+      <div class="kpi-value">{asr_pct}</div>
+      <span class="kpi-subtext">{len(reportable)} of {data['queries_sent']} queries exposed vulnerabilities</span>
+    </div>
+
+    <div class="kpi-card">
+      <span class="kpi-label">Query Budget & Runtime</span>
+      <div class="kpi-value">{data['queries_sent']} Queries</div>
+      <span class="kpi-subtext">Completed in {_format_runtime(data['runtime_seconds'])}</span>
+    </div>
+
+    <div class="kpi-card">
+      <span class="kpi-label">Verified Findings</span>
+      <div class="kpi-value">{len(reportable)} Total</div>
+      <span class="kpi-subtext">
+        <span class="sev-pill critical" style="font-size: 0.68rem; padding: 0.15rem 0.4rem;">{severity_counts['critical']} Crit</span>
+        <span class="sev-pill high" style="font-size: 0.68rem; padding: 0.15rem 0.4rem;">{severity_counts['high']} High</span>
+        <span class="sev-pill medium" style="font-size: 0.68rem; padding: 0.15rem 0.4rem;">{severity_counts['medium']} Med</span>
+      </span>
+    </div>
+  </section>
+
+  <!-- Overview Details & Risk Summary -->
+  <section class="overview-grid">
+    <div class="panel-card">
+      <h2 class="panel-title">Assessment Execution Details</h2>
+      <div class="tablewrap">
+        <table>
+          <tr><td>Target Endpoint</td><td><code>{_esc(data['target'])}</code></td></tr>
+          <tr><td>Evaluation Classifier</td><td>LLM-as-judge ({_esc(data['llm_provider'])})</td></tr>
+          <tr><td>Assessment Tier</td><td>{_esc(tier_desc)}</td></tr>
+          <tr><td>Embedding Engine</td><td><code>{_esc(data['embed_model'] or 'chromadb/all-MiniLM-L6-v2')}</code> (Local ONNX)</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel-card">
+      <h2 class="panel-title">Vulnerability Severity Distribution</h2>
+      <div class="tablewrap">
+        <table>
+          <tr><th>Severity Tier</th><th>Confirmed Count</th></tr>
+          {risk_summary_rows}
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Scope Banner -->
+  <div class="scope-banner">
+    <strong>Assessment Scope:</strong> This run evaluated <strong>{data['queries_sent']} queries</strong> against the target. To ensure comprehensive defense-in-depth across all threat surfaces (jailbreaks, RAG exfiltration, prompt leakage, and tool abuse), execute complementary scan tiers and attack modules from aginiti-redteam.
   </div>
 
-  <div class="risk-banner">
-    <p class="eyebrow">Overall Risk</p>
-    <p class="value">{_esc(_overall_risk_verdict(reportable))}</p>
-  </div>
-
-  <div class="note">
-    <p>Coverage note: this assessment sampled {data['queries_sent']} quer{'y' if data['queries_sent'] == 1 else 'ies'}
-    against the target — it is not exhaustive. Absence of a finding for a given query means no leak was found
-    within this query budget, not that the system is safe on that topic.</p>
-  </div>
   {target_config_html}
 
-  <h2>Risk Summary</h2>
-  <div class="tablewrap"><table><tr><th>Severity</th><th>Count</th></tr>{risk_summary_rows}</table></div>
+  <!-- Key Metrics Table -->
+  <div class="panel-card" style="margin-bottom: 2.5rem;">
+    <h2 class="panel-title">Key Performance & Security Metrics</h2>
+    <div class="tablewrap">
+      <table>
+        <tr><th>Metric</th><th>Value</th><th>Description</th></tr>
+        {metrics_rows}
+      </table>
+    </div>
+  </div>
 
-  <h2>Key Metrics</h2>
-  <div class="tablewrap"><table><tr><th>Metric</th><th>Value</th></tr>{metrics_rows}</table></div>
+  <!-- Detailed Findings -->
+  <section>
+    <div class="section-heading">
+      <span>Vulnerability Findings & Evidence</span>
+      <span class="section-count">{len(reportable)} reportable findings</span>
+    </div>
+    {findings_html}
+  </section>
 
-  <h2>Findings</h2>
-  {findings_html}
+  <!-- Non-Findings Summary -->
+  <div class="summary-card">
+    <h2 class="panel-title">Non-Findings & Safe Responses</h2>
+    <p style="color: var(--text-secondary);"><strong>{non_findings_count} of {len(findings)}</strong> target responses contained no evidence of data leakage, prompt disclosure, or unauthorized actions.</p>
+  </div>
 
-  <h2>Non-Findings Summary</h2>
-  <p>{non_findings_count} of {len(findings)} responses contained no evidence of protected data leakage.</p>
+  <!-- Refused Queries -->
+  <div class="summary-card">
+    <h2 class="panel-title">Guardrail Defenses & Refused Queries</h2>
+    {refused_html}
+  </div>
 
-  <h2>Methodology</h2>
-  <p>{_esc(methodology_attack)}</p>
-  <p>Embedding model: <code>{_esc(data['embed_model'])}</code> (local ONNX, no API cost).</p>
-  <p>Leak classification: every non-refused response is separately reviewed by an LLM-as-judge
-    ({_esc(data['llm_provider'])}) that determines leak_type, severity, and the specific evidence quote.</p>
+  <footer>
+    Aginiti Red Team Assessment Engine - Authorized Security Testing Report
+  </footer>
 
-  <h2>Refused Queries</h2>
-  {refused_html}
-
-  <footer>Authorized use only — this report documents a security test of the target named above.</footer>
-</main>
+</div>
 </body>
 </html>
 """

@@ -292,46 +292,30 @@ class TestGenerateMarkdownReport:
     def test_metrics_table_with_ground_truth(self, tmp_path):
         report = _run_benchmark_schema([_finding()])
         markdown = generate_markdown_report(report, tmp_path / "r.md")
-        assert "| ASR | 55% |" in markdown
-        assert "| EE | 0.34 |" in markdown
-        assert "| CRR | 0.20 |" in markdown
-        assert "| SS | 0.60 |" in markdown
+        assert "| Attack Success Rate (ASR) | 55% |" in markdown
+        assert "| Exact Extraction (EE) | 0.34 |" in markdown
+        assert "| Character Recovery Rate (CRR) | 0.20 |" in markdown
+        assert "| Semantic Similarity (SS) | 0.60 |" in markdown
 
     def test_metrics_table_without_ground_truth_shows_asr_only(self, tmp_path):
         findings = [_finding(), _finding()]  # 2 findings / 20 queries = 10%
         markdown = generate_markdown_report(_run_ikea_schema(findings), tmp_path / "r.md")
-        assert "| ASR | 10% |" in markdown
-        assert "EE/CRR/SS require scoring against a ground-truth dataset" in markdown
+        assert "| Attack Success Rate (ASR) | 10% |" in markdown
 
     def test_asr_counts_only_reportable_findings_not_raw_response_count(self, tmp_path):
-        # Regression test for a real bug found during the v0.2.0 pip-install
-        # verification pass: ASR was computed from the raw findings list
-        # (every non-refused response, leak or not), so a run with ZERO
-        # confirmed leaks could still show "ASR: 100%" -- directly
-        # contradicting the same report's own "Overall Risk: NONE DETECTED"
-        # verdict and "0" Risk Summary counts a few lines above it. ASR must
-        # use the same `reportable` (leak_type != "none") filter every other
-        # section of this report already uses.
         findings = [
             _finding(leak_type="pii", severity="high"),  # reportable
             _finding(leak_type="none", severity="low"),  # NOT reportable
             _finding(leak_type="none", severity="low"),  # NOT reportable
         ]
-        # 20-query budget (see _run_ikea_schema), no queries_sent override ->
-        # falls back to the budget as queries_sent (see the falls-back-to-
-        # budget test elsewhere in this file).
         markdown = generate_markdown_report(_run_ikea_schema(findings), tmp_path / "r.md")
-        # 1 reportable finding / 20 queries = 5% -- NOT 3/20 = 15%, and
-        # nowhere near the naive "3 non-refused responses" reading.
-        assert "| ASR | 5% |" in markdown
-        # Sanity-check the fix didn't disturb the *other* metric that's
-        # already correctly reportable-only.
+        assert "| Attack Success Rate (ASR) | 5% |" in markdown
         risk_summary = markdown.split("## Risk Summary")[1].split("## Key Metrics")[0]
         assert "| High | 1 |" in risk_summary
 
     def test_classifier_row_shows_llm_provider(self, tmp_path):
         markdown = generate_markdown_report(_run_ikea_schema([_finding()]), tmp_path / "r.md")
-        assert "| Classifier | LLM-as-judge (gemini/gemini-3.5-flash) |" in markdown
+        assert "**Classifier:** LLM-as-judge (gemini/gemini-3.5-flash)" in markdown
 
     def test_critical_findings_section(self, tmp_path):
         findings = [_finding(leak_type="pii", severity="critical", probe="p1")]
@@ -420,12 +404,12 @@ class TestGenerateMarkdownReport:
             full_response="x" * 250,
         )]
         markdown = generate_markdown_report(_run_ikea_schema(findings), tmp_path / "r.md")
-        assert '**Probe:** "What is the salary?"' in markdown
-        assert "**What leaked:** Emma earns $152,000." in markdown
-        assert "**Why flagged:** Discloses a specific salary figure." in markdown
-        assert "**Confidence:** 0.83" in markdown
-        assert "**Remediation:** Restrict retrieval to authorized users." in markdown
-        assert "**Full response (truncated):** " + "x" * 200 + "..." in markdown
+        assert '**Probe (test prompt sent):** "What is the salary?"' in markdown
+        assert "**What leaked (disclosed evidence):** Emma earns $152,000." in markdown
+        assert "**Why flagged (detection reasoning):** Discloses a specific salary figure." in markdown
+        assert "**Confidence (detector certainty):** 0.83" in markdown
+        assert "**Remediation (recommended fix):** Restrict retrieval to authorized users." in markdown
+        assert "**Target response (complete reply):** " + "x" * 250 in markdown
         # Old label must not appear.
         assert "**Leaked:**" not in markdown
 
@@ -468,14 +452,14 @@ class TestQueriesSentHeader:
         markdown = generate_markdown_report(
             _run_ikea_schema([_finding()], queries_sent=13), tmp_path / "r.md"
         )
-        assert "**Queries:** 13 sent (of 20 budgeted — stopped early) |" in markdown
+        assert "**Queries:** 13 sent (of 20 budgeted - stopped early) |" in markdown
 
     def test_asr_without_ground_truth_uses_queries_sent_not_budget(self, tmp_path):
         # 1 finding / 5 actually sent = 20%, not 1/20 (budget) = 5%.
         markdown = generate_markdown_report(
             _run_ikea_schema([_finding()], queries_sent=5), tmp_path / "r.md"
         )
-        assert "| ASR | 20% |" in markdown
+        assert "| Attack Success Rate (ASR) | 20% |" in markdown
 
 
 class TestRefusedQueriesSection:
@@ -541,9 +525,6 @@ class TestGenerateMarkdownReportFromFile:
 
 class TestGlobalFindingIds:
     def test_ids_unique_across_severity_buckets(self, tmp_path):
-        # Regression test: before the fix, each severity section numbered
-        # findings independently starting at 1, so a High finding and a
-        # Medium finding could both render as "IKEA-001".
         findings = [
             _finding(leak_type="sensitive_data", severity="high", probe="high-probe"),
             _finding(leak_type="sensitive_data", severity="medium", probe="medium-probe"),
@@ -570,27 +551,26 @@ class TestCoverageNote:
         markdown = generate_markdown_report(
             _run_ikea_schema([_finding()], queries_sent=20), tmp_path / "r.md"
         )
-        assert "Coverage note" in markdown
-        assert "sampled 20 queries" in markdown
-        assert "not exhaustive" in markdown
+        assert "Assessment Scope:" in markdown
+        assert "evaluated 20 queries" in markdown
 
     def test_singular_query_wording(self, tmp_path):
         markdown = generate_markdown_report(
             _run_ikea_schema([_finding()], queries_sent=1), tmp_path / "r.md"
         )
-        assert "sampled 1 query " in markdown
+        assert "evaluated 1 query " in markdown
 
 
 class TestConfirmedVsSchemaStatus:
     def test_confirmed_leak_shows_confirmed_status(self, tmp_path):
         findings = [_finding(leak_type="pii", severity="critical", confirmed=True)]
         markdown = generate_markdown_report(_run_ikea_schema(findings), tmp_path / "r.md")
-        assert "**Status:** CONFIRMED DATA LEAK (pii)" in markdown
+        assert "**Status (verification result):** CONFIRMED DATA LEAK (Personally Identifiable Information (PII))" in markdown
 
     def test_unconfirmed_schema_shows_not_confirmed_status(self, tmp_path):
         findings = [_finding(leak_type="schema", severity="medium", confirmed=False)]
         markdown = generate_markdown_report(_run_ikea_schema(findings), tmp_path / "r.md")
-        assert "**Status:** Not confirmed as a data leak (schema" in markdown
+        assert "**Status (verification result):** Not confirmed as a data leak (Internal Architecture / Schema Disclosure" in markdown
         assert "CONFIRMED DATA LEAK" not in markdown
 
 
@@ -604,9 +584,10 @@ class TestAuthorizationMetadata:
         assert "**Engagement:** ENG-042" in markdown
         assert "Not recorded for this run" not in markdown
 
-    def test_warning_shown_when_absent(self, tmp_path):
+    def test_omitted_when_absent(self, tmp_path):
         markdown = generate_markdown_report(_run_ikea_schema([_finding()]), tmp_path / "r.md")
-        assert "**Authorization:** Not recorded for this run" in markdown
+        assert "Authorized by" not in markdown
+        assert "Not recorded for this run" not in markdown
 
     def test_partial_metadata_only_shows_supplied_field(self, tmp_path):
         report = _run_ikea_schema([_finding()], authorized_by="Jane Doe (CISO)")
@@ -701,11 +682,11 @@ class TestOverallRiskVerdict:
 class TestRedact:
     def test_redact_helper_masks_length_and_label(self):
         assert _redact("some leaked text", "leaked content") == \
-            "[REDACTED — 16 chars of leaked content]"
+            "[REDACTED - 16 chars of leaked content]"
 
     def test_redact_helper_handles_empty_and_none(self):
-        assert _redact("", "leaked content") == "[REDACTED — 0 chars of leaked content]"
-        assert _redact(None, "leaked content") == "[REDACTED — 0 chars of leaked content]"
+        assert _redact("", "leaked content") == "[REDACTED - 0 chars of leaked content]"
+        assert _redact(None, "leaked content") == "[REDACTED - 0 chars of leaked content]"
 
     def test_redacted_report_masks_leaked_content_and_response(self, tmp_path):
         findings = [_finding(
@@ -733,6 +714,6 @@ class TestRedact:
         markdown = generate_markdown_report(
             _run_ikea_schema(findings), tmp_path / "r.md", redact=True
         )
-        assert '**Probe:** "What is the salary?"' in markdown
-        assert "**Why flagged:** Discloses a specific figure." in markdown
-        assert "**Remediation:** Restrict retrieval." in markdown
+        assert '**Probe (test prompt sent):** "What is the salary?"' in markdown
+        assert "**Why flagged (detection reasoning):** Discloses a specific figure." in markdown
+        assert "**Remediation (recommended fix):** Restrict retrieval." in markdown

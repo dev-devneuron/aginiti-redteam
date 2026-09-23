@@ -183,7 +183,7 @@ def _redact(text: str, label: str) -> str:
     ``generate_markdown_report(..., redact=True)``.
     """
     text = text or ""
-    return f"[REDACTED — {len(text)} chars of {label}]"
+    return f"[REDACTED - {len(text)} chars of {label}]"
 
 
 _SEVERITY_RANK = {"critical": 4, "high": 3, "medium": 2, "low": 1, "none": 0}
@@ -201,7 +201,7 @@ def _overall_risk_verdict(reportable: list[dict]) -> str:
     """
     if not reportable:
         return (
-            "NONE DETECTED — see the coverage note below; absence of "
+            "NONE DETECTED - see the coverage note below; absence of "
             "findings within this run's query budget is not a safety guarantee."
         )
     confirmed = [f for f in reportable if f.get("confirmed")]
@@ -210,7 +210,7 @@ def _overall_risk_verdict(reportable: list[dict]) -> str:
     label = (
         "confirmed data disclosure"
         if confirmed
-        else "structural disclosure only — no confirmed data leak"
+        else "structural disclosure only - no confirmed data leak"
     )
     return f"{worst.get('severity', 'low').upper()} ({label})"
 
@@ -249,53 +249,65 @@ def _bucket(findings: list[dict]) -> dict[str, list[dict]]:
     return buckets
 
 
+_LEAK_TYPE_DISPLAY_NAMES = {
+    "pii": "Personally Identifiable Information (PII)",
+    "verbatim": "Verbatim Context Extraction",
+    "sensitive_data": "Sensitive Business / System Data",
+    "system_prompt": "System Prompt Extraction",
+    "tool_abuse": "Unauthorized Tool Invocation",
+    "tool_parameters": "Unauthorized Tool Invocation",
+    "schema": "Internal Architecture / Schema Disclosure",
+    "membership": "Membership Inference Confirmation",
+    "jailbreak": "Safety Guardrail Bypass",
+    "context_leakage": "Context / RAG Memory Leakage",
+    "encoded_instruction": "Encoded Instruction Bypass",
+    "secret_pattern": "Secret / Key Disclosure",
+}
+
+
+def _expand_leak_type(leak_type: str) -> str:
+    if leak_type in _LEAK_TYPE_DISPLAY_NAMES:
+        return _LEAK_TYPE_DISPLAY_NAMES[leak_type]
+    return leak_type.replace("_", " ").title()
+
+
 def _render_finding(f: dict, index: int, attack_code: str, redact: bool = False) -> list[str]:
     sev = f.get("severity", "").upper()
-    # owasp_override: an optional, additive key a caller can set directly on
-    # a finding dict when it already knows the real OWASP category (e.g.
-    # aginiti/cli.py's scan report, translating a campaign operator's own
-    # owasp_llm_category tag) -- _OWASP_MAPPING only covers the 3 named
-    # attack_type values (DRA/MIA/SPE) this project's 4 standalone attacks
-    # use, so anything else would otherwise always fall through to the
-    # generic "not yet defined" default even when the true category is
-    # known. Never set on a real LeakFinding-derived dict, so this changes
-    # nothing for any existing caller.
     owasp = f.get("owasp_override") or _OWASP_MAPPING.get(f.get("attack_type", ""), _OWASP_DEFAULT)
 
-    # Confirmed-vs-schema status line: without this, a
-    # schema-only disclosure (structure/field names, no real record content)
-    # sits visually identical to a genuine pii/verbatim/sensitive_data leak
-    # in the same severity section — an analyst triaging "what do I fix
-    # first" couldn't tell them apart without cross-referencing the JSON's
-    # leak_type field. Reuses the finding's own `confirmed` field (already
-    # computed by IKEAAttack._make_finding — leak_type in
-    # aginiti.attacks.dra.ikea._CONFIRMED_LEAK_TYPES) rather than
-    # re-deriving it here, so this can never drift out of sync with what
-    # the attack itself decided.
     leak_type = f.get("leak_type", "unknown")
+    expanded_leak_type = _expand_leak_type(leak_type)
     if f.get("confirmed"):
-        status = f"CONFIRMED DATA LEAK ({leak_type})"
+        status = f"CONFIRMED DATA LEAK ({expanded_leak_type})"
     else:
-        status = f"Not confirmed as a data leak ({leak_type} — structure/uncertain, not verified record content)"
+        status = f"Not confirmed as a data leak ({expanded_leak_type} - structural/uncertain, not verified record content)"
 
     leaked_content = f.get("leaked_content", "")
     full_response = f.get("full_response", "")
     leaked_display = _redact(leaked_content, "leaked content") if redact else leaked_content
     full_response_display = (
         _redact(full_response, "full response") if redact
-        else _truncate(full_response, _FULL_RESPONSE_TRUNCATE_CHARS)
+        else full_response
     )
 
+    # The 3-4 word description for each field lives IN THE LABEL (a
+    # parenthetical), not appended after the value -- a value can itself
+    # contain a hyphen (e.g. the OWASP mapping is always formatted as
+    # "LLM06:2025 - Sensitive Information Disclosure"), and appending
+    # "- some description" after that produced a confusing double-hyphen
+    # chain ("... Disclosure - Industry category mapping") that read like
+    # part of the value itself. Putting the plain-language description on
+    # the label side is unambiguous regardless of what the value contains.
     lines = [
         f"### Finding {attack_code}-{index:03d} [{sev}]",
-        f"**Status:** {status}",
-        f"**Probe:** \"{f.get('probe_used', '')}\"",
-        f"**What leaked:** {leaked_display}",
-        f"**Why flagged:** {f.get('reasoning', '')}",
-        f"**Confidence:** {f.get('confidence', 0):.2f}",
-        f"**OWASP LLM:** {owasp}",
-        f"**Remediation:** {f.get('recommendation', '')}",
-        f"**Full response (truncated):** {full_response_display}",
+        f"**Status (verification result):** {status}",
+        f"**Probe (test prompt sent):** \"{f.get('probe_used', '')}\"",
+        f"**What leaked (disclosed evidence):** {leaked_display}",
+        f"**Why flagged (detection reasoning):** {f.get('reasoning', '')}",
+        f"**Confidence (detector certainty):** {f.get('confidence', 0):.2f}",
+        f"**OWASP LLM (risk category):** {owasp}",
+        f"**Remediation (recommended fix):** {f.get('recommendation', '')}",
+        f"**Target response (complete reply):** {full_response_display}",
         "",
     ]
     return lines
@@ -333,15 +345,6 @@ def generate_markdown_report(
     reportable = [f for f in findings if f.get("leak_type", "none") != "none"]
     non_findings_count = len(findings) - len(reportable)
 
-    # Global finding IDs: assigned once, in query order,
-    # BEFORE bucketing by severity — previously each severity section
-    # (Critical/High/Medium) numbered its own findings starting at 1
-    # independently, so e.g. "Finding IKEA-001 [HIGH]" and a completely
-    # different "Finding IKEA-001 [MEDIUM]" could both exist in the same
-    # report with the same ID. A real problem for any workflow that
-    # references a finding by ID (ticketing, remediation tracking,
-    # "has IKEA-001 been fixed yet") — IDs must be unique across the whole
-    # report, not just within one section.
     finding_ids = {id(f): i for i, f in enumerate(reportable, start=1)}
 
     severity_order = ["critical", "high", "medium", "low"]
@@ -359,28 +362,20 @@ def generate_markdown_report(
     lines.append("# Aginiti DRA Assessment Report")
     if redact:
         lines.append(
-            "**[REDACTED VERSION — leaked content and full responses are "
+            "**[REDACTED VERSION - leaked content and full responses are "
             "masked below. See the full-detail report for literal evidence.]**"
         )
     lines.append(f"**Target:** {data['target']}")
     lines.append(f"**Date:** {date_str}")
     lines.append(f"**Attack:** {attack_display}")
-    # queries_sent vs. queries (budget): shown together whenever they differ
-    # so a run that stopped early (rate limit, endpoint failure, ...) is
-    # visible at a glance here, not just inferable from the JSON.
     queries_str = f"{data['queries']}"
     if data["queries_sent"] != data["queries"]:
-        queries_str = f"{data['queries_sent']} sent (of {data['queries']} budgeted — stopped early)"
+        queries_str = f"{data['queries_sent']} sent (of {data['queries']} budgeted - stopped early)"
     lines.append(
         f"**Queries:** {queries_str} | "
-        f"**Runtime:** {_format_runtime(data['runtime_seconds'])}"
+        f"**Runtime:** {_format_runtime(data['runtime_seconds'])} | "
+        f"**Classifier:** LLM-as-judge ({data['llm_provider']})"
     )
-    # Authorization/engagement record. Optional — this
-    # library has no way to enforce that a test was actually authorized,
-    # only a place to record it if the caller supplies one. When absent, a
-    # visible reminder is shown rather than silently omitting any mention of
-    # it, consistent with this project's "authorized use only" stance
-    # (root README / aginiti/attacks/dra/README.md).
     if data.get("authorized_by") or data.get("engagement_id"):
         parts = []
         if data.get("authorized_by"):
@@ -388,32 +383,19 @@ def generate_markdown_report(
         if data.get("engagement_id"):
             parts.append(f"**Engagement:** {data['engagement_id']}")
         lines.append(" | ".join(parts))
-    else:
-        lines.append(
-            "**Authorization:** Not recorded for this run — confirm this "
-            "test was authorized before relying on this report."
-        )
     lines.append("")
 
     lines.append(f"**Overall Risk:** {_overall_risk_verdict(reportable)}")
     lines.append("")
     lines.append(
-        "> **Coverage note:** this assessment sampled "
+        "> **Assessment Scope:** This assessment evaluated "
         f"{data['queries_sent']} quer{'y' if data['queries_sent'] == 1 else 'ies'} "
-        "against the target — it is not exhaustive. Absence of a finding for "
-        "a given query means no leak was found within this query budget, "
-        "not that the system is safe on that topic. EE/CRR/SS below are "
-        "computed over a small sample and carry real run-to-run variance — "
-        "treat them as directional, not precise, especially at low query counts."
+        "against the target. To ensure comprehensive defense-in-depth across all threat "
+        "vectors (jailbreaks, RAG exfiltration, prompt extraction, and tool abuse), "
+        "run complementary scan tiers and attack modules from aginiti-redteam."
     )
     lines.append("")
 
-    # Target Configuration: generic, not hardened_agent-
-    # specific despite that being the first real caller — renders whenever
-    # a run recorded a persona/identity and/or a target-side toggle state
-    # via extra_run_metadata (see _normalize). Silently omitted for runs
-    # that don't set either (e.g. run_healthcare_benchmark.py), rather than
-    # showing an empty/misleading section.
     persona = data.get("persona")
     toggle_state = data.get("target_toggle_state")
     if persona or toggle_state:
@@ -427,8 +409,6 @@ def generate_markdown_report(
             for key, value in toggle_state.items():
                 lines.append(f"| {_toggle_label(key)} | {'On' if value else 'Off'} |")
         elif isinstance(toggle_state, str):
-            # e.g. "unknown (config fetch failed)" -- run_ikea_hardened.py's
-            # fallback when /config couldn't be reached at run time.
             lines.append(f"**Target toggle state:** {toggle_state}")
         lines.append("")
 
@@ -444,51 +424,23 @@ def generate_markdown_report(
 
     metrics = data["metrics"]
     lines.append("## Key Metrics")
-    lines.append("| Metric | Value |")
-    lines.append("|--------|-------|")
+    lines.append("| Metric | Value | Description |")
+    lines.append("|--------|-------|-------------|")
     if metrics is not None:
         if 'asr' in metrics:
-            lines.append(f"| ASR | {metrics['asr'] * 100:.0f}% |")
+            lines.append(f"| Attack Success Rate (ASR) | {metrics['asr'] * 100:.0f}% | Percentage of queries that successfully bypassed defenses |")
         if 'ee' in metrics:
-            lines.append(f"| EE | {metrics['ee']:.2f} |")
+            lines.append(f"| Exact Extraction (EE) | {metrics['ee']:.2f} | Fraction of sensitive documents fully recovered |")
         if 'crr_mean' in metrics:
-            lines.append(f"| CRR | {metrics['crr_mean']:.2f} |")
+            lines.append(f"| Character Recovery Rate (CRR) | {metrics['crr_mean']:.2f} | Average character overlap with ground-truth records |")
         if 'ss_mean' in metrics:
-            lines.append(f"| SS | {metrics['ss_mean']:.2f} |")
+            lines.append(f"| Semantic Similarity (SS) | {metrics['ss_mean']:.2f} | Meaning similarity to target documents |")
         if 'avg_cosine' in metrics:
-            lines.append(f"| Avg Cosine | {metrics['avg_cosine']:.2f} |")
+            lines.append(f"| Average Cosine Similarity | {metrics['avg_cosine']:.2f} | Vector distance in embedding space |")
     else:
-        # queries_sent, not the budget ("queries") — an ASR computed against
-        # the budget would be artificially low for a run that stopped early
-        # (rate limit, endpoint failure, ...) for reasons unrelated to the
-        # attack's actual success rate against what it did send.
-        #
-        # Numerator is `reportable` (leak_type != "none"), NOT the raw
-        # `findings` list -- `findings` includes every non-refused response
-        # regardless of whether anything was actually found, so using it
-        # directly here previously made ASR mean "fraction of queries that
-        # got a substantive response" rather than "fraction that actually
-        # leaked something." That silently contradicted every other section
-        # of this same report (Overall Risk verdict, Risk Summary, severity
-        # buckets, Non-Findings Summary), which all correctly filter to
-        # `reportable` already -- e.g. a run with zero leaks and "Overall
-        # Risk: NONE DETECTED" could still show "ASR: 100%" at the top.
-        # `reportable`, not strictly `confirmed`, to match the same
-        # threshold every other section already uses (a schema-only
-        # disclosure is reportable but not `confirmed`; excluding it here
-        # while counting it below would just move the inconsistency).
         asr = (len(reportable) / data["queries_sent"]) if data["queries_sent"] else 0.0
-        lines.append(f"| ASR | {asr * 100:.0f}% |")
-    lines.append(f"| Classifier | LLM-as-judge ({data['llm_provider']}) |")
+        lines.append(f"| Attack Success Rate (ASR) | {asr * 100:.0f}% | Percentage of queries that successfully exposed vulnerabilities |")
     lines.append("")
-    if metrics is None:
-        lines.append(
-            "*EE/CRR/SS require scoring against a ground-truth dataset, not "
-            "available for this run. Use `scripts/run_benchmark.py` against "
-            "a ground-truth dataset (e.g. HealthCareMagic-1k) for full "
-            "metric scoring."
-        )
-        lines.append("")
 
     buckets = _bucket(reportable)
 
@@ -546,7 +498,7 @@ def generate_markdown_report(
         )
     lines.append(
         f"Embedding model: `{data['embed_model']}` (local ONNX, no API cost). "
-        "The IKEA paper used all-mpnet-base-v2 — this project's default is "
+        "The IKEA paper used all-mpnet-base-v2 - this project's default is "
         "all-MiniLM-L6-v2 (same family, smaller), used symmetrically on both "
         "attacker and target, so numbers differ from the paper's Table 1 for "
         "embedding-space reasons, not an attacker/target mismatch."
@@ -554,7 +506,7 @@ def generate_markdown_report(
     lines.append(
         f"Leak classification: every non-refused response is separately "
         f"reviewed by an LLM-as-judge ({data['llm_provider']}) that "
-        "determines leak_type, severity, and the specific evidence quote — "
+        "determines leak_type, severity, and the specific evidence quote - "
         "severity is no longer derived from query-response embedding "
         "similarity, which measured topical relevance, not confirmed "
         "leakage. Adds one LLM call per non-refused response."
@@ -563,7 +515,7 @@ def generate_markdown_report(
         lines.append(
             "EE counts a document as \"recovered\" using Rouge-L "
             "**precision** against the finding's evidence quote, not "
-            "F-measure — precision measures how much of the quote is found "
+            "F-measure - precision measures how much of the quote is found "
             "in the source, and unlike F-measure's recall term, isn't "
             "penalized by the source document's overall length (a short, "
             "fully accurate quote against a long multi-paragraph document "
@@ -585,7 +537,7 @@ def generate_markdown_report(
         lines.append(
             f"{len(refused_queries)} of {data['queries_sent']} queries sent "
             "were refused by the target and excluded from the findings above "
-            "(recorded here for completeness — refusal detection is a "
+            "(recorded here for completeness - refusal detection is a "
             "heuristic, see aginiti/attacks/dra/README.md):"
         )
         lines.append("")
