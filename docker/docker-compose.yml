@@ -32,9 +32,11 @@
 #
 #   docker compose run --rm cli aginiti scan --target https://your-agent.example.com --budget 15
 #
-# findings.json/aginiti_assessment_report.{md,html} land in THIS directory
-# on the host (the `cli` service bind-mounts it to /workspace, its working
-# directory). The container has no browser of its own to auto-open the HTML
+# findings.json/aginiti_assessment_report.{md,html} land in a fresh,
+# timestamped results/<run>/ subdirectory of THIS directory on the host
+# (the `cli` service bind-mounts it to /workspace, its working directory --
+# same results/ layout the README describes for a plain local install).
+# The container has no browser of its own to auto-open the HTML
 # report in -- the CLI's own auto-open (see --no-open-report) fails
 # gracefully there with a one-line "could not auto-open" notice rather than
 # crashing, so nothing extra is needed here; open the file from the HOST

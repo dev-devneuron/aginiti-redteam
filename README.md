@@ -93,19 +93,11 @@ Every `scan`/`attack` run prints one authorized-use reminder, then auto-saves
 `findings.json` (the full structured result), `aginiti_assessment_report.md` (a
 human-readable, OWASP LLM Top 10–mapped Markdown report), and
 `aginiti_assessment_report.html` (the same report, styled for a browser — open it directly,
-no Markdown viewer needed) into the current directory (`--output-dir` to redirect). Open the
-HTML report from your terminal:
-
-```bash
-# Windows (PowerShell)
-Start-Process aginiti_assessment_report.html
-
-# macOS
-open aginiti_assessment_report.html
-
-# Linux
-xdg-open aginiti_assessment_report.html
-```
+no Markdown viewer needed) into their own fresh, timestamped subdirectory of
+`./results` (`--output-dir` to redirect elsewhere), e.g. `results/20260923_154012/` — so a
+later run never overwrites an earlier one's results, and `results`' contents sort newest-first
+by name (or "date modified") descending. The HTML report opens in your default browser
+automatically the moment the run finishes (`--no-open-report` to skip this).
 
 `aginiti scan --tier` accepts `data_leakage |
 unauthorized_actions | discovery_recon | full_assessment`, or use `--attack-category` for
@@ -113,8 +105,8 @@ one of the 11 precise named groups (`aginiti scan --list-attack-categories` to s
 them). `aginiti attack {ikea,secret,mia,spe}` runs one technique on its own — see
 `aginiti attack <technique> --help` for that technique's own flags, or
 [`docs/TUTORIAL.md`](docs/TUTORIAL.md) for a full copy-paste walkthrough of every
-subcommand. `aginiti report --input findings.json` regenerates the Markdown report on its
-own, without re-running anything.
+subcommand. `aginiti report --input results/<run>/findings.json` regenerates the Markdown
+report for a past run on its own, without re-running anything.
 
 This is genuinely the same attack library and campaign engine as everything below — the CLI
 is a thin wrapper, not a separate/lighter tool. The git-clone path below adds the full

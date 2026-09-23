@@ -650,8 +650,11 @@ pip install "aginiti-redteam[demo-target]"</code></pre>
         concern and lets it decide for itself which technique to try; <code>aginiti attack</code> runs
         one specific, named technique directly. Both auto-save <code>findings.json</code>, a
         severity-sorted, OWASP-mapped <code>aginiti_assessment_report.md</code>, and the same report as
-        <code>aginiti_assessment_report.html</code> for opening straight in a browser — nothing extra to
-        write for that.</p>
+        <code>aginiti_assessment_report.html</code> into their own fresh, timestamped subdirectory of
+        <code>./results</code> (e.g. <code>results/20260923_154012/</code>) — so a later run never
+        overwrites an earlier one's results, and <code>results</code>' contents sort newest-first by
+        name descending. The HTML report opens in your default browser automatically the moment the run
+        finishes.</p>
       <pre><code># Start a local target agent to try Aginiti against (seeds itself, then serves on :8001)
 aginiti-demo-target
 #   Port 8001 already taken? Run it on another one instead:
@@ -669,8 +672,8 @@ aginiti attack ikea --target http://localhost:8001 --topic "HR records" --querie
 aginiti attack secret --target http://localhost:8001 --domain "HR records" --queries 5
 aginiti attack mia --target http://localhost:8001 --dataset candidates.json --probes 3
 
-# Regenerate a report from a saved findings.json, without re-running anything (rarely needed)
-aginiti report --input findings.json</code></pre>
+# Regenerate a report for a past run, without re-running anything (rarely needed)
+aginiti report --input results/&lt;run&gt;/findings.json</code></pre>
       <div class="tablewrap">
         <table>
           <tr><th>Technique</th><th>Quick check</th><th>Typical</th><th>Paper's own budget</th></tr>
@@ -691,16 +694,16 @@ aginiti report --input findings.json</code></pre>
       <p>Point <code>--target</code> at any real, HTTP-reachable agent you're authorized to test instead
         of the local demo target — nothing about the CLI requires it. Every subcommand has its own
         <code>--help</code>. Full CLI walkthrough: <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/TUTORIAL.md">docs/TUTORIAL.md</a>.</p>
-      <p>Open the HTML report straight from your terminal — no Markdown viewer needed, so it's easy to
-        hand to a non-technical reader too:</p>
+      <p>No Markdown viewer needed — easy to hand to a non-technical reader too. To reopen a past run's
+        report later instead of waiting for the next auto-open:</p>
       <pre><code># Windows (PowerShell)
-Start-Process aginiti_assessment_report.html
+Start-Process results\20260923_154012\aginiti_assessment_report.html
 
 # macOS
-open aginiti_assessment_report.html
+open results/20260923_154012/aginiti_assessment_report.html
 
 # Linux
-xdg-open aginiti_assessment_report.html</code></pre>
+xdg-open results/20260923_154012/aginiti_assessment_report.html</code></pre>
 
       <h3 class="h-anchor" id="u-python-api">Python API — for programmatic or custom use</h3>
       <p>Everything the CLI does is also a plain library call, for scripting your own assessments or

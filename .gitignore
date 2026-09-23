@@ -65,9 +65,18 @@ tests/unit/test_prepare_onyx_upload.py
 # of Onyx (e.g. for the upcoming vanilla-target-agent work). Kept tracked.
 
 # Attack run output (scripts/run_ikea.py, and the aginiti CLI's default
-# --output-dir "." — findings.json/the report land in whatever directory a
-# scan/attack/report command was run from, docker/ included)
+# --output-dir "results" -- each scan/attack run gets its own fresh,
+# timestamped subdirectory of results/, e.g. results/20260923_154012/).
+# No leading slash -- matches at any depth (repo root AND docker/results/,
+# where the docker/ CLI workflow writes its own run output), same reason
+# findings.json below has no leading slash either. Confirmed no tracked
+# file anywhere in this repo actually lives under a directory literally
+# named "results" before adding this (scripts/results/ and
+# benchmarks/scaled_evals/results/ are their own, already-covered, more
+# specific paths, not affected either way). The bare filenames are kept
+# too, defense in depth, in case --output-dir is ever pointed elsewhere.
 scripts/results/
+results/
 findings.json
 aginiti_assessment_report.md
 aginiti_assessment_report.html

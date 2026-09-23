@@ -11,6 +11,12 @@ changes.
 
 ### Added
 
+- `aginiti scan`/`attack` now write `findings.json`/the report into their
+  own fresh, timestamped subdirectory of `--output-dir` (default:
+  `./results`, e.g. `results/20260923_154012/`) instead of directly into
+  `--output-dir` itself -- a second run no longer silently overwrites the
+  first run's results with no trace they ever existed. `results`' contents
+  sort newest-first by name (or "date modified") descending.
 - `aginiti scan`/`attack`/`report` now auto-open the just-written HTML
   report in your default browser when the run finishes (`--no-open-report`
   to skip this, e.g. in a headless/CI/Docker environment) -- no separate

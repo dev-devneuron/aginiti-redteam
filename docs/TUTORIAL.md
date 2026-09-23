@@ -131,18 +131,22 @@ instead of `http://localhost:8001`.
 ## 3 · Choose your approach
 
 Two ways to run an assessment — pick based on what you already know. Both
-auto-save three files into your current folder when they finish:
-`findings.json` (the full structured result), `aginiti_assessment_report.md`
-(a readable report, sorted highest severity first, mapped to the
-industry-standard OWASP LLM Top 10), and `aginiti_assessment_report.html`
-(the same report, styled for a browser — the one to open, share, or
-attach to an email, even for a non-technical reader). Nothing extra to
-write for that. Open the HTML report straight from your terminal:
+auto-save three files into their own fresh, timestamped folder under
+`./results` when they finish (e.g. `results/20260923_154012/`) — so a
+later run never overwrites an earlier one's results, and `results` sorts
+newest-first by name (or "date modified") descending: `findings.json`
+(the full structured result), `aginiti_assessment_report.md` (a readable
+report, sorted highest severity first, mapped to the industry-standard
+OWASP LLM Top 10), and `aginiti_assessment_report.html` (the same report,
+styled for a browser — the one to open, share, or attach to an email,
+even for a non-technical reader). Nothing extra to write for that — the
+HTML report opens in your default browser automatically the moment the
+run finishes. To reopen a past run's report later:
 
 ```bash
-Start-Process aginiti_assessment_report.html   # Windows (PowerShell)
-open aginiti_assessment_report.html            # macOS
-xdg-open aginiti_assessment_report.html        # Linux
+Start-Process results\20260923_154012\aginiti_assessment_report.html   # Windows (PowerShell)
+open results/20260923_154012/aginiti_assessment_report.html            # macOS
+xdg-open results/20260923_154012/aginiti_assessment_report.html        # Linux
 ```
 
 ### `aginiti scan` — let it decide
@@ -294,13 +298,13 @@ refuse writing jailbreak prompts, even for authorized testing.
 ## 4 · Reports
 
 You'll rarely need this on its own — every `scan` and `attack` run above
-already auto-saves `aginiti_assessment_report.md` for you. `aginiti
-report` exists for the rare case where you want to regenerate one
-afterward without re-running anything — most commonly, to also produce a
-redacted copy for wider circulation:
+already auto-saves `aginiti_assessment_report.md` for you, into its own
+`results/<run>/` folder. `aginiti report` exists for the rare case where
+you want to regenerate one afterward without re-running anything — most
+commonly, to also produce a redacted copy for wider circulation:
 
 ```bash
-aginiti report --input findings.json --redact
+aginiti report --input results/20260923_154012/findings.json --redact
 ```
 
 ---
@@ -376,13 +380,13 @@ aginiti attack ikea --target http://localhost:8001 --topic "HR payroll records" 
 aginiti attack mia --target http://localhost:8001 --dataset candidates.json --probes 3
 aginiti attack secret --target http://localhost:8001 --domain "HR records" --queries 5
 
-# --- rarely needed: regenerate a report from a saved findings.json ---
-aginiti report --input findings.json --redact
+# --- rarely needed: regenerate a report for a past run (results/<run>/) ---
+aginiti report --input results/20260923_154012/findings.json --redact
 
-# --- open the HTML report in a browser ---
-Start-Process aginiti_assessment_report.html   # Windows (PowerShell)
-open aginiti_assessment_report.html            # macOS
-xdg-open aginiti_assessment_report.html        # Linux
+# --- each run's HTML report opens automatically; to reopen one later ---
+Start-Process results\20260923_154012\aginiti_assessment_report.html   # Windows (PowerShell)
+open results/20260923_154012/aginiti_assessment_report.html            # macOS
+xdg-open results/20260923_154012/aginiti_assessment_report.html        # Linux
 
 # --- already have your own target? use its URL everywhere above instead ---
 aginiti attack spe --target https://your-agent.example.com

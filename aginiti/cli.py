@@ -15,14 +15,18 @@ Three subcommands:
     aginiti report  Convert a previously-saved findings.json into a
                     Markdown report on its own, without re-running anything.
 
-Every ``scan``/``attack``/``report`` run prints one authorized-use
-reminder, then auto-saves ``findings.json`` (the full structured result),
+Every ``scan``/``attack`` run prints one authorized-use reminder, then
+auto-saves ``findings.json`` (the full structured result),
 ``aginiti_assessment_report.md`` (a human-readable, OWASP-Top-10-mapped
 Markdown report), and ``aginiti_assessment_report.html`` (the same report,
-styled for a browser) into the current directory (override with
-``--output-dir``) -- then opens that HTML report in the default browser
-automatically (``--no-open-report`` to skip this, e.g. in a headless/CI/
-Docker environment).
+styled for a browser) into their own fresh, timestamped subdirectory of
+``--output-dir`` (default: ``./results``) -- e.g.
+``results/20260923_154012/findings.json`` -- so a later run never
+overwrites an earlier one's results; sort ``--output-dir``'s contents by
+name (or "date modified") descending to see the most recent run first.
+Then opens that HTML report in the default browser automatically
+(``--no-open-report`` to skip this, e.g. in a headless/CI/Docker
+environment).
 
 Authorized use only. This tool is intended exclusively for security testing
 of systems you own or have explicit written permission to test.
@@ -155,6 +159,31 @@ def _write_json(path: Path, data: dict) -> None:
     print(f"Wrote {path}")
 
 
+def _new_run_dir(base_dir: Path) -> Path:
+    """Creates and returns a fresh, timestamped subdirectory of `base_dir`
+    for exactly one run's output files.
+
+    Previously every `scan`/`attack`/`report` run wrote `findings.json`/
+    `aginiti_assessment_report.{md,html}` directly into `--output-dir`, so
+    a second run silently overwrote the first run's results with no trace
+    they ever existed. Now each run gets its own directory, named
+    `YYYYMMDD_HHMMSS` (UTC -- plain lexicographic sort order matches
+    chronological order, so sorting `base_dir`'s contents by name is the
+    same as sorting by run time; sort descending, or by "date modified" in
+    a file browser, to see the most recent run first). A numeric suffix is
+    appended only on the rare same-second collision, so a run directory is
+    never silently reused."""
+    base_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    run_dir = base_dir / stamp
+    suffix = 2
+    while run_dir.exists():
+        run_dir = base_dir / f"{stamp}_{suffix}"
+        suffix += 1
+    run_dir.mkdir(parents=True)
+    return run_dir
+
+
 def _open_report(html_path: Path) -> None:
     """Best-effort: opens the just-written HTML report in the user's
     default browser. `webbrowser.open()` is the one stdlib call that
@@ -180,15 +209,17 @@ def _write_attack_outputs(
     findings: list, started: float, embed_model: str, llm_provider: str,
     redact: bool, open_report: bool = True,
 ) -> None:
-    """Shared output path for all 4 `aginiti attack` subcommands -- writes
-    findings.json (run_metadata + raw findings), aginiti_assessment_report.md
-    (the same OWASP-mapped generator every other report in this project
-    uses), and its .html sibling -- a self-contained, styled version of the
-    exact same report, meant to be opened straight in a browser rather than
-    read as plain text."""
+    """Shared output path for all 4 `aginiti attack` subcommands -- creates
+    a fresh, timestamped subdirectory of `output_dir` (see `_new_run_dir`)
+    and writes findings.json (run_metadata + raw findings),
+    aginiti_assessment_report.md (the same OWASP-mapped generator every
+    other report in this project uses), and its .html sibling -- a
+    self-contained, styled version of the exact same report, meant to be
+    opened straight in a browser rather than read as plain text -- into it,
+    so a later run never overwrites an earlier one's results."""
     from aginiti.reporting import generate_html_report, generate_markdown_report
 
-    output_dir.mkdir(parents=True, exist_ok=True)
+    run_dir = _new_run_dir(output_dir)
     report = {
         "run_metadata": {
             "attack": attack,
@@ -201,12 +232,12 @@ def _write_attack_outputs(
         },
         "findings": [dataclasses.asdict(f) for f in findings],
     }
-    _write_json(output_dir / "findings.json", report)
+    _write_json(run_dir / "findings.json", report)
     # generate_markdown_report()/generate_html_report() both return the
     # rendered document STRING (and write it to output_path as a side
     # effect) -- not a Path, unlike generate_markdown_report_from_file()
     # below. Print the path we passed in, not the return value.
-    md_path = output_dir / report_name
+    md_path = run_dir / report_name
     generate_markdown_report(report, md_path, redact=redact)
     print(f"Wrote {md_path}")
 
@@ -293,12 +324,14 @@ def _write_scan_outputs(output_dir: Path, report_name: str, target: Optional[str
     generate_html_report() (the same OWASP-mapped, severity-sorted reports
     `aginiti attack` produces) over findings translated from the campaign's
     execution_log by `_collect_scan_findings`, rather than a separate,
-    thinner format."""
+    thinner format. Creates a fresh, timestamped subdirectory of
+    `output_dir` (see `_new_run_dir`) so a later run never overwrites an
+    earlier one's results."""
     from aginiti.reporting import generate_html_report, generate_markdown_report
 
     from aginiti.providers.llm import active_provider_name
 
-    output_dir.mkdir(parents=True, exist_ok=True)
+    run_dir = _new_run_dir(output_dir)
     findings = _collect_scan_findings(result.execution_log, library)
 
     report = {
@@ -320,9 +353,9 @@ def _write_scan_outputs(output_dir: Path, report_name: str, target: Optional[str
         "decision_log": [dataclasses.asdict(d) for d in result.decision_log],
         "execution_log": [dataclasses.asdict(e) for e in result.execution_log],
     }
-    _write_json(output_dir / "findings.json", report)
+    _write_json(run_dir / "findings.json", report)
 
-    md_path = output_dir / report_name
+    md_path = run_dir / report_name
     generate_markdown_report(report, md_path)
     print(f"Wrote {md_path}")
 
@@ -550,7 +583,7 @@ def _cmd_report(args: argparse.Namespace) -> None:
 # Argument parsing
 # ---------------------------------------------------------------------------
 def _add_common_output_args(parser: argparse.ArgumentParser, default_report: str) -> None:
-    parser.add_argument("--output-dir", default=".", help="Directory to write findings.json/report into. Default: current directory.")
+    parser.add_argument("--output-dir", default="results", help="Parent directory for this run's own timestamped results folder (findings.json/report inside it). Default: ./results")
     parser.add_argument("--report", default=default_report, help=f"Markdown report filename. Default: {default_report}")
     parser.add_argument("--redact", action="store_true", help="Also write a PII-redacted copy of the report.")
     parser.add_argument("--model", default=None, help="Attacker/judge LLM, e.g. openai/gpt-4o. Default: auto-detected from whichever *_API_KEY is set.")

@@ -7,6 +7,8 @@ discipline (see CLAUDE.md, docs/USAGE.md).
 from __future__ import annotations
 
 import json
+from datetime import datetime as _real_datetime
+from datetime import timezone as _real_timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -33,6 +35,16 @@ def _finding(confirmed: bool = True, leak_type: str = "pii") -> LeakFinding:
         leaked_content="leaked text", probe_used="probe", trace_span_id="",
         recommendation="rotate the secret", severity="high", leak_type=leak_type,
     )
+
+
+def _only_run_dir(base_dir):
+    """Every scan/attack run now writes into a fresh, timestamped
+    subdirectory of --output-dir (`cli._new_run_dir`) rather than
+    `base_dir` itself -- returns that one subdirectory, failing loudly if
+    a test's setup somehow produced zero or more than one."""
+    children = [p for p in base_dir.iterdir() if p.is_dir()]
+    assert len(children) == 1, f"expected exactly one run dir under {base_dir}, found {children}"
+    return children[0]
 
 
 # ---------------------------------------------------------------------------
@@ -161,12 +173,58 @@ class TestCmdAttackIkea:
                                       llm_provider="gemini/gemini-3.5-flash", api_key="gem-test")
         mock_attack.execute_black_box.assert_called_once_with(topic="HR records", max_queries=3)
 
-        findings_path = tmp_path / "findings.json"
+        run_dir = _only_run_dir(tmp_path)
+        findings_path = run_dir / "findings.json"
         assert findings_path.exists()
         payload = json.loads(findings_path.read_text(encoding="utf-8"))
         assert payload["run_metadata"]["attack"] == "ikea"
         assert len(payload["findings"]) == 1
-        assert (tmp_path / "aginiti_assessment_report.md").exists()
+        assert (run_dir / "aginiti_assessment_report.md").exists()
+
+    def test_each_run_gets_its_own_directory(self, tmp_path, monkeypatch):
+        """The exact regression this feature fixes: a second run must not
+        overwrite the first run's findings.json/report."""
+        monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+        for env_var, _ in cli._PROVIDER_DEFAULTS:
+            if env_var != "GEMINI_API_KEY":
+                monkeypatch.delenv(env_var, raising=False)
+
+        mock_attack = MagicMock()
+        mock_attack.execute_black_box.return_value = [_finding()]
+
+        parser = cli._build_parser()
+        args = parser.parse_args([
+            "attack", "ikea", "--target", "http://localhost:8001", "--topic", "HR records",
+            "--output-dir", str(tmp_path),
+        ])
+
+        with patch("aginiti.attacks.dra.ikea.IKEAAttack", return_value=mock_attack), \
+             patch("aginiti.cli.datetime") as mock_dt:
+            # Force two distinct timestamps -- a real second run a moment
+            # later would naturally get a different one, but forcing it
+            # here keeps the test deterministic instead of depending on
+            # wall-clock timing. Built from the REAL datetime class
+            # (imported at module level, before this patch exists) -- using
+            # `cli.datetime(...)` here would construct them from the
+            # now-patched mock instead, producing more mocks, not real
+            # datetimes.
+            mock_dt.now.side_effect = [
+                _real_datetime(2026, 9, 23, 10, 0, 0, tzinfo=_real_timezone.utc),
+                _real_datetime(2026, 9, 23, 10, 0, 0, tzinfo=_real_timezone.utc),
+                _real_datetime(2026, 9, 23, 10, 5, 0, tzinfo=_real_timezone.utc),
+                _real_datetime(2026, 9, 23, 10, 5, 0, tzinfo=_real_timezone.utc),
+            ]
+            cli._cmd_attack_ikea(args)
+            cli._cmd_attack_ikea(args)
+
+        run_dirs = sorted(p for p in tmp_path.iterdir() if p.is_dir())
+        assert len(run_dirs) == 2
+        assert run_dirs[0].name == "20260923_100000"
+        assert run_dirs[1].name == "20260923_100500"
+        for run_dir in run_dirs:
+            assert (run_dir / "findings.json").exists()
+            assert (run_dir / "aginiti_assessment_report.md").exists()
+            assert (run_dir / "aginiti_assessment_report.html").exists()
 
     def test_no_api_key_refuses_before_constructing_the_attack(self, tmp_path, monkeypatch):
         for env_var, _ in cli._PROVIDER_DEFAULTS:
@@ -379,7 +437,7 @@ class TestCmdAttackSpe:
         with patch("aginiti.attacks.spe.spe_llm.SPEAttack", return_value=mock_attack):
             cli._cmd_attack_spe(args)
 
-        assert (tmp_path / "findings.json").exists()
+        assert (_only_run_dir(tmp_path) / "findings.json").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -401,9 +459,10 @@ class TestCmdScan:
             cli._cmd_scan(args)
 
         run_mock.assert_called_once()
-        assert (tmp_path / "findings.json").exists()
-        assert (tmp_path / "aginiti_assessment_report.md").exists()
-        payload = json.loads((tmp_path / "findings.json").read_text(encoding="utf-8"))
+        run_dir = _only_run_dir(tmp_path)
+        assert (run_dir / "findings.json").exists()
+        assert (run_dir / "aginiti_assessment_report.md").exists()
+        payload = json.loads((run_dir / "findings.json").read_text(encoding="utf-8"))
         assert payload["run_metadata"]["attack"] == "scan"
 
     def test_uses_the_full_budget_instead_of_stopping_on_first_success(self, tmp_path):

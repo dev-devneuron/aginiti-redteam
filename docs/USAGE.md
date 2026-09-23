@@ -60,19 +60,26 @@ aginiti attack ikea --target http://localhost:8001 --topic "HR records" --querie
 aginiti attack secret --target http://localhost:8001 --domain "HR records" --queries 5
 aginiti attack mia --target http://localhost:8001 --dataset candidates.json --probes 3
 
-# Regenerate a report from a saved findings.json, without re-running anything (rarely needed)
-aginiti report --input findings.json
+# Regenerate a report for a past run, without re-running anything (rarely needed)
+aginiti report --input results/<run>/findings.json
 ```
 
 Every `scan`/`attack` run auto-saves `findings.json`, a severity-sorted,
 OWASP-mapped `aginiti_assessment_report.md`, and the same report as
-`aginiti_assessment_report.html` for opening straight in a browser — no
-Markdown viewer needed:
+`aginiti_assessment_report.html` (for opening straight in a browser — no
+Markdown viewer needed) into their own fresh, timestamped subdirectory of
+`./results` (`--output-dir` to redirect elsewhere) — e.g.
+`results/20260923_154012/findings.json` — so a later run never overwrites
+an earlier one's results; `results`' contents sort newest-first by name
+(or "date modified") descending. The HTML report opens in your default
+browser automatically the moment the run finishes — `--no-open-report` to
+skip this (e.g. in a headless/CI environment), or reopen a past run's
+report later:
 
 ```bash
-Start-Process aginiti_assessment_report.html   # Windows (PowerShell)
-open aginiti_assessment_report.html            # macOS
-xdg-open aginiti_assessment_report.html        # Linux
+Start-Process results\20260923_154012\aginiti_assessment_report.html   # Windows (PowerShell)
+open results/20260923_154012/aginiti_assessment_report.html            # macOS
+xdg-open results/20260923_154012/aginiti_assessment_report.html        # Linux
 ```
 
 `aginiti scan --tier` accepts
