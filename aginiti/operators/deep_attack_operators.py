@@ -134,6 +134,7 @@ from __future__ import annotations
 import functools
 import os
 from dataclasses import dataclass
+from typing import Optional
 
 from aginiti.attacks.dra import IKEAAttack, SECRETAttack
 from aginiti.attacks.mia import InterrogationAttack
@@ -187,12 +188,21 @@ def _key_for(model: str) -> str | None:
 _logger = get_logger("operators.deep_attack_operators")
 
 
-def _resolve_role_model(env_var: str, default_groq_model: str, primary_model: str) -> tuple[str, str]:
+def _resolve_role_model(env_var: str, default_groq_model: str, primary_model: str) -> tuple[str, str, Optional[list[str]]]:
     """Resolve a role that PREFERS Groq for compliance reasons (SECRET's
     Phase 1 optimizer/evaluator, MIA's shadow LLM -- see those constants
     below for the specific, live-reproduced refusal failure modes on
     safety-aligned commercial models) without ever hard-requiring a Groq
     key to be present.
+
+    Returns (model, key, api_keys). api_keys is the full Groq key-rotation
+    pool (GROQ_API_KEY, GROQ_API_KEY_2, ...) whenever the resolved model is
+    Groq -- live-reproduced (see aginiti/cli.py's own `_resolve_secret_
+    optimizer`, the `aginiti attack secret` equivalent of this fix): this
+    role makes enough calls on its own (SECRET Phase 1: n_iter*n_cand
+    optimizer calls plus a comparable number of evaluator calls) to blow
+    through a single free-tier key's TPM limit well before the campaign's
+    own --budget is exhausted. None when the resolved model isn't Groq.
 
     An explicit env var override is honored exactly as given, including
     raising via `_key_for` if THAT provider's own key is missing -- the
@@ -221,17 +231,24 @@ def _resolve_role_model(env_var: str, default_groq_model: str, primary_model: st
     file's own docstring describes fixing for everything else."""
     explicit = os.environ.get(env_var)
     if explicit:
-        return explicit, _key_for(explicit)
-    if os.environ.get("GROQ_API_KEY"):
-        return default_groq_model, os.environ["GROQ_API_KEY"]
-    _logger.warning(
-        "%s not set and GROQ_API_KEY not configured -- using the primary model (%s) "
-        "for this role instead. Safety-aligned models often refuse this step's own "
-        "framing, so results may be weaker than with a Groq key; set GROQ_API_KEY or "
-        "%s explicitly for the most reliable results.",
-        env_var, primary_model, env_var,
-    )
-    return primary_model, _key_for(primary_model)
+        model, key = explicit, _key_for(explicit)
+    elif os.environ.get("GROQ_API_KEY"):
+        model, key = default_groq_model, os.environ["GROQ_API_KEY"]
+    else:
+        _logger.warning(
+            "%s not set and GROQ_API_KEY not configured -- using the primary model (%s) "
+            "for this role instead. Safety-aligned models often refuse this step's own "
+            "framing, so results may be weaker than with a Groq key; set GROQ_API_KEY or "
+            "%s explicitly for the most reliable results.",
+            env_var, primary_model, env_var,
+        )
+        model, key = primary_model, _key_for(primary_model)
+
+    if model.startswith("groq/"):
+        from aginiti.providers.llm import _load_groq_keys
+        keys = _load_groq_keys()
+        return model, keys[0], keys
+    return model, key, None
 
 
 # ---------------------------------------------------------------------------
@@ -443,18 +460,19 @@ def _build_secret_attack(endpoint: AgentEndpoint, config: _SECRETConfig) -> SECR
 
     `config` is bound via `functools.partial` in `deep_attack_operators()`
     below -- see `_load_secret_config`."""
-    optimizer_model, optimizer_key = _resolve_role_model(
+    optimizer_model, optimizer_key, optimizer_keys = _resolve_role_model(
         _SECRET_OPTIMIZER_ENV_VAR, _SECRET_OPTIMIZER_DEFAULT_GROQ_MODEL, config.llm_provider
     )
     evaluator_env = os.environ.get(_SECRET_EVALUATOR_ENV_VAR)
     if evaluator_env:
         evaluator_model, evaluator_key = evaluator_env, _key_for(evaluator_env)
+        evaluator_keys = None
     else:
         # Tracks the optimizer's own RESOLVED choice by default, whatever
         # that turned out to be -- not a second, independently-hardcoded
         # default (see semantic_shift_llm_provider's own comment above for
         # the exact live bug this convention exists to avoid).
-        evaluator_model, evaluator_key = optimizer_model, optimizer_key
+        evaluator_model, evaluator_key, evaluator_keys = optimizer_model, optimizer_key, optimizer_keys
     return SECRETAttack(
         target_url=endpoint.base_url,
         llm_provider=config.llm_provider,
@@ -462,8 +480,10 @@ def _build_secret_attack(endpoint: AgentEndpoint, config: _SECRETConfig) -> SECR
         external_corpus=_SECRET_EXTERNAL_CORPUS,
         optimizer_llm_provider=optimizer_model,
         optimizer_api_key=optimizer_key,
+        optimizer_api_keys=optimizer_keys,
         evaluator_llm_provider=evaluator_model,
         evaluator_api_key=evaluator_key,
+        evaluator_api_keys=evaluator_keys,
         semantic_shift_llm_provider=config.semantic_shift_llm_provider,
         semantic_shift_api_key=_key_for(config.semantic_shift_llm_provider),
         embed_model=config.embed_model,
@@ -620,7 +640,7 @@ def _build_interrogation_attack(endpoint: AgentEndpoint, config: _MIAConfig) -> 
 
     `config` is bound via `functools.partial` in `deep_attack_operators()`
     below -- see `_load_mia_config`."""
-    shadow_model, shadow_key = _resolve_role_model(
+    shadow_model, shadow_key, shadow_keys = _resolve_role_model(
         _MIA_SHADOW_ENV_VAR, _MIA_SHADOW_DEFAULT_GROQ_MODEL, config.llm_provider
     )
     return InterrogationAttack(
@@ -630,6 +650,7 @@ def _build_interrogation_attack(endpoint: AgentEndpoint, config: _MIAConfig) -> 
         non_member_reference_docs=_MIA_NON_MEMBER_REFERENCE_DOCS,
         shadow_llm_provider=shadow_model,
         shadow_llm_api_key=shadow_key,
+        shadow_llm_api_keys=shadow_keys,
         n_probe_questions=config.n_probe_questions,
         endpoint=endpoint,
         endpoint_kwargs={"headers": endpoint.headers},

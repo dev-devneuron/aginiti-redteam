@@ -90,29 +90,62 @@ class TestResolveModel:
 
 
 class TestResolveSecretOptimizer:
+    @pytest.fixture(autouse=True)
+    def _clear_numbered_groq_keys(self, monkeypatch):
+        """_resolve_secret_optimizer now imports aginiti.providers.llm's
+        _load_groq_keys, which walks GROQ_API_KEY_2, _3, ... with no fixed
+        upper bound -- the first import of that module in a test process
+        also runs its own module-level load_dotenv(), which (on a machine
+        with a real, populated .env, e.g. local dev) pulls real numbered
+        keys into os.environ. monkeypatch.setenv/delenv on the bare
+        GROQ_API_KEY alone doesn't touch those -- clear a generous range so
+        every test below sees exactly the keys it sets, not whatever a
+        developer's own .env happens to contain."""
+        for i in range(2, 51):
+            monkeypatch.delenv(f"GROQ_API_KEY_{i}", raising=False)
+
     def test_prefers_groq_when_available_and_primary_is_not_groq(self, monkeypatch):
         monkeypatch.setenv("GROQ_API_KEY", "gsk_test")
 
-        model, key = cli._resolve_secret_optimizer("gemini/gemini-3.5-flash", "gem-key")
+        model, key, keys = cli._resolve_secret_optimizer("gemini/gemini-3.5-flash", "gem-key")
 
         assert model == "groq/openai/gpt-oss-20b"
         assert key == "gsk_test"
+        assert keys == ["gsk_test"]
+
+    def test_returns_the_full_groq_key_pool_when_multiple_keys_configured(self, monkeypatch):
+        """Regression test for the rate-limit bug this fix closes: Phase 1
+        makes enough optimizer+evaluator calls on its own to exhaust a
+        single free-tier Groq key's TPM limit -- .env commonly has
+        GROQ_API_KEY_2, _3, ... for exactly this reason, and all of them
+        must come back, not just the first."""
+        monkeypatch.setenv("GROQ_API_KEY", "gsk_test_1")
+        monkeypatch.setenv("GROQ_API_KEY_2", "gsk_test_2")
+        monkeypatch.setenv("GROQ_API_KEY_3", "gsk_test_3")
+
+        model, key, keys = cli._resolve_secret_optimizer("gemini/gemini-3.5-flash", "gem-key")
+
+        assert model == "groq/openai/gpt-oss-20b"
+        assert key == "gsk_test_1"
+        assert keys == ["gsk_test_1", "gsk_test_2", "gsk_test_3"]
 
     def test_falls_back_to_primary_and_warns_when_no_groq_key(self, monkeypatch, capsys):
         monkeypatch.delenv("GROQ_API_KEY", raising=False)
 
-        model, key = cli._resolve_secret_optimizer("gemini/gemini-3.5-flash", "gem-key")
+        model, key, keys = cli._resolve_secret_optimizer("gemini/gemini-3.5-flash", "gem-key")
 
         assert model == "gemini/gemini-3.5-flash"
         assert key == "gem-key"
+        assert keys is None
         assert "WARNING" in capsys.readouterr().err
 
     def test_does_not_redundantly_prefer_groq_when_primary_is_already_groq(self, monkeypatch, capsys):
         monkeypatch.setenv("GROQ_API_KEY", "gsk_test")
 
-        model, key = cli._resolve_secret_optimizer("groq/openai/gpt-oss-20b", "gsk_test")
+        model, key, keys = cli._resolve_secret_optimizer("groq/openai/gpt-oss-20b", "gsk_test")
 
         assert model == "groq/openai/gpt-oss-20b"
+        assert keys == ["gsk_test"]
         assert "WARNING" in capsys.readouterr().err
 
 
@@ -319,6 +352,14 @@ class TestOpenReport:
 # aginiti attack secret -- corpus default + optimizer policy wiring
 # ---------------------------------------------------------------------------
 class TestCmdAttackSecret:
+    @pytest.fixture(autouse=True)
+    def _clear_numbered_groq_keys(self, monkeypatch):
+        """See TestResolveSecretOptimizer's identical fixture -- same
+        real-.env-leakage risk applies here, since _cmd_attack_secret goes
+        through _resolve_secret_optimizer too."""
+        for i in range(2, 51):
+            monkeypatch.delenv(f"GROQ_API_KEY_{i}", raising=False)
+
     def test_default_corpus_used_when_none_passed(self, tmp_path, monkeypatch):
         monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
         monkeypatch.setenv("GROQ_API_KEY", "gsk-test")
@@ -340,6 +381,10 @@ class TestCmdAttackSecret:
         ]
         # Groq preferred for the optimizer role over the Gemini primary model.
         assert kwargs["optimizer_llm_provider"] == "groq/openai/gpt-oss-20b"
+        # Rate-limit fix: the full Groq key pool (just one key here) is
+        # forwarded, not silently dropped -- see TestResolveSecretOptimizer's
+        # multi-key test in this same file for the pool-of-many case.
+        assert kwargs["optimizer_api_keys"] == ["gsk-test"]
 
     def test_custom_corpus_file_is_read_line_by_line(self, tmp_path, monkeypatch):
         monkeypatch.setenv("GEMINI_API_KEY", "gem-test")

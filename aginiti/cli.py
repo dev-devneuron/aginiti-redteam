@@ -161,9 +161,9 @@ def _resolve_model(explicit: Optional[str]) -> tuple[str, str]:
     )
 
 
-def _resolve_secret_optimizer(primary_model: str, primary_key: str) -> tuple[str, str]:
+def _resolve_secret_optimizer(primary_model: str, primary_key: str) -> tuple[str, str, Optional[list[str]]]:
     """
-    Resolve SECRET Phase 1's optimizer LLM.
+    Resolve SECRET Phase 1's optimizer/evaluator LLM.
 
     Safety-aligned commercial models (Gemini, GPT) tend to refuse the
     Optimizer's own "author a jailbreak candidate" framing outright --
@@ -185,18 +185,38 @@ def _resolve_secret_optimizer(primary_model: str, primary_key: str) -> tuple[str
     secret` silently ran Phase 1 with an empty jailbreak while `aginiti
     scan`'s SECRET operator (which already imports the correct constant)
     did not. Only gpt-oss-20b is actually confirmed to comply.
+
+    Returns (model, key, api_keys). api_keys is the full Groq key-rotation
+    pool (GROQ_API_KEY, GROQ_API_KEY_2, ...) whenever the resolved model
+    is Groq -- live-reproduced separately from the refusal bug above:
+    Phase 1 makes n_iter*n_cand optimizer calls plus a comparable number
+    of evaluator calls before Phase 2 ever starts, easily enough to blow
+    through a single free-tier key's TPM limit on its own (confirmed:
+    "Rate limit reached for model `openai/gpt-oss-20b`... TPM: Limit
+    8000"). A single key was being used even though .env may have many
+    (GROQ_API_KEY_2, _3, ...) -- SECRETAttack/JailbreakOptimizer already
+    support a rotation pool for this exact purpose (the same mechanic
+    semantic_shift_api_keys already used for Phase 2), just never wired
+    in here for Phase 1. None when the resolved model isn't Groq.
     """
     if os.environ.get("GROQ_API_KEY") and not primary_model.startswith("groq/"):
         from aginiti.operators.deep_attack_operators import _SECRET_OPTIMIZER_DEFAULT_GROQ_MODEL
-        return _SECRET_OPTIMIZER_DEFAULT_GROQ_MODEL, os.environ["GROQ_API_KEY"]
-    print(
-        "WARNING: SECRET's jailbreak-optimizer step is using the same model as "
-        f"extraction ({primary_model!r}). Safety-aligned models often refuse this "
-        "step's own framing, silently producing a weak/empty jailbreak. Set "
-        "GROQ_API_KEY for a model that reliably complies, or pass --optimizer-model.",
-        file=sys.stderr,
-    )
-    return primary_model, primary_key
+        model, key = _SECRET_OPTIMIZER_DEFAULT_GROQ_MODEL, os.environ["GROQ_API_KEY"]
+    else:
+        print(
+            "WARNING: SECRET's jailbreak-optimizer step is using the same model as "
+            f"extraction ({primary_model!r}). Safety-aligned models often refuse this "
+            "step's own framing, silently producing a weak/empty jailbreak. Set "
+            "GROQ_API_KEY for a model that reliably complies, or pass --optimizer-model.",
+            file=sys.stderr,
+        )
+        model, key = primary_model, primary_key
+
+    if model.startswith("groq/"):
+        from aginiti.providers.llm import _load_groq_keys
+        keys = _load_groq_keys()
+        return model, keys[0], keys
+    return model, key, None
 
 
 # ---------------------------------------------------------------------------
@@ -546,8 +566,9 @@ def _cmd_attack_secret(args: argparse.Namespace) -> None:
     model, key = _resolve_model(args.model)
     if args.optimizer_model:
         optimizer_model, optimizer_key = _resolve_model(args.optimizer_model)
+        optimizer_keys = None
     else:
-        optimizer_model, optimizer_key = _resolve_secret_optimizer(model, key)
+        optimizer_model, optimizer_key, optimizer_keys = _resolve_secret_optimizer(model, key)
 
     if args.corpus:
         corpus = [line.strip() for line in Path(args.corpus).read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -569,6 +590,7 @@ def _cmd_attack_secret(args: argparse.Namespace) -> None:
     attack = SECRETAttack(
         target_url=args.target, llm_provider=model, api_key=key,
         optimizer_llm_provider=optimizer_model, optimizer_api_key=optimizer_key,
+        optimizer_api_keys=optimizer_keys,
         external_corpus=corpus, phase1_n_iter=args.phase1_iter, phase1_n_cand=args.phase1_cand,
     )
     findings = attack.execute_black_box(domain=args.domain, max_queries=args.queries)

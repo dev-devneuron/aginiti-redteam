@@ -322,14 +322,22 @@ def _build_llm_closure(
     api_key: str,
     fallback_provider: Optional[str] = None,
     fallback_api_key: Optional[str] = None,
+    api_keys: Optional[list[str]] = None,
 ) -> Callable[..., str]:
-    """Build one rate-limit-aware LLM closure via ``_LLMInitHelper``."""
+    """Build one rate-limit-aware LLM closure via ``_LLMInitHelper``.
+
+    ``api_keys``: optional multi-key rotation pool for ``provider`` (e.g.
+    several free-tier Groq keys) — see ``BaseAttack._init_llm``'s own
+    ``api_keys`` docstring. Additive, defaults to None (single-key
+    behavior, unchanged for every existing caller).
+    """
     return _LLMInitHelper(
         target_url="",
         llm_provider=provider,
         api_key=api_key,
         fallback_llm_provider=fallback_provider,
         fallback_api_key=fallback_api_key,
+        api_keys=api_keys,
     ).llm
 
 
@@ -402,6 +410,18 @@ class JailbreakOptimizer:
         ``llm_provider``.
     optimizer_api_key : str
         API key for ``optimizer_llm_provider``.
+    optimizer_api_keys : list[str] or None
+        Optional multi-key rotation pool for ``optimizer_llm_provider``
+        (e.g. several free-tier Groq keys, to spread a low per-key TPM
+        limit across accounts instead of waiting it out — see
+        ``BaseAttack._init_llm``'s own ``api_keys`` docstring). Takes
+        precedence over the singular ``optimizer_api_key`` when given.
+    evaluator_api_keys : list[str] or None
+        Same, for ``evaluator_llm_provider``. Defaults to
+        ``optimizer_api_keys`` if not supplied, same precedent as
+        ``evaluator_api_key`` defaulting to ``optimizer_api_key`` below —
+        both roles typically run against the same provider/account, so a
+        pool supplied for one is almost always meant for both.
     evaluator_llm_provider : str or None
         LiteLLM model string for the Evaluator LLM (``f_e``). Defaults to
         ``optimizer_llm_provider`` if not supplied — this is the
@@ -481,6 +501,8 @@ class JailbreakOptimizer:
         optimizer_api_key: str,
         evaluator_llm_provider: Optional[str] = None,
         evaluator_api_key: Optional[str] = None,
+        optimizer_api_keys: Optional[list[str]] = None,
+        evaluator_api_keys: Optional[list[str]] = None,
         seed_prompt: str = DEFAULT_EXTRACTION_INSTRUCTION,
         n_iter: int = 20,
         n_cand: int = 3,
@@ -497,14 +519,23 @@ class JailbreakOptimizer:
         self._optimizer_provider = optimizer_llm_provider
         self._evaluator_provider = evaluator_llm_provider or optimizer_llm_provider
         _evaluator_key = evaluator_api_key if evaluator_api_key is not None else optimizer_api_key
+        # evaluator_api_keys defaults to optimizer_api_keys, mirroring how
+        # _evaluator_key already defaults to optimizer_api_key above -- the
+        # evaluator's calls draw from the same rate-limit budget as the
+        # optimizer's own (both roles typically run against the same
+        # provider/account), so a caller supplying a rotation pool for one
+        # almost always wants it for both, not just one.
+        _evaluator_keys = evaluator_api_keys if evaluator_api_keys is not None else optimizer_api_keys
 
         self.optimizer_llm = _build_llm_closure(
             optimizer_llm_provider, optimizer_api_key,
             fallback_llm_provider, fallback_api_key,
+            api_keys=optimizer_api_keys,
         )
         self.evaluator_llm = _build_llm_closure(
             self._evaluator_provider, _evaluator_key,
             fallback_llm_provider, fallback_api_key,
+            api_keys=_evaluator_keys,
         )
 
         self.seed_prompt = seed_prompt

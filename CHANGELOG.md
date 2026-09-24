@@ -9,6 +9,36 @@ changes.
 
 ## [Unreleased]
 
+### Fixed
+
+- SECRET's Phase 1 (jailbreak optimization) could still fail even after
+  0.3.3's optimizer-model fix, this time from Groq rate-limiting rather
+  than refusal: `_resolve_secret_optimizer`/`_resolve_role_model` picked
+  ONE Groq key (`GROQ_API_KEY`) for the optimizer/evaluator role, even
+  when `.env` had a full rotation pool configured (`GROQ_API_KEY_2`,
+  `_3`, ...) for exactly this reason. Phase 1 makes `n_iter * n_cand`
+  optimizer calls plus a comparable number of evaluator calls before
+  Phase 2 ever starts -- easily enough to exhaust a single free-tier
+  key's TPM limit on its own (live-reproduced: `Rate limit reached for
+  model openai/gpt-oss-20b... TPM: Limit 8000`). `aginiti/providers/
+  llm.py`'s `_call_with_rotation` already solved this exact problem for
+  the campaign/judge role, and `BaseAttack._init_llm` already had a
+  matching `api_keys` rotation-pool parameter (used by SECRET's
+  `semantic_shift_api_keys` and MIA's `shadow_llm_api_keys`) -- just
+  never finished wiring into `BaseAttack.__init__` itself, or into
+  SECRET's optimizer/evaluator role specifically, on either the `aginiti
+  attack secret` or `aginiti scan`/`hardened_deep_attack_operators.py`
+  path. `BaseAttack.__init__` now forwards an additive `api_keys`
+  parameter; `JailbreakOptimizer`/`SECRETAttack` gained matching
+  `optimizer_api_keys`/`evaluator_api_keys` parameters (evaluator
+  defaults to the optimizer's pool, same precedent as its single-key
+  default); `MIA_OPERATOR_SHADOW_LLM_PROVIDER`'s pool now flows through
+  too. All additive, every existing single-key caller unchanged. Live-
+  verified against a running hardened target: a rate-limited call now
+  logs `[RATE LIMIT] key 1/29 rate-limited ... rotating to the next key
+  immediately` and continues, instead of the whole optimizer call
+  failing outright.
+
 ## [0.3.3]
 
 ### Changed
