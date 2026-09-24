@@ -11,11 +11,10 @@ from aginiti.adapters.http_agent_adapter import HTTPAgentAdapter
 from aginiti.core.campaign_builder import (
     CampaignBuildError,
     TIER_CHOICES,
+    all_target_agnostic_operators,
     build_campaign,
     classify_tier,
 )
-from aginiti.operators.data_exposure import data_exposure_operators
-from aginiti.operators.deep_attack_operators import deep_attack_operators
 
 
 class TestBuildCampaignDefaults:
@@ -37,8 +36,11 @@ class TestBuildCampaignAgentUrl:
         library, mission, agent = build_campaign(agent_url="http://localhost:9999")
 
         assert isinstance(agent, HTTPAgentAdapter)
-        expected_size = len(data_exposure_operators()) + len(deep_attack_operators())
-        assert len(list(library)) == expected_size
+        # All 8 channel="direct" packs (47 operators), not just the
+        # original 2 (data_exposure + deep_attack, 11 operators) --
+        # see all_target_agnostic_operators()'s own docstring for why the
+        # other 6 were previously missing from a real --target scan.
+        assert len(list(library)) == len(all_target_agnostic_operators())
         assert mission.success_criteria  # derived from the loaded operators
 
     def test_budget_override_applies_on_the_agent_url_path(self):
@@ -68,6 +70,36 @@ class TestTierFiltering:
         assert set(TIER_CHOICES) == {
             "data_leakage", "unauthorized_actions", "discovery_recon", "full_assessment",
         }
+
+    def test_full_assessment_tier_includes_all_47_target_agnostic_operators(self):
+        library, _, _ = build_campaign(agent_url="http://localhost:9999", tier="full_assessment")
+
+        assert len(list(library)) == len(all_target_agnostic_operators()) == 47
+
+    def test_data_leakage_tier_includes_output_filter_and_session_isolation_operators(self):
+        library, _, _ = build_campaign(agent_url="http://localhost:9999", tier="data_leakage")
+        ids = {op.id for op in library}
+
+        assert any(i.startswith("output_filter_evasion_") for i in ids)
+        assert any(i.startswith("session_isolation_probe_") for i in ids)
+
+    def test_unauthorized_actions_tier_includes_encoding_and_low_resource_evasion_operators(self):
+        library, _, _ = build_campaign(agent_url="http://localhost:9999", tier="unauthorized_actions")
+        ids = {op.id for op in library}
+
+        assert any(i.startswith("encoding_evasion_probe_") for i in ids)
+        assert any(i.startswith("ascii_art_evasion_probe_") for i in ids)
+        # low_resource_language_evasion's system-prompt-extraction variants
+        # classify as data_leakage, not unauthorized_actions -- only its
+        # jailbreak variants belong here (see classify_tier's own docstring
+        # for why both land correctly via the OWASP tag alone).
+        assert any(i.startswith("low_resource_language_jailbreak_") for i in ids)
+
+    def test_discovery_recon_tier_includes_access_control_layer_probes(self):
+        library, _, _ = build_campaign(agent_url="http://localhost:9999", tier="discovery_recon")
+        ids = {op.id for op in library}
+
+        assert any(i.startswith("access_control_layer_probe_") for i in ids)
 
 
 class TestAttackCategoryFiltering:
