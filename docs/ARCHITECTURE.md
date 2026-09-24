@@ -153,10 +153,12 @@ Select any subset directly:
 
 ```python
 from aginiti.operators.library import OperatorLibrary
-library = OperatorLibrary.by_category("encoding_attack", "rag_poisoning")
+from aginiti.operators.data_exposure import data_exposure_operators
+
+library = OperatorLibrary(data_exposure_operators()).by_category("encoding_attack", "rag_poisoning")
 ```
 
-or from the CLI: `python scripts/run_campaign.py --attack-category encoding_attack`.
+or from the CLI: `aginiti scan --target http://localhost:8001 --attack-category encoding_attack`.
 
 ## Repository layout
 

@@ -87,10 +87,12 @@ xdg-open results/2026-09-23_154012/aginiti_assessment_report.html        # Linux
 `aginiti scan --tier` accepts
 `data_leakage | unauthorized_actions | discovery_recon | full_assessment`;
 `aginiti scan`'s own `--budget` means "how many techniques it gets to try"
-(against the real-target pack, 11 techniques today, so above ~15-20 rarely
-finds more) — a different number from how deep any one named technique
-can go. Each deep-attack technique (IKEA/SECRET/MIA — the 3 of the 11
-with a real query budget) keeps its own fixed, small cap inside a scan
+(against the real-target pack, 47 techniques today across 8 packs, and
+once every eligible one has had a turn a new round starts automatically
+if budget remains) — a different number from how deep any one named
+technique can go. Each deep-attack technique (IKEA/SECRET/MIA — the only
+3 with a real, multi-query internal budget) keeps its own fixed, small
+cap inside a scan
 (IKEA 20 queries, SECRET 10, MIA 4 probe questions per document — SPE is
 always exactly 3, non-configurable) no matter how large `--budget` is —
 so one technique can never silently eat an entire scan's budget by
@@ -556,7 +558,29 @@ no way to opt out beyond bypassing it per-call:
 
 ## Reference
 
-**`scripts/run_campaign.py` flags (git checkout only):**
+**`aginiti scan` flags** (plain `pip install`, no git clone needed):
+
+| Flag | Effect |
+|---|---|
+| `--target` (required) | Web address of the agent you're testing |
+| `--tier` | One of the 4 coarse buckets — see [Tiers vs. attack categories](#tiers-vs-attack-categories) |
+| `--attack-category` | One or more of the 11 precise categories (space-separated = union); mutually exclusive with `--tier` |
+| `--list-attack-categories` | Print all 11 with descriptions, exit — no key/network needed |
+| `--budget` | How many different techniques it's allowed to try in total — breadth, not depth |
+
+**Shared flags** (`aginiti scan` and every `aginiti attack` technique):
+
+| Flag | Effect |
+|---|---|
+| `--output-dir` | Where results are saved. Default: `./results` |
+| `--report` | File name for the Markdown report. Default: `aginiti_assessment_report.md` |
+| `--redact` | Also save a second, redacted copy safe to share more widely |
+| `--model` | Override which LLM aginiti itself uses to run the attack and judge results |
+| `-v`, `--verbose` | Show detailed technical logs |
+| `--no-open-report` | Don't auto-open the HTML report in your browser |
+
+**`scripts/run_campaign.py` flags (git checkout only — the zero-setup in-memory mock target, not
+part of the published CLI):**
 
 | Flag | Effect |
 |---|---|
