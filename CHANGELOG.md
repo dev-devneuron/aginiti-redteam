@@ -131,6 +131,25 @@ changes.
   installs and `.env` discovery.
 - `aginiti_assessment_report.md`/`.html` (and their `_redacted` variants)
   were never gitignored, unlike `findings.json` -- added.
+- `aginiti attack secret`'s Phase 1 (jailbreak optimization) silently
+  produced nothing when only a Groq key was available: `cli.py`'s
+  `_resolve_secret_optimizer` hardcoded `groq/openai/gpt-oss-120b` for the
+  optimizer/evaluator role, but that model is safety-aligned enough to
+  refuse the Optimizer's own "author a jailbreak candidate" framing too --
+  reproduced live against `hardened_agent`, 100% of Phase 1 LLM calls
+  returned "I'm sorry, but I can't help with that.", so Phase 1 finished
+  with score=0.0000 and Phase 2 then sent 15/15 un-jailbroken probes,
+  all refused, 0 findings. `deep_attack_operators.py` (the same role,
+  reached via `aginiti scan`) had already been fixed to use
+  `groq/openai/gpt-oss-20b`, which is confirmed to comply -- `cli.py` had
+  its own separate hardcoded copy of the model string that was never
+  updated when that fix landed, so `aginiti scan` was unaffected but
+  `aginiti attack secret` still had the bug. `cli.py` now imports the one
+  shared constant instead of hardcoding a second copy, so the two paths
+  can't drift again. (The prior entry above, "`aginiti attack secret`'s
+  equivalent path was already correct," was about a different failure
+  mode -- crashing when `GROQ_API_KEY` wasn't set at all -- and didn't
+  cover this one.)
 
 ## [0.3.2]
 

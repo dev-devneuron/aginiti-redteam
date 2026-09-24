@@ -95,7 +95,7 @@ class TestResolveSecretOptimizer:
 
         model, key = cli._resolve_secret_optimizer("gemini/gemini-3.5-flash", "gem-key")
 
-        assert model == "groq/openai/gpt-oss-120b"
+        assert model == "groq/openai/gpt-oss-20b"
         assert key == "gsk_test"
 
     def test_falls_back_to_primary_and_warns_when_no_groq_key(self, monkeypatch, capsys):
@@ -339,7 +339,7 @@ class TestCmdAttackSecret:
             "A sentence about something unrelated.", "Another unrelated sentence.",
         ]
         # Groq preferred for the optimizer role over the Gemini primary model.
-        assert kwargs["optimizer_llm_provider"] == "groq/openai/gpt-oss-120b"
+        assert kwargs["optimizer_llm_provider"] == "groq/openai/gpt-oss-20b"
 
     def test_custom_corpus_file_is_read_line_by_line(self, tmp_path, monkeypatch):
         monkeypatch.setenv("GEMINI_API_KEY", "gem-test")

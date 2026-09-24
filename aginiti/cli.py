@@ -173,9 +173,22 @@ def _resolve_secret_optimizer(primary_model: str, primary_key: str) -> tuple[str
     this one role specifically. Otherwise falls back to the primary model
     and prints a loud warning, since that combination is known to
     underperform by default.
+
+    Imports the model string from deep_attack_operators.py rather than
+    hardcoding a second copy here: this function used to hardcode
+    "groq/openai/gpt-oss-120b" directly, a stale duplicate of the constant
+    below that was never updated when the real fix landed there -- the
+    120b variant is safety-aligned enough to refuse the Optimizer's own
+    framing too (reproduced live: 100% of Phase 1 calls failed with "I'm
+    sorry, but I can't help with that.", identical failure signature to
+    the Gemini case in that module's own comment), so `aginiti attack
+    secret` silently ran Phase 1 with an empty jailbreak while `aginiti
+    scan`'s SECRET operator (which already imports the correct constant)
+    did not. Only gpt-oss-20b is actually confirmed to comply.
     """
     if os.environ.get("GROQ_API_KEY") and not primary_model.startswith("groq/"):
-        return "groq/openai/gpt-oss-120b", os.environ["GROQ_API_KEY"]
+        from aginiti.operators.deep_attack_operators import _SECRET_OPTIMIZER_DEFAULT_GROQ_MODEL
+        return _SECRET_OPTIMIZER_DEFAULT_GROQ_MODEL, os.environ["GROQ_API_KEY"]
     print(
         "WARNING: SECRET's jailbreak-optimizer step is using the same model as "
         f"extraction ({primary_model!r}). Safety-aligned models often refuse this "
