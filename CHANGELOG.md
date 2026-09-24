@@ -9,6 +9,8 @@ changes.
 
 ## [Unreleased]
 
+## [0.3.3]
+
 ### Changed
 
 - Every `--help` screen (`aginiti --help`, and every subcommand/technique's
