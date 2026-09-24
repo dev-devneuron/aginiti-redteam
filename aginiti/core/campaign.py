@@ -87,7 +87,8 @@ def run_campaign(mission: Mission, library: OperatorLibrary, agent: BaseAdapter 
                   ssg: SecurityStateGraph | None = None,
                   stop_on_mission_success: bool = True,
                   enable_reasoning_layer: bool = False,
-                  target_briefing: str | None = None) -> CampaignResult:
+                  target_briefing: str | None = None,
+                  enable_multi_pass: bool = False) -> CampaignResult:
     """`agent` is any BaseAdapter (aginiti/adapters/base.py) -- the mock
     DemoAgent by default, but a real target's adapter works identically;
     nothing else in the campaign loop changes.
@@ -145,7 +146,42 @@ def run_campaign(mission: Mission, library: OperatorLibrary, agent: BaseAdapter 
     internals at all -- so this never gives those conditions anything to
     react to even when the SAME target_briefing is passed to every
     condition in a benchmark, matching the project's own "same
-    configuration for every planner" fairness rule."""
+    configuration for every planner" fairness rule.
+
+    `enable_multi_pass` (default False -- OFF, same "existing callers
+    unaffected" discipline as enable_reasoning_layer/target_briefing):
+    lets the loop start a fresh ROUND once every currently-eligible
+    operator has run and budget remains, instead of stopping the moment
+    the library is exhausted (`aginiti scan --budget 50` previously
+    stopped at ~20 prompts_used once the ~11-operator target-agnostic pack
+    ran dry, no matter how much budget was left). Only `Operator(kind=
+    "deep_attack")` instances (IKEA/SECRET/MIA/SPE) become re-eligible in
+    a new round -- `kind="prompt"` operators (system_prompt_extraction,
+    jailbreak_dan_style, ...) NEVER do, in any round, for the campaign's
+    whole lifetime: their prompt text is a fixed string literal, so a
+    repeat run against unchanged target state is PROVABLY redundant
+    (identical result, zero new information), not merely unlikely to
+    help -- exactly the reasoning the pre-existing one-shot rule states
+    ("deterministic operator against unchanged state -> no new info").
+    Deep-attack operators are different: `attack_factory` builds a fresh
+    attack instance per call (per its own field docstring), and each
+    invocation does real LLM-driven exploration (different anchors,
+    different jailbreak candidates) that can genuinely surface something
+    a prior call didn't. A round only actually starts if the CHEAPEST
+    still-eligible deep-attack operator's own `cost_prompts` fits in the
+    remaining budget -- otherwise the loop reports BUDGET_EXHAUSTED/
+    SEARCH_EXHAUSTED exactly as before. The planner's own existing
+    `core_utility <= 0` cutoff (aginiti/core/planner/aginiti_planner.py)
+    still applies every round, so a deep-attack operator that has nothing
+    further to add (e.g. its claim key is already definitively CONFIRMED)
+    naturally stops being selected on its own, without a separate round
+    cap -- this needs no new guardrail beyond the existing budget/
+    max_steps bounds. Deliberately independent of `stop_on_mission_
+    success`: both False-only callers that predate this flag
+    (`aginiti/core/understanding_loop.py`, `scripts/generate_target_
+    profile.py`) keep their exact current behavior unless they, too, are
+    explicitly updated to pass `enable_multi_pass=True` -- only
+    `aginiti scan` (aginiti/cli.py) does that today."""
     ssg = ssg or SecurityStateGraph()
     if agent is None:
         agent = _default_demo_agent(seed=seed)
@@ -182,10 +218,31 @@ def run_campaign(mission: Mission, library: OperatorLibrary, agent: BaseAdapter 
 
     prompts_used = 0
     step = 0
+    round_num = 1
     decision_log: list[DecisionLogEntry] = []
     execution_log: list[ExecutionResult] = []
-    operators_executed: list[str] = list(ssg.operator_stats.keys())
+    operators_executed: list[str] = list(ssg.operator_stats.keys())  # full history, every execution ever
     considered_total = 0
+
+    # Two-tier eligibility tracking for the ranker (see `enable_multi_pass`'s
+    # own docstring above for the full reasoning): `permanently_excluded`
+    # never shrinks, for the campaign's whole lifetime -- prompt-kind
+    # operators go here the moment they run, since a repeat run against
+    # unchanged state is provably redundant. `round_executed_deep_attack`
+    # holds only the deep-attack operators run in the CURRENT round; it
+    # resets to empty whenever a new round starts (enable_multi_pass only),
+    # making them re-eligible. Resume seeding (ssg.operator_stats) treats
+    # every previously-executed operator, deep-attack included, as spent
+    # for round 1 -- a resumed campaign's first pass shouldn't blindly
+    # redo a prior session's work; only a genuinely NEW round within THIS
+    # run can free deep-attack operators up again.
+    kind_by_id = {op.id: op.kind for op in library}
+    permanently_excluded: set[str] = {
+        op_id for op_id in operators_executed if kind_by_id.get(op_id) != "deep_attack"
+    }
+    round_executed_deep_attack: set[str] = {
+        op_id for op_id in operators_executed if kind_by_id.get(op_id) == "deep_attack"
+    }
 
     _logger.info("campaign starting: policy=%s budget=%d success_criteria=%s",
                  getattr(policy, "name", type(policy).__name__), mission.budget, mission.success_criteria)
@@ -199,13 +256,34 @@ def run_campaign(mission: Mission, library: OperatorLibrary, agent: BaseAdapter 
         if stop_on_mission_success and mission.is_satisfied(ssg):
             return _result("SUCCESS")
 
-        ranked = policy.rank(library, ssg, mission, prompts_used, frozenset(operators_executed))
+        excluded_ids = frozenset(permanently_excluded | round_executed_deep_attack)
+        ranked = policy.rank(library, ssg, mission, prompts_used, excluded_ids)
         considered_total += len(ranked)
 
         if not ranked:
             if mission.is_satisfied(ssg):
                 return _result("SUCCESS")
             budget_remaining = mission.budget - prompts_used
+
+            # Multi-pass round transition -- deep-attack operators only,
+            # see enable_multi_pass's own docstring for the full reasoning.
+            if enable_multi_pass and round_executed_deep_attack:
+                reusable_costs = [
+                    op.cost_prompts for op in library
+                    if op.kind == "deep_attack" and op.id not in permanently_excluded
+                ]
+                min_reusable_cost = min(reusable_costs, default=None)
+                if min_reusable_cost is not None and budget_remaining >= min_reusable_cost:
+                    _logger.info(
+                        "round %d exhausted (%d deep-attack operator(s) re-eligible) -- "
+                        "starting round %d, budget %d/%d remaining",
+                        round_num, len(round_executed_deep_attack), round_num + 1,
+                        budget_remaining, mission.budget,
+                    )
+                    round_executed_deep_attack.clear()
+                    round_num += 1
+                    continue
+
             min_cost = min((op.cost_prompts for op in library), default=1)
             return _result("BUDGET_EXHAUSTED" if budget_remaining < min_cost else "SEARCH_EXHAUSTED")
 
@@ -241,7 +319,11 @@ def run_campaign(mission: Mission, library: OperatorLibrary, agent: BaseAdapter 
         claims_before = len(ssg.claims)  # anchor for the belief-state diff below
         result = adapter.execute(chosen.operator, ssg, agent, seed=seed)
         prompts_used += result.cost_prompts
-        operators_executed.append(chosen.operator.id)
+        operators_executed.append(chosen.operator.id)  # full history, every execution -- never deduped
+        if chosen.operator.kind == "deep_attack":
+            round_executed_deep_attack.add(chosen.operator.id)
+        else:
+            permanently_excluded.add(chosen.operator.id)
         execution_log.append(result)
         decision_log.append(DecisionLogEntry(
             step=step,
@@ -258,10 +340,14 @@ def run_campaign(mission: Mission, library: OperatorLibrary, agent: BaseAdapter 
         # Budget (prompts_used/mission.budget), not step count, is the
         # meaningful progress fraction here -- operators have very
         # different costs, so "step N" alone doesn't say how far through
-        # the run this actually is.
+        # the run this actually is. "round" only ever advances past 1 when
+        # enable_multi_pass=True actually triggered a round transition
+        # above -- printed unconditionally anyway (cheap, and a stable log
+        # format beats one that silently changes shape depending on a flag
+        # the reader may not know was passed).
         _logger.info(
-            "[step %d] chose '%s' (score=%.2f) -> %s | budget %d/%d",
-            step, chosen.operator.id, chosen.score,
+            "[step %d | round %d] chose '%s' (score=%.2f) -> %s | budget %d/%d",
+            step, round_num, chosen.operator.id, chosen.score,
             "success" if result.overall_success else "no confirmed effect",
             prompts_used, mission.budget,
         )

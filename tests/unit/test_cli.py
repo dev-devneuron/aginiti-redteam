@@ -7,6 +7,9 @@ discipline (see CLAUDE.md, docs/USAGE.md).
 from __future__ import annotations
 
 import json
+import os
+from datetime import datetime as _real_datetime
+from datetime import timezone as _real_timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,12 +18,34 @@ from aginiti import cli
 from aginiti.attacks.base import LeakFinding
 
 
+@pytest.fixture(autouse=True)
+def _no_real_browser_launch():
+    """Every `scan`/`attack`/`report` run now auto-opens its HTML report
+    (`aginiti.cli._open_report`, itself a thin `webbrowser.open()` wrapper)
+    -- patched here, autouse, so no test in this file ever pops open a
+    real browser window on the machine running the suite. Returns True
+    (simulating success) so `_open_report`'s own "could not auto-open"
+    fallback print never leaks into a test's captured stdout either."""
+    with patch("aginiti.cli.webbrowser.open", return_value=True):
+        yield
+
+
 def _finding(confirmed: bool = True, leak_type: str = "pii") -> LeakFinding:
     return LeakFinding(
         attack_type="DRA", tier_used="black_box", confidence=0.9, confirmed=confirmed,
         leaked_content="leaked text", probe_used="probe", trace_span_id="",
         recommendation="rotate the secret", severity="high", leak_type=leak_type,
     )
+
+
+def _only_run_dir(base_dir):
+    """Every scan/attack run now writes into a fresh, timestamped
+    subdirectory of --output-dir (`cli._new_run_dir`) rather than
+    `base_dir` itself -- returns that one subdirectory, failing loudly if
+    a test's setup somehow produced zero or more than one."""
+    children = [p for p in base_dir.iterdir() if p.is_dir()]
+    assert len(children) == 1, f"expected exactly one run dir under {base_dir}, found {children}"
+    return children[0]
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +95,7 @@ class TestResolveSecretOptimizer:
 
         model, key = cli._resolve_secret_optimizer("gemini/gemini-3.5-flash", "gem-key")
 
-        assert model == "groq/openai/gpt-oss-120b"
+        assert model == "groq/openai/gpt-oss-20b"
         assert key == "gsk_test"
 
     def test_falls_back_to_primary_and_warns_when_no_groq_key(self, monkeypatch, capsys):
@@ -149,12 +174,58 @@ class TestCmdAttackIkea:
                                       llm_provider="gemini/gemini-3.5-flash", api_key="gem-test")
         mock_attack.execute_black_box.assert_called_once_with(topic="HR records", max_queries=3)
 
-        findings_path = tmp_path / "findings.json"
+        run_dir = _only_run_dir(tmp_path)
+        findings_path = run_dir / "findings.json"
         assert findings_path.exists()
         payload = json.loads(findings_path.read_text(encoding="utf-8"))
         assert payload["run_metadata"]["attack"] == "ikea"
         assert len(payload["findings"]) == 1
-        assert (tmp_path / "aginiti_assessment_report.md").exists()
+        assert (run_dir / "aginiti_assessment_report.md").exists()
+
+    def test_each_run_gets_its_own_directory(self, tmp_path, monkeypatch):
+        """The exact regression this feature fixes: a second run must not
+        overwrite the first run's findings.json/report."""
+        monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+        for env_var, _ in cli._PROVIDER_DEFAULTS:
+            if env_var != "GEMINI_API_KEY":
+                monkeypatch.delenv(env_var, raising=False)
+
+        mock_attack = MagicMock()
+        mock_attack.execute_black_box.return_value = [_finding()]
+
+        parser = cli._build_parser()
+        args = parser.parse_args([
+            "attack", "ikea", "--target", "http://localhost:8001", "--topic", "HR records",
+            "--output-dir", str(tmp_path),
+        ])
+
+        with patch("aginiti.attacks.dra.ikea.IKEAAttack", return_value=mock_attack), \
+             patch("aginiti.cli.datetime") as mock_dt:
+            # Force two distinct timestamps -- a real second run a moment
+            # later would naturally get a different one, but forcing it
+            # here keeps the test deterministic instead of depending on
+            # wall-clock timing. Built from the REAL datetime class
+            # (imported at module level, before this patch exists) -- using
+            # `cli.datetime(...)` here would construct them from the
+            # now-patched mock instead, producing more mocks, not real
+            # datetimes.
+            mock_dt.now.side_effect = [
+                _real_datetime(2026, 9, 23, 10, 0, 0, tzinfo=_real_timezone.utc),
+                _real_datetime(2026, 9, 23, 10, 0, 0, tzinfo=_real_timezone.utc),
+                _real_datetime(2026, 9, 23, 10, 5, 0, tzinfo=_real_timezone.utc),
+                _real_datetime(2026, 9, 23, 10, 5, 0, tzinfo=_real_timezone.utc),
+            ]
+            cli._cmd_attack_ikea(args)
+            cli._cmd_attack_ikea(args)
+
+        run_dirs = sorted(p for p in tmp_path.iterdir() if p.is_dir())
+        assert len(run_dirs) == 2
+        assert run_dirs[0].name == "2026-09-23_100000"
+        assert run_dirs[1].name == "2026-09-23_100500"
+        for run_dir in run_dirs:
+            assert (run_dir / "findings.json").exists()
+            assert (run_dir / "aginiti_assessment_report.md").exists()
+            assert (run_dir / "aginiti_assessment_report.html").exists()
 
     def test_no_api_key_refuses_before_constructing_the_attack(self, tmp_path, monkeypatch):
         for env_var, _ in cli._PROVIDER_DEFAULTS:
@@ -169,6 +240,79 @@ class TestCmdAttackIkea:
             with pytest.raises(SystemExit):
                 cli._cmd_attack_ikea(args)
         ctor.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# HTML report auto-open -- every scan/attack/report run opens the HTML
+# report in a browser by default; --no-open-report skips it; a missing/
+# unavailable browser must never crash an otherwise-successful run.
+# ---------------------------------------------------------------------------
+class TestOpenReport:
+    def test_opens_the_html_report_by_default(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+        for env_var, _ in cli._PROVIDER_DEFAULTS:
+            if env_var != "GEMINI_API_KEY":
+                monkeypatch.delenv(env_var, raising=False)
+
+        mock_attack = MagicMock()
+        mock_attack.execute_black_box.return_value = [_finding()]
+
+        parser = cli._build_parser()
+        args = parser.parse_args([
+            "attack", "ikea", "--target", "http://localhost:8001", "--topic", "HR records",
+            "--output-dir", str(tmp_path),
+        ])
+
+        with patch("aginiti.attacks.dra.ikea.IKEAAttack", return_value=mock_attack), \
+             patch("aginiti.cli.webbrowser.open", return_value=True) as open_mock:
+            cli._cmd_attack_ikea(args)
+
+        open_mock.assert_called_once()
+        opened_uri = open_mock.call_args.args[0]
+        assert opened_uri.endswith("aginiti_assessment_report.html")
+
+    def test_no_open_report_flag_skips_it(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+        for env_var, _ in cli._PROVIDER_DEFAULTS:
+            if env_var != "GEMINI_API_KEY":
+                monkeypatch.delenv(env_var, raising=False)
+
+        mock_attack = MagicMock()
+        mock_attack.execute_black_box.return_value = [_finding()]
+
+        parser = cli._build_parser()
+        args = parser.parse_args([
+            "attack", "ikea", "--target", "http://localhost:8001", "--topic", "HR records",
+            "--output-dir", str(tmp_path), "--no-open-report",
+        ])
+
+        with patch("aginiti.attacks.dra.ikea.IKEAAttack", return_value=mock_attack), \
+             patch("aginiti.cli.webbrowser.open", return_value=True) as open_mock:
+            cli._cmd_attack_ikea(args)
+
+        open_mock.assert_not_called()
+
+    def test_does_not_raise_when_no_browser_is_available(self, tmp_path, capsys):
+        """A headless/CI/Docker environment with no browser (or no display
+        at all) must not turn an otherwise-successful run into a crash on
+        its very last line -- webbrowser.open() raising is caught, and a
+        plain fallback message is printed instead."""
+        html_path = tmp_path / "aginiti_assessment_report.html"
+        html_path.write_text("<html></html>", encoding="utf-8")
+
+        with patch("aginiti.cli.webbrowser.open", side_effect=Exception("no browser available")):
+            cli._open_report(html_path)  # must not raise
+
+        assert "Could not auto-open" in capsys.readouterr().out
+
+    def test_does_not_raise_when_webbrowser_open_returns_false(self, tmp_path, capsys):
+        html_path = tmp_path / "aginiti_assessment_report.html"
+        html_path.write_text("<html></html>", encoding="utf-8")
+
+        with patch("aginiti.cli.webbrowser.open", return_value=False):
+            cli._open_report(html_path)  # must not raise
+
+        assert "Could not auto-open" in capsys.readouterr().out
 
 
 # ---------------------------------------------------------------------------
@@ -195,7 +339,7 @@ class TestCmdAttackSecret:
             "A sentence about something unrelated.", "Another unrelated sentence.",
         ]
         # Groq preferred for the optimizer role over the Gemini primary model.
-        assert kwargs["optimizer_llm_provider"] == "groq/openai/gpt-oss-120b"
+        assert kwargs["optimizer_llm_provider"] == "groq/openai/gpt-oss-20b"
 
     def test_custom_corpus_file_is_read_line_by_line(self, tmp_path, monkeypatch):
         monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
@@ -294,7 +438,7 @@ class TestCmdAttackSpe:
         with patch("aginiti.attacks.spe.spe_llm.SPEAttack", return_value=mock_attack):
             cli._cmd_attack_spe(args)
 
-        assert (tmp_path / "findings.json").exists()
+        assert (_only_run_dir(tmp_path) / "findings.json").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -316,9 +460,10 @@ class TestCmdScan:
             cli._cmd_scan(args)
 
         run_mock.assert_called_once()
-        assert (tmp_path / "findings.json").exists()
-        assert (tmp_path / "aginiti_assessment_report.md").exists()
-        payload = json.loads((tmp_path / "findings.json").read_text(encoding="utf-8"))
+        run_dir = _only_run_dir(tmp_path)
+        assert (run_dir / "findings.json").exists()
+        assert (run_dir / "aginiti_assessment_report.md").exists()
+        payload = json.loads((run_dir / "findings.json").read_text(encoding="utf-8"))
         assert payload["run_metadata"]["attack"] == "scan"
 
     def test_uses_the_full_budget_instead_of_stopping_on_first_success(self, tmp_path):
@@ -338,6 +483,59 @@ class TestCmdScan:
         _, kwargs = run_mock.call_args
         assert kwargs["stop_on_mission_success"] is False
         assert kwargs["max_steps"] >= 15
+
+    def test_scan_never_touches_deep_attack_query_env_vars(self, tmp_path, monkeypatch):
+        """`aginiti scan` must never write IKEA_OPERATOR_MAX_QUERIES/
+        SECRET_OPERATOR_MAX_QUERIES/MIA_OPERATOR_N_PROBE_QUESTIONS, no
+        matter what --budget is -- each deep-attack Operator keeps its own
+        fixed, small query cap (IKEA 20 / SECRET 10 / MIA 4 probe
+        questions) regardless of --budget, by design: --budget controls
+        how many DIFFERENT techniques a scan tries (breadth), not how deep
+        any one goes (depth) -- letting a single Operator selection eat
+        the whole scan's budget would defeat the point of trying multiple
+        techniques. (An earlier version of this fix briefly added a
+        --deep-attack-queries flag that let one CLI value override all
+        three at once -- correctly rejected: it's not aginiti scan's job
+        to deepen an individual technique; that's what `aginiti attack`
+        is for. This test guards against silently reintroducing it.)"""
+        for var in ("IKEA_OPERATOR_MAX_QUERIES", "SECRET_OPERATOR_MAX_QUERIES",
+                    "MIA_OPERATOR_N_PROBE_QUESTIONS"):
+            monkeypatch.delenv(var, raising=False)
+
+        from aginiti.core.campaign import CampaignResult
+
+        mock_result = CampaignResult(
+            outcome="SUCCESS", steps_executed=1, prompts_used=1,
+            operators_executed=["op_a"], operators_considered_total=1,
+        )
+        captured = {}
+
+        def _fake_build_campaign(**kwargs):
+            captured["IKEA_OPERATOR_MAX_QUERIES"] = os.environ.get("IKEA_OPERATOR_MAX_QUERIES")
+            captured["SECRET_OPERATOR_MAX_QUERIES"] = os.environ.get("SECRET_OPERATOR_MAX_QUERIES")
+            captured["MIA_OPERATOR_N_PROBE_QUESTIONS"] = os.environ.get("MIA_OPERATOR_N_PROBE_QUESTIONS")
+            return MagicMock(), MagicMock(budget=200), MagicMock()
+
+        parser = cli._build_parser()
+        args = parser.parse_args([
+            "scan", "--target", "http://x", "--budget", "200", "--output-dir", str(tmp_path),
+        ])
+
+        with patch("aginiti.core.campaign_builder.build_campaign", side_effect=_fake_build_campaign), \
+             patch("aginiti.core.campaign.run_campaign", return_value=mock_result):
+            cli._cmd_scan(args)
+
+        assert captured["IKEA_OPERATOR_MAX_QUERIES"] is None
+        assert captured["SECRET_OPERATOR_MAX_QUERIES"] is None
+        assert captured["MIA_OPERATOR_N_PROBE_QUESTIONS"] is None
+
+    def test_scan_has_no_deep_attack_queries_flag(self):
+        """Explicit regression guard: --deep-attack-queries must not exist
+        as a scan argument -- see test_scan_never_touches_deep_attack_
+        query_env_vars's own docstring for why."""
+        parser = cli._build_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["scan", "--target", "http://x", "--deep-attack-queries", "18"])
 
 
 class TestCollectScanFindings:

@@ -1,0 +1,95 @@
+# End-user Docker workflow for the aginiti-redteam CLI -- run everything
+# (the practice target agent AND the attacks/scans) with no local Python,
+# pip, or venv at all, and no Windows onnxruntime/chromadb native-binary
+# issues (see docker/Dockerfile's own header for why). Two services, built
+# from that one shared image:
+#
+#   demo-target  A long-running FastAPI target agent to try Aginiti against
+#                (aginiti-demo-target --port 8001). Default profile -- a
+#                plain `docker compose up` starts this and only this, same
+#                "never fires an LLM-cost attack by accident" philosophy the
+#                repo-root docker-compose.yml already establishes for its
+#                own "attack" profile.
+#   cli          One-shot `aginiti scan`/`attack`/`report` invocations.
+#                Behind the "cli" profile (so a bare `docker compose up`
+#                never tries to start it with no command) -- always invoked
+#                explicitly with `run`, which also starts its declared
+#                dependencies first.
+#
+# Usage (run from this docker/ directory):
+#
+#   docker compose up -d              # start the practice target on :8001
+#   docker compose run --rm cli aginiti scan --target http://demo-target:8001 \
+#       --tier data_leakage --budget 15
+#   docker compose run --rm cli aginiti attack spe --target http://demo-target:8001
+#   docker compose down               # stop and remove everything
+#
+# Already have your own target agent instead of the practice one? Skip
+# `docker compose up` entirely and just point --target at your own
+# HTTP-reachable URL (it doesn't need to be reachable FROM inside the
+# container via the "demo-target" service name -- use whatever URL/hostname
+# is actually reachable from wherever your target runs):
+#
+#   docker compose run --rm cli aginiti scan --target https://your-agent.example.com --budget 15
+#
+# findings.json/aginiti_assessment_report.{md,html} land in a fresh,
+# timestamped results/<run>/ subdirectory of THIS directory on the host
+# (the `cli` service bind-mounts it to /workspace, its working directory --
+# same results/ layout the README describes for a plain local install).
+# The container has no browser of its own to auto-open the HTML
+# report in -- the CLI's own auto-open (see --no-open-report) fails
+# gracefully there with a one-line "could not auto-open" notice rather than
+# crashing, so nothing extra is needed here; open the file from the HOST
+# afterward instead, the same way the README shows for a plain local
+# install (Start-Process/open/xdg-open). Pass --no-open-report yourself if
+# you'd rather skip straight past that notice.
+#
+# .env (in THIS docker/ directory, or symlink/copy your repo-root one here)
+# supplies your LLM API key to both services via env_file -- copy
+# ../.env.example to .env here and fill in at least one key before running
+# an actual attack (demo-target itself needs no key).
+
+name: aginiti-redteam-cli
+
+services:
+  demo-target:
+    build: .
+    image: aginiti-redteam-cli:latest
+    # required: false (Docker Compose v2.24+ spec) -- demo-target itself
+    # needs no API key at all, so it must start fine even before you've
+    # created a .env here yet. `cli` (below) has the identical need for
+    # its own key-dependent subcommands, so gets the same treatment.
+    env_file:
+      - path: .env
+        required: false
+    command: aginiti-demo-target --port 8001
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  cli:
+    # No separate `build:` -- references the SAME image demo-target builds,
+    # same reason the repo-root docker-compose.yml's own comment gives for
+    # its reference_agent_blackbox/everyone-else split: two services each
+    # declaring `build:` against the same tag race to write it in parallel
+    # and can fail outright. Run `docker compose build` once (or bring
+    # `demo-target` up first) on a fresh checkout before using `cli`.
+    image: aginiti-redteam-cli:latest
+    env_file:
+      - path: .env
+        required: false
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    # Deliberately no `command:` here -- `docker compose run --rm cli
+    # <whatever aginiti subcommand>` supplies it per invocation (see the
+    # usage examples in this file's own header comment). A bare
+    # `docker compose up` never starts this service at all, both because it
+    # has no default command to run and because of the profile gate below.
+    profiles: ["cli"]

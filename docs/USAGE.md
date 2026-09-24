@@ -31,6 +31,13 @@ plain `pip install aginiti-redteam` above already gets you the full
 `aginiti` CLI (`aginiti scan`/`attack`/`report`) — skip `[demo-target]`
 entirely and just point `--target` at your own URL.
 
+**Prefer not to install Python/pip at all?** [`docker/`](../docker/) runs
+the exact same install inside a container — `docker compose up -d` for the
+practice target, `docker compose run --rm cli aginiti scan ...` for the
+CLI. Also sidesteps every gotcha below tagged Windows-native-binary/PATH
+related, since everything runs inside a consistent Linux container
+regardless of your host OS.
+
 ---
 
 ## CLI Quickstart — no code required
@@ -40,6 +47,8 @@ entirely and just point `--target` at your own URL.
 aginiti-demo-target
 #   Port 8001 already taken? Run it on another one instead:
 aginiti-demo-target --port 8010
+#   Vulnerable by default (--vanilla) -- add --hardened for a defended A/B comparison:
+aginiti-demo-target --hardened
 
 # In a second terminal: aginiti scan -- let it decide (try this first)
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
@@ -53,19 +62,26 @@ aginiti attack ikea --target http://localhost:8001 --topic "HR records" --querie
 aginiti attack secret --target http://localhost:8001 --domain "HR records" --queries 5
 aginiti attack mia --target http://localhost:8001 --dataset candidates.json --probes 3
 
-# Regenerate a report from a saved findings.json, without re-running anything (rarely needed)
-aginiti report --input findings.json
+# Regenerate a report for a past run, without re-running anything (rarely needed)
+aginiti report --input results/<run>/findings.json
 ```
 
 Every `scan`/`attack` run auto-saves `findings.json`, a severity-sorted,
 OWASP-mapped `aginiti_assessment_report.md`, and the same report as
-`aginiti_assessment_report.html` for opening straight in a browser — no
-Markdown viewer needed:
+`aginiti_assessment_report.html` (for opening straight in a browser — no
+Markdown viewer needed) into their own fresh, timestamped subdirectory of
+`./results` (`--output-dir` to redirect elsewhere) — e.g.
+`results/2026-09-23_154012/findings.json` — so a later run never overwrites
+an earlier one's results; `results`' contents sort newest-first by name
+(or "date modified") descending. The HTML report opens in your default
+browser automatically the moment the run finishes — `--no-open-report` to
+skip this (e.g. in a headless/CI environment), or reopen a past run's
+report later:
 
 ```bash
-Start-Process aginiti_assessment_report.html   # Windows (PowerShell)
-open aginiti_assessment_report.html            # macOS
-xdg-open aginiti_assessment_report.html        # Linux
+Start-Process results\2026-09-23_154012\aginiti_assessment_report.html   # Windows (PowerShell)
+open results/2026-09-23_154012/aginiti_assessment_report.html            # macOS
+xdg-open results/2026-09-23_154012/aginiti_assessment_report.html        # Linux
 ```
 
 `aginiti scan --tier` accepts
@@ -73,9 +89,28 @@ xdg-open aginiti_assessment_report.html        # Linux
 `aginiti scan`'s own `--budget` means "how many techniques it gets to try"
 (against the real-target pack, 11 techniques today, so above ~15-20 rarely
 finds more) — a different number from how deep any one named technique
-can go with `aginiti attack` directly (see that attack's own section
-below for real ranges). Every subcommand has its own `--help`. Full
+can go. Each deep-attack technique (IKEA/SECRET/MIA — the 3 of the 11
+with a real query budget) keeps its own fixed, small cap inside a scan
+(IKEA 20 queries, SECRET 10, MIA 4 probe questions per document — SPE is
+always exactly 3, non-configurable) no matter how large `--budget` is —
+so one technique can never silently eat an entire scan's budget by
+itself. Want one specific technique to use a much larger budget of its
+own? Run `aginiti attack` directly against just that technique instead
+(see that attack's own section below for real ranges) — its
+`--queries`/`--phase1-iter`/`--probes` are never capped the way the same
+technique is inside `scan`. Every subcommand has its own `--help`. Full
 walkthrough: [docs/TUTORIAL.md](TUTORIAL.md).
+
+`aginiti-demo-target --hardened` (vanilla, all defenses off, is the
+default) turns on a real, if intentionally simple, defense stack for an
+A/B comparison against the exact same attacks: an LLM input-filter
+classifier that screens the question before retrieval/generation ever
+run, a system-prompt guardrail against PII/secret disclosure, output
+redaction (DLP) for SSNs/emails/phone numbers/card-shaped digit runs/
+API-key-shaped tokens, a sliding-window rate limiter (20 requests/minute
+per client), and a short conversation-memory window with a caution nudge
+against systematic information harvesting across turns. `GET /health`
+reports the active mode (`{"status": "ok", "hardened": true|false}`).
 
 The rest of this page covers the **Python API** underneath the CLI — for
 scripting your own assessments, or anything the CLI doesn't expose yet.
@@ -540,10 +575,35 @@ no way to opt out beyond bypassing it per-call:
 | `GROQ_API_KEY` | Attacker/judge LLM (Groq via LiteLLM) — also SECRET's recommended optimizer provider |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | Attacker/judge LLM, respective providers |
 | `IKEA_OPERATOR_LLM_PROVIDER` etc. | Per-attack operator defaults, read at import time by `deep_attack_operators.py` — set *before* importing it, or use `--model` |
+| `SECRET_OPERATOR_OPTIMIZER_LLM_PROVIDER` / `MIA_OPERATOR_SHADOW_LLM_PROVIDER` | Only matters for `aginiti scan`/the campaign engine (not `aginiti attack`, which has its own `--optimizer-model`). Prefers Groq for these two specific roles (see the SECRET FAQ entry below for why), but ONLY if `GROQ_API_KEY` is actually set — falls back to your primary attacker/judge model otherwise, it never requires a Groq key. Set explicitly to force a specific model for just this role. |
 
 ---
 
 ## Gotchas & FAQ
+
+**`aginiti scan --model` didn't seem to change the deep-attack Operators'
+LLM provider at all**
+Fixed — this was a real bug, not intended behavior. Their LLM provider
+used to be frozen from whatever the environment looked like at process
+startup, before `--model` was even parsed, so setting it later in Python
+had no effect. It now resolves fresh every scan.
+
+**`aginiti scan --budget 20` still only ran SECRET at max_queries=10 —
+shouldn't a bigger budget mean a deeper SECRET run?**
+No, and this is deliberate, not a bug: `--budget` controls how many
+*different* techniques a scan tries (breadth) — it was never meant to
+control how deep any ONE of them goes (depth). Each deep-attack technique
+(IKEA/SECRET/MIA) keeps its own fixed, small query cap inside a scan
+(20/10/4) specifically so one technique picked early can't silently
+consume the entire scan's budget, leaving nothing for the other
+techniques a scan exists to try in the first place. If you want one
+specific technique to genuinely use a large budget, run it directly —
+`aginiti attack secret --target ... --queries 50` — which is never
+capped the way the same technique is inside `scan`. (An earlier version
+of this fix briefly added a `--deep-attack-queries` flag to `scan` that
+let one CLI value override all three caps at once — reconsidered and
+removed: overriding a shared safety cap defeats its own purpose, and
+`aginiti attack` already exists for exactly this use case.)
 
 **I pip-installed but `python scripts/run_campaign.py` says "No module
 named scripts"**
@@ -586,18 +646,67 @@ authorized to test. The repo's local reference agents
 zero-consequence target to learn against; nothing about the attacks
 themselves requires them.
 
-**Where do my results actually go — and what's this `.cache` folder I
-found inside my venv?**
+**Where do my results actually go — and what's this cache folder I
+found?**
 Two separate things. Your **findings** are in-memory only — nothing is
-written unless you call `generate_markdown_report()` yourself (see
-[Output & results files](#output--results-files) for the exact schema it
-needs). Separately, IKEA/SECRET/MIA each cache expensive intermediate
-work (anchors, jailbreak prompts, calibration thresholds) automatically,
-and that cache currently lands inside your venv's own install directory
-(`site-packages/.cache/...`) — a real, known quirk, not a bug in your
-setup. Bypass it per-call with
+written unless you call `generate_markdown_report()` yourself (or use the
+CLI, which does this for you — see
+[Output & results files](#output--results-files) for the exact schema).
+Separately, IKEA/SECRET/MIA each cache expensive intermediate work
+(anchors, jailbreak prompts, calibration thresholds) automatically, in a
+real per-user cache directory resolved via
+[`platformdirs`](https://github.com/tox-dev/platformdirs) — e.g.
+`%LOCALAPPDATA%\aginiti-redteam\Cache\` on Windows, `~/.cache/aginiti-redteam/`
+on Linux, `~/Library/Caches/aginiti-redteam/` on macOS — never inside
+your venv or `site-packages`, and never wiped by a reinstall/upgrade.
+Override the base directory with `AGINITI_CACHE_DIR`, or bypass the cache
+per-call with
 `force_refresh=True`/`force_refresh_phase1=True`/`force_recalibrate=True`
 if it's ever in your way.
+
+**I `pip install`-ed without a venv (a plain global install) and the
+`aginiti`/`aginiti-demo-target` commands aren't found**
+Two real, separate causes, in order of likelihood:
+1. **You already had an older version installed.** `pip install
+   aginiti-redteam` does *not* upgrade an already-satisfied requirement —
+   if any version (even a very old one, from before the CLI existed) is
+   already sitting in that Python environment, plain `pip install
+   aginiti-redteam` silently no-ops with "Requirement already satisfied"
+   and you keep the old, command-less version. Always use `pip install
+   --upgrade aginiti-redteam` (`-U` for short) to be sure you actually get
+   the latest release. Check what's really installed with `pip show
+   aginiti-redteam` before assuming anything else is wrong.
+2. **The Python install's own Scripts directory isn't on `PATH`.** A venv
+   adds its own `Scripts`/`bin` directory to `PATH` automatically on
+   activation; a bare global Python install may not have its `Scripts`
+   directory (Windows) or `~/.local/bin` (`pip install --user` on
+   macOS/Linux) on `PATH` at all. Two ways around it, in order of
+   preference:
+   - **Use [`pipx`](https://pipx.pypa.io/) instead of plain `pip`** for a
+     global CLI install: `pipx install aginiti-redteam` (or `pipx install
+     "aginiti-redteam[demo-target]"`). It builds an isolated environment
+     for the tool automatically *and* puts its commands on `PATH` for
+     you — the standard, purpose-built answer to "I want this CLI
+     available everywhere without managing a venv myself."
+   - Or run it as a module instead of relying on `PATH` at all: `python -m
+     aginiti.cli scan ...` always works as long as `python` itself
+     resolves to the right interpreter, regardless of where its `Scripts`
+     directory is. (`aginiti-demo-target` doesn't have a module-invocation
+     equivalent since it's a separate console script — `python -m
+     aginiti.demo_target.main` works the same way for it.)
+
+   Either way, a project-local venv (this guide's default recommendation)
+   sidesteps both of these entirely, since it starts from a clean,
+   version-pinned, `PATH`-configured environment every time.
+
+**Does a `.env` file still get picked up without a venv?**
+Yes, identically either way — `.env` loading
+([`python-dotenv`](https://github.com/theskumar/python-dotenv)'s
+`load_dotenv()`) searches your **current working directory** (and its
+parents) for a `.env` file, completely independent of which Python
+interpreter or environment is running. Run the CLI from the directory
+containing your `.env` (or `cd` there first) and it's found the same way
+whether you're in a venv, a global install, or a `pipx`-managed one.
 
 ---
 

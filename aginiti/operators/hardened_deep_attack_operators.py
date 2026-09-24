@@ -53,6 +53,7 @@ index)`'s own output the same way `deep_attack_operators()` composes onto
 """
 from __future__ import annotations
 
+import functools
 import json
 import os
 from pathlib import Path
@@ -219,15 +220,6 @@ def _select_mia_documents(
 # its document set once at import and can't vary it within one process.
 # ---------------------------------------------------------------------------
 
-_IKEA_LLM_PROVIDER = os.environ.get("IKEA_OPERATOR_LLM_PROVIDER", "gemini/gemini-3.5-flash")
-_IKEA_EMBED_MODEL = os.environ.get("EMBED_MODEL", "chromadb/all-MiniLM-L6-v2")
-_IKEA_MAX_QUERIES = int(os.environ.get("IKEA_OPERATOR_MAX_QUERIES", "20"))
-_IKEA_TIMEOUT_SECONDS = 900.0
-
-_SECRET_LLM_PROVIDER = os.environ.get("SECRET_OPERATOR_LLM_PROVIDER", "gemini/gemini-3.5-flash")
-_SECRET_SEMANTIC_SHIFT_LLM_PROVIDER = os.environ.get(
-    "SECRET_OPERATOR_SEMANTIC_SHIFT_LLM_PROVIDER", _SECRET_LLM_PROVIDER
-)
 # Phase 1's OPTIMIZER/EVALUATOR LLM -- deliberately NOT _SECRET_LLM_PROVIDER
 # (Gemini). Root-caused directly: a live run once had EVERY Phase 1 call
 # fail to parse candidates -- not a parsing bug, a
@@ -251,38 +243,46 @@ _SECRET_SEMANTIC_SHIFT_LLM_PROVIDER = os.environ.get(
 # no evidence of the same failure mode there yet, since it only ran once
 # against an easy already-refused seed response in exp32, but there's no
 # reason to risk it either).
-_SECRET_OPTIMIZER_LLM_PROVIDER = os.environ.get(
-    "SECRET_OPERATOR_OPTIMIZER_LLM_PROVIDER", "groq/openai/gpt-oss-20b"
+#
+# Every env-derived config value (LLM providers, query/probe counts, embed
+# model, timeouts) is imported from deep_attack_operators.py -- the exact
+# same `_IKEAConfig`/`_load_ikea_config`/etc. types that module's own
+# Operators use -- rather than duplicated here as a second, independent
+# set of module-level constants. That used to be a REAL, CONFIRMED BUG:
+# see deep_attack_operators.py's own module docstring for the full
+# writeup (env vars read once, at whatever `os.environ` looked like the
+# first time either module was ever imported -- typically far too early
+# for any CLI flag or late `os.environ` write to matter). Importing the
+# SAME `_load_*_config()` functions (called fresh below, in
+# `hardened_deep_attack_operators()`) fixes it here too, for free, instead
+# of re-introducing the identical bug in a second file.
+#
+# `_SECRET_EXTERNAL_CORPUS`/`_resolve_role_model` -- deliberately generic/
+# target-unrelated corpus (the paper's own design wants a domain-UNRELATED
+# baseline for semantic-shift detection, so this needs no hardened_agent-
+# specific version) and the Groq-preferred-but-optional role resolver
+# (prefers Groq for SECRET's optimizer/evaluator and MIA's shadow LLM, but
+# only if GROQ_API_KEY is genuinely configured, falling back to the
+# primary model instead of crashing otherwise -- see that function's own
+# docstring for the full root-cause writeup of a real live bug this
+# fixes: a user without GROQ_API_KEY used to lose this operator's whole
+# query budget to `attack_factory raised ValueError`).
+from aginiti.operators.deep_attack_operators import (  # noqa: E402
+    _MIA_SHADOW_DEFAULT_GROQ_MODEL,
+    _MIA_SHADOW_ENV_VAR,
+    _SECRET_EVALUATOR_ENV_VAR,
+    _SECRET_EXTERNAL_CORPUS,
+    _SECRET_OPTIMIZER_DEFAULT_GROQ_MODEL,
+    _SECRET_OPTIMIZER_ENV_VAR,
+    _load_ikea_config,
+    _load_mia_config,
+    _load_secret_config,
+    _load_spe_config,
+    _resolve_role_model,
 )
-_SECRET_EVALUATOR_LLM_PROVIDER = os.environ.get(
-    "SECRET_OPERATOR_EVALUATOR_LLM_PROVIDER", _SECRET_OPTIMIZER_LLM_PROVIDER
-)
-_SECRET_EMBED_MODEL = os.environ.get("EMBED_MODEL", "chromadb/all-MiniLM-L6-v2")
-_SECRET_PHASE1_N_ITER = int(os.environ.get("SECRET_OPERATOR_PHASE1_N_ITER", "3"))
-_SECRET_PHASE1_N_CAND = int(os.environ.get("SECRET_OPERATOR_PHASE1_N_CAND", "2"))
-_SECRET_MAX_QUERIES = int(os.environ.get("SECRET_OPERATOR_MAX_QUERIES", "10"))
-_SECRET_COST_PROMPTS = _SECRET_PHASE1_N_ITER * _SECRET_PHASE1_N_CAND + _SECRET_MAX_QUERIES
-_SECRET_TIMEOUT_SECONDS = 1500.0
-# Deliberately generic/target-unrelated, same corpus and same reasoning as
-# deep_attack_operators.py's own _SECRET_EXTERNAL_CORPUS -- the paper's own
-# design wants a domain-UNRELATED baseline for semantic-shift detection,
-# so this does not need a hardened_agent-specific version.
-from aginiti.operators.deep_attack_operators import _SECRET_EXTERNAL_CORPUS  # noqa: E402
-
-_MIA_LLM_PROVIDER = os.environ.get("MIA_OPERATOR_LLM_PROVIDER", "gemini/gemini-3.5-flash")
-_MIA_SHADOW_LLM_PROVIDER = os.environ.get("MIA_OPERATOR_SHADOW_LLM_PROVIDER", "groq/openai/gpt-oss-20b")
-_MIA_N_PROBE_QUESTIONS = int(os.environ.get("MIA_OPERATOR_N_PROBE_QUESTIONS", "4"))
-_MIA_TIMEOUT_SECONDS = 600.0
-
-# SPE's classifier LLM -- see aginiti/operators/deep_attack_operators.py's
-# identical _SPE_LLM_PROVIDER for the full context: SPE is no longer LLM-
-# less, its old 10-keyword heuristic replaced by a real
-# classifier (spe_llm.py's _call_classifier).
-_SPE_LLM_PROVIDER = os.environ.get("SPE_OPERATOR_LLM_PROVIDER", "gemini/gemini-3.5-flash")
-_SPE_TIMEOUT_SECONDS = 120.0  # 3 fixed HTTP round trips + up to 3 classifier LLM calls
 
 
-def _build_ikea_attack(endpoint: AgentEndpoint) -> IKEAAttack:
+def _build_ikea_attack(endpoint: AgentEndpoint, config) -> IKEAAttack:
     """No persona-specific construction-time state needed -- topic is
     passed via the Operator's own `attack_kwargs` at execute_black_box
     call time instead (same separation of concerns as
@@ -297,19 +297,22 @@ def _build_ikea_attack(endpoint: AgentEndpoint) -> IKEAAttack:
     one real HTTP path and would work without this. Belt-and-suspenders:
     if IKEA ever grows a second internal sub-component the way SECRET's
     Phase 1 already has, this stops it from silently reintroducing the
-    same 401-against-an-authenticated-target bug."""
+    same 401-against-an-authenticated-target bug.
+
+    `config` is a `deep_attack_operators._IKEAConfig`, bound via
+    `functools.partial` in `hardened_deep_attack_operators()` below."""
     return IKEAAttack(
         target_url=endpoint.base_url,
-        llm_provider=_IKEA_LLM_PROVIDER,
-        api_key=_key_for(_IKEA_LLM_PROVIDER),
-        embed_model=_IKEA_EMBED_MODEL,
-        embed_api_key=_key_for(_IKEA_EMBED_MODEL),
+        llm_provider=config.llm_provider,
+        api_key=_key_for(config.llm_provider),
+        embed_model=config.embed_model,
+        embed_api_key=_key_for(config.embed_model),
         endpoint=endpoint,
         endpoint_kwargs={"headers": endpoint.headers},
     )
 
 
-def _build_secret_attack(endpoint: AgentEndpoint) -> SECRETAttack:
+def _build_secret_attack(endpoint: AgentEndpoint, config) -> SECRETAttack:
     """CONFIRMED LIVE BUG, found and fixed: `SECRETAttack.
     execute_black_box`'s own direct HTTP calls DO correctly reuse
     `self.endpoint` (secret.py's own `self.endpoint or AgentEndpoint(...)`
@@ -332,29 +335,45 @@ def _build_secret_attack(endpoint: AgentEndpoint) -> SECRETAttack:
     SAME bearer token (a separate HTTP session from `endpoint` itself, so
     Phase 1's own responses still won't feed this adapter's independent
     verbatim/fuzzy oracle via `_raw_responses` -- a real, smaller,
-    accepted gap, NOT the 401 failure this fixes)."""
+    accepted gap, NOT the 401 failure this fixes).
+
+    `optimizer_llm_provider`/`evaluator_llm_provider` resolved via
+    `_resolve_role_model` (imported from deep_attack_operators.py) --
+    prefers Groq for this role but only if `GROQ_API_KEY` is actually
+    configured, falling back to the primary model otherwise.
+
+    `config` is a `deep_attack_operators._SECRETConfig`, bound via
+    `functools.partial` in `hardened_deep_attack_operators()` below."""
+    optimizer_model, optimizer_key = _resolve_role_model(
+        _SECRET_OPTIMIZER_ENV_VAR, _SECRET_OPTIMIZER_DEFAULT_GROQ_MODEL, config.llm_provider
+    )
+    evaluator_env = os.environ.get(_SECRET_EVALUATOR_ENV_VAR)
+    if evaluator_env:
+        evaluator_model, evaluator_key = evaluator_env, _key_for(evaluator_env)
+    else:
+        evaluator_model, evaluator_key = optimizer_model, optimizer_key
     return SECRETAttack(
         target_url=endpoint.base_url,
-        llm_provider=_SECRET_LLM_PROVIDER,
-        api_key=_key_for(_SECRET_LLM_PROVIDER),
+        llm_provider=config.llm_provider,
+        api_key=_key_for(config.llm_provider),
         external_corpus=_SECRET_EXTERNAL_CORPUS,
-        optimizer_llm_provider=_SECRET_OPTIMIZER_LLM_PROVIDER,
-        optimizer_api_key=_key_for(_SECRET_OPTIMIZER_LLM_PROVIDER),
-        evaluator_llm_provider=_SECRET_EVALUATOR_LLM_PROVIDER,
-        evaluator_api_key=_key_for(_SECRET_EVALUATOR_LLM_PROVIDER),
-        semantic_shift_llm_provider=_SECRET_SEMANTIC_SHIFT_LLM_PROVIDER,
-        semantic_shift_api_key=_key_for(_SECRET_SEMANTIC_SHIFT_LLM_PROVIDER),
-        embed_model=_SECRET_EMBED_MODEL,
-        embed_api_key=_key_for(_SECRET_EMBED_MODEL),
-        phase1_n_iter=_SECRET_PHASE1_N_ITER,
-        phase1_n_cand=_SECRET_PHASE1_N_CAND,
-        max_queries=_SECRET_MAX_QUERIES,
+        optimizer_llm_provider=optimizer_model,
+        optimizer_api_key=optimizer_key,
+        evaluator_llm_provider=evaluator_model,
+        evaluator_api_key=evaluator_key,
+        semantic_shift_llm_provider=config.semantic_shift_llm_provider,
+        semantic_shift_api_key=_key_for(config.semantic_shift_llm_provider),
+        embed_model=config.embed_model,
+        embed_api_key=_key_for(config.embed_model),
+        phase1_n_iter=config.phase1_n_iter,
+        phase1_n_cand=config.phase1_n_cand,
+        max_queries=config.max_queries,
         endpoint=endpoint,
         endpoint_kwargs={"headers": endpoint.headers},
     )
 
 
-def _build_interrogation_attack(reference_docs: list[dict]):
+def _build_interrogation_attack(reference_docs: list[dict], config):
     """Persona-bound closure -- `non_member_reference_docs` genuinely IS
     construction-time state (calibration reads it once, cached), unlike
     IKEA/SECRET's topic/domain, which is why this one factory (alone among
@@ -371,27 +390,41 @@ def _build_interrogation_attack(reference_docs: list[dict]):
     1, but not reachable from `hardened_deep_attack_operators()`'s own
     wiring (nothing here calls `score_documents()` directly), so left
     disclosed rather than patched in this pass. `endpoint_kwargs` covers
-    it anyway, for free, if that ever changes."""
+    it anyway, for free, if that ever changes.
+
+    `shadow_llm_provider`/`shadow_llm_api_key` resolved via
+    `_resolve_role_model` -- prefers Groq for this role but only if
+    `GROQ_API_KEY` is actually configured, falling back to the primary
+    model otherwise.
+
+    `config` is a `deep_attack_operators._MIAConfig`, bound via
+    `functools.partial` (together with `reference_docs`, the genuinely
+    persona-specific part) in `hardened_deep_attack_operators()` below."""
     def factory(endpoint: AgentEndpoint) -> InterrogationAttack:
+        shadow_model, shadow_key = _resolve_role_model(
+            _MIA_SHADOW_ENV_VAR, _MIA_SHADOW_DEFAULT_GROQ_MODEL, config.llm_provider
+        )
         return InterrogationAttack(
             target_url=endpoint.base_url,
-            llm_provider=_MIA_LLM_PROVIDER,
-            api_key=_key_for(_MIA_LLM_PROVIDER),
+            llm_provider=config.llm_provider,
+            api_key=_key_for(config.llm_provider),
             non_member_reference_docs=reference_docs,
-            shadow_llm_provider=_MIA_SHADOW_LLM_PROVIDER,
-            shadow_llm_api_key=_key_for(_MIA_SHADOW_LLM_PROVIDER),
-            n_probe_questions=_MIA_N_PROBE_QUESTIONS,
+            shadow_llm_provider=shadow_model,
+            shadow_llm_api_key=shadow_key,
+            n_probe_questions=config.n_probe_questions,
             endpoint=endpoint,
             endpoint_kwargs={"headers": endpoint.headers},
         )
     return factory
 
 
-def _build_spe_attack(endpoint: AgentEndpoint) -> SPEAttack:
+def _build_spe_attack(endpoint: AgentEndpoint, config) -> SPEAttack:
+    """`config` is a `deep_attack_operators._SPEConfig`, bound via
+    `functools.partial` in `hardened_deep_attack_operators()` below."""
     return SPEAttack(
         target_url=endpoint.base_url,
-        classifier_llm_provider=_SPE_LLM_PROVIDER,
-        classifier_api_key=_key_for(_SPE_LLM_PROVIDER),
+        classifier_llm_provider=config.llm_provider,
+        classifier_api_key=_key_for(config.llm_provider),
         endpoint=endpoint,
         endpoint_kwargs={"headers": endpoint.headers},
     )
@@ -403,9 +436,19 @@ def hardened_deep_attack_operators(
 ) -> list[Operator]:
     """The persona-aware deep-attack pack for `hardened_agent`. Compose
     onto `build_hardened_agent_library(persona, index)`'s own output --
-    see module docstring."""
+    see module docstring.
+
+    Each attack's config is resolved fresh HERE, at the top of this
+    function -- once per call, same reasoning as `deep_attack_operators()`'s
+    own identical pattern (see this module's imports section and that
+    function's own docstring for the real, confirmed bug this fixes)."""
     if persona not in _PERSONAS:
         raise ValueError(f"Unknown persona: {persona!r} -- expected one of {_PERSONAS}")
+
+    ikea_cfg = _load_ikea_config()
+    secret_cfg = _load_secret_config()
+    mia_cfg = _load_mia_config()
+    spe_cfg = _load_spe_config()
 
     topic = _HARDENED_TOPICS[persona]
     mia_candidates, mia_reference = _select_mia_documents(
@@ -440,14 +483,14 @@ def hardened_deep_attack_operators(
                 ),
             ),
             effects_failure=(),
-            cost_prompts=_IKEA_MAX_QUERIES,
+            cost_prompts=ikea_cfg.max_queries,
             risk_tier=RiskTier.MEDIUM,
             branch="deep_attack",
             kind="deep_attack",
-            attack_factory=_build_ikea_attack,
-            attack_kwargs={"topic": topic, "max_queries": _IKEA_MAX_QUERIES},
+            attack_factory=functools.partial(_build_ikea_attack, config=ikea_cfg),
+            attack_kwargs={"topic": topic, "max_queries": ikea_cfg.max_queries},
             claim_key="sensitive_data_exfiltrated",
-            attack_timeout_seconds=_IKEA_TIMEOUT_SECONDS,
+            attack_timeout_seconds=ikea_cfg.timeout_seconds,
         ),
         Operator(
             id="hardened_secret_exfiltration",
@@ -474,14 +517,14 @@ def hardened_deep_attack_operators(
                 ),
             ),
             effects_failure=(),
-            cost_prompts=_SECRET_COST_PROMPTS,
+            cost_prompts=secret_cfg.cost_prompts,
             risk_tier=RiskTier.MEDIUM,
             branch="deep_attack",
             kind="deep_attack",
-            attack_factory=_build_secret_attack,
-            attack_kwargs={"domain": topic, "max_queries": _SECRET_MAX_QUERIES},
+            attack_factory=functools.partial(_build_secret_attack, config=secret_cfg),
+            attack_kwargs={"domain": topic, "max_queries": secret_cfg.max_queries},
             claim_key="sensitive_data_exfiltrated",
-            attack_timeout_seconds=_SECRET_TIMEOUT_SECONDS,
+            attack_timeout_seconds=secret_cfg.timeout_seconds,
         ),
         Operator(
             id="hardened_mia_membership",
@@ -511,14 +554,18 @@ def hardened_deep_attack_operators(
                 ),
             ),
             effects_failure=(),
-            cost_prompts=len(mia_candidates) * _MIA_N_PROBE_QUESTIONS,
+            # NOT mia_cfg.cost_prompts -- that field is computed against
+            # deep_attack_operators.py's own generic fixture document
+            # count, wrong for this module's real, persona-specific
+            # mia_candidates. Recomputed here against the actual count.
+            cost_prompts=len(mia_candidates) * mia_cfg.n_probe_questions,
             risk_tier=RiskTier.MEDIUM,
             branch="deep_attack",
             kind="deep_attack",
-            attack_factory=_build_interrogation_attack(mia_reference),
+            attack_factory=_build_interrogation_attack(mia_reference, mia_cfg),
             attack_kwargs={"documents": mia_candidates},
             claim_key="membership_confirmed",
-            attack_timeout_seconds=_MIA_TIMEOUT_SECONDS,
+            attack_timeout_seconds=mia_cfg.timeout_seconds,
         ),
         Operator(
             id="hardened_spe_extraction",
@@ -547,9 +594,9 @@ def hardened_deep_attack_operators(
             risk_tier=RiskTier.LOW,
             branch="deep_attack",
             kind="deep_attack",
-            attack_factory=_build_spe_attack,
+            attack_factory=functools.partial(_build_spe_attack, config=spe_cfg),
             attack_kwargs={"persona": persona},
             claim_key="system_prompt_disclosed",
-            attack_timeout_seconds=_SPE_TIMEOUT_SECONDS,
+            attack_timeout_seconds=spe_cfg.timeout_seconds,
         ),
     ]

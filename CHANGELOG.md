@@ -9,6 +9,150 @@ changes.
 
 ## [Unreleased]
 
+## [0.3.3]
+
+### Changed
+
+- Every `--help` screen (`aginiti --help`, and every subcommand/technique's
+  own) rewritten for a reader with no knowledge of this project's internals
+  and no particular technical background -- the previous text assumed
+  familiarity with internal terms (Operator, RAG, "Phase 1 optimizer") and
+  in the top-level description even included literal file paths and
+  reST-style double-backtick markup meant for a documentation renderer, not
+  a plain terminal. `--target` (previously undocumented on every `aginiti
+  attack` technique) and every other flag now has a plain-language
+  description; each technique's own description explains what it actually
+  does before mentioning its source paper. The technical module docstring
+  developers see in the source is unchanged; a new, separate
+  `_CLI_DESCRIPTION` constant is what `--help` actually shows.
+- Markdown/HTML report generation: removed the hardcoded "Authorization:
+  Not recorded for this run" line (omitted entirely when not supplied,
+  instead of a discouraging placeholder); the assessment-scope note is now
+  concise and points users toward running complementary scan tiers/attack
+  modules instead of reading as a disclaimer; the Key Metrics table now
+  spells out "Attack Success Rate (ASR)" with a plain-language description
+  column, moved the Classifier field out of Key Metrics into the report
+  header, and only ever shows EE/CRR/SS when real ground-truth metrics are
+  present (`aginiti scan`/`aginiti attack` never populate them, only
+  `scripts/run_benchmark.py`'s own ground-truth-scored runs do); every
+  finding's field label (Status, Probe, What leaked, Why flagged,
+  Confidence, OWASP LLM, Remediation) now carries a short plain-language
+  description in the label itself, not appended after the value (appending
+  after the OWASP LLM field's own value, which already contains a hyphen,
+  produced a confusing double-hyphen chain -- fixed by moving the
+  description to the label side, which is unambiguous regardless of what
+  the value contains); every `leak_type` status tag (e.g. `pii`) now always
+  expands to its full plain-language name (e.g. "Personally Identifiable
+  Information (PII)"), with a safe Title Case fallback for any value not
+  in the lookup table. Remaining stray em-dashes in report *output* text
+  (not source comments/docstrings) replaced with plain hyphens.
+- `aginiti-demo-target --hardened` (the default, `--vanilla`, is unchanged
+  and byte-for-byte identical to before this addition) -- an A/B-comparison
+  mode with 4 defenses adapted from `benchmarks/scaled_evals/agents/
+  hardened_agent/agent.py`: an LLM input-filter classifier (blocks before
+  retrieval/generation run), a system-prompt guardrail against PII/secret
+  disclosure, output redaction (DLP) for SSNs/emails/phone numbers/card-
+  shaped digit runs/API-key-shaped tokens, and a short conversation-memory
+  window with a caution nudge against systematic information harvesting.
+  A 5th, a sliding-window rate limiter (20 requests/minute per client IP),
+  is enforced in `main.py` at the request boundary, before any retrieval/
+  generation work runs. RBAC/tool-calling/session-expiry/audit-logging
+  were deliberately not ported -- this target has no personas or tools to
+  scope, unlike the benchmark target those exist for. `GET /health` now
+  reports the active mode (`{"status": "ok", "hardened": true|false}`). No
+  new dependencies (regex/rate-limiter/memory are all stdlib).
+- `aginiti scan` now runs a second (third, ...) round once every eligible
+  operator has run and budget remains, instead of stopping the moment the
+  ~11-operator target-agnostic pack runs dry -- `aginiti scan --budget 100`
+  previously topped out around 20-40 prompts used no matter how large
+  `--budget` was. Only the 4 deep-attack operators (IKEA/SECRET/MIA/SPE)
+  become re-eligible each round -- the cheap prompt probes
+  (`system_prompt_extraction` etc.) keep their permanent one-shot rule,
+  since a repeat run of a fixed prompt against unchanged target state is
+  provably redundant, not just unlikely to help. New `run_campaign(...,
+  enable_multi_pass=True)` parameter (default `False` -- every existing
+  caller, including the benchmark suite, is unaffected); `aginiti scan` is
+  the only caller that passes it. Terminal logging now shows the round
+  number alongside the step (`[step N | round M] ...`).
+- `aginiti scan`/`attack` now write `findings.json`/the report into their
+  own fresh, timestamped subdirectory of `--output-dir` (default:
+  `./results`, e.g. `results/2026-09-23_154012/`) instead of directly into
+  `--output-dir` itself -- a second run no longer silently overwrites the
+  first run's results with no trace they ever existed. `results`' contents
+  sort newest-first by name (or "date modified") descending.
+- `aginiti scan`/`attack`/`report` now auto-open the just-written HTML
+  report in your default browser when the run finishes (`--no-open-report`
+  to skip this, e.g. in a headless/CI/Docker environment) -- no separate
+  command needed to view the result.
+- `docker/` -- a standalone `Dockerfile` + `docker-compose.yml` for the
+  end-user CLI workflow (`aginiti scan`/`attack`/`report` and
+  `aginiti-demo-target`, installed from the real published package, not an
+  editable checkout), separate from the existing contributor/benchmark
+  image at the repo root. `docker compose up -d` starts the practice
+  target; `docker compose run --rm cli aginiti ...` runs a command; `docker
+  compose down` tears it down. Sidesteps every Windows onnxruntime/native-
+  binary and PATH/global-install issue entirely, since everything runs
+  inside a consistent Linux container regardless of host OS.
+### Fixed
+
+- `aginiti scan --model` previously did nothing for the deep-attack
+  Operators (IKEA/SECRET/MIA) -- dead code, confirmed and fixed: their LLM
+  provider config was read from bare MODULE-LEVEL constants, computed
+  exactly once, the first time `deep_attack_operators.py` was ever
+  imported anywhere in the process -- which happens far earlier than
+  expected, via `aginiti/cli.py`'s own `_build_parser()` (built before any
+  argument is even parsed), so the env var `--model` set afterward had
+  nothing left to affect. Every env-derived value now resolves fresh each
+  time `deep_attack_operators()`/`hardened_deep_attack_operators()` run
+  (once per `aginiti scan` invocation), via a small per-attack config
+  dataclass instead of a module-level constant -- see
+  `deep_attack_operators.py`'s own module docstring for the full
+  root-cause writeup. `aginiti scan`'s deep-attack Operators otherwise
+  keep their existing fixed, small query caps (IKEA 20 / SECRET 10 / MIA
+  4 probe questions) regardless of `--budget`, unchanged and by design --
+  that cap is what stops a single Operator from silently consuming an
+  entire scan's budget by itself. Use `aginiti attack` directly (its own
+  `--queries`/`--phase1-iter`/`--probes`, never capped) for a deep run of
+  one specific technique.
+
+- `aginiti scan` (the campaign engine's deep-attack Operators) no longer
+  crashes SECRET's Phase 1 optimizer/evaluator or MIA's shadow-LLM role
+  with `attack_factory raised ValueError: GROQ_API_KEY is not set in .env`
+  for a user who configured any OTHER provider (Gemini, OpenAI, Anthropic,
+  Mistral) instead of Groq -- these two roles prefer Groq for compliance
+  reasons (safety-aligned commercial models tend to refuse their framing)
+  but now only default to it when `GROQ_API_KEY` is genuinely configured,
+  falling back to the primary attacker/judge model otherwise instead of
+  burning the operator's whole query budget on a crash. `aginiti attack
+  secret`'s equivalent path was already correct; this closes the same gap
+  for `aginiti scan`.
+- `docs/USAGE.md`'s cache-directory FAQ entry described stale, long-since-
+  fixed behavior (claimed the disk cache lands inside `site-packages/`) --
+  corrected to describe the real, current `platformdirs`-based per-user
+  cache location, and expanded with new entries on global (non-venv)
+  installs and `.env` discovery.
+- `aginiti_assessment_report.md`/`.html` (and their `_redacted` variants)
+  were never gitignored, unlike `findings.json` -- added.
+- `aginiti attack secret`'s Phase 1 (jailbreak optimization) silently
+  produced nothing when only a Groq key was available: `cli.py`'s
+  `_resolve_secret_optimizer` hardcoded `groq/openai/gpt-oss-120b` for the
+  optimizer/evaluator role, but that model is safety-aligned enough to
+  refuse the Optimizer's own "author a jailbreak candidate" framing too --
+  reproduced live against `hardened_agent`, 100% of Phase 1 LLM calls
+  returned "I'm sorry, but I can't help with that.", so Phase 1 finished
+  with score=0.0000 and Phase 2 then sent 15/15 un-jailbroken probes,
+  all refused, 0 findings. `deep_attack_operators.py` (the same role,
+  reached via `aginiti scan`) had already been fixed to use
+  `groq/openai/gpt-oss-20b`, which is confirmed to comply -- `cli.py` had
+  its own separate hardcoded copy of the model string that was never
+  updated when that fix landed, so `aginiti scan` was unaffected but
+  `aginiti attack secret` still had the bug. `cli.py` now imports the one
+  shared constant instead of hardcoding a second copy, so the two paths
+  can't drift again. (The prior entry above, "`aginiti attack secret`'s
+  equivalent path was already correct," was about a different failure
+  mode -- crashing when `GROQ_API_KEY` wasn't set at all -- and didn't
+  cover this one.)
+
 ## [0.3.2]
 
 ### Added

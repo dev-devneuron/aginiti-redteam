@@ -114,7 +114,23 @@ on `http://localhost:8001`. Leave this terminal open for the rest of the
 demo — go back to your first terminal for everything below.
 
 > **Checkpoint.** Open <http://localhost:8001/health> in a browser — you
-> should see `{"status":"ok"}`.
+> should see `{"status":"ok","hardened":false}`.
+
+**Want to see what real defenses look like?** By default (`--vanilla`,
+implied) the practice chatbot has zero defenses — every attack below gets
+a fair, unobstructed look at the raw model. Run it with `--hardened`
+instead for an A/B comparison — an input-filter classifier that blocks
+attacks before they even reach retrieval, a system-prompt guardrail, output
+PII/secret redaction, a rate limiter, and short-term conversation memory,
+all switched on at once:
+
+```bash
+aginiti-demo-target --hardened
+```
+
+Then run the exact same `aginiti scan`/`aginiti attack` commands below
+against it and compare the reports — same target data, same attacks,
+defenses the only variable.
 
 ### Option B — your own target
 
@@ -131,18 +147,22 @@ instead of `http://localhost:8001`.
 ## 3 · Choose your approach
 
 Two ways to run an assessment — pick based on what you already know. Both
-auto-save three files into your current folder when they finish:
-`findings.json` (the full structured result), `aginiti_assessment_report.md`
-(a readable report, sorted highest severity first, mapped to the
-industry-standard OWASP LLM Top 10), and `aginiti_assessment_report.html`
-(the same report, styled for a browser — the one to open, share, or
-attach to an email, even for a non-technical reader). Nothing extra to
-write for that. Open the HTML report straight from your terminal:
+auto-save three files into their own fresh, timestamped folder under
+`./results` when they finish (e.g. `results/2026-09-23_154012/`) — so a
+later run never overwrites an earlier one's results, and `results` sorts
+newest-first by name (or "date modified") descending: `findings.json`
+(the full structured result), `aginiti_assessment_report.md` (a readable
+report, sorted highest severity first, mapped to the industry-standard
+OWASP LLM Top 10), and `aginiti_assessment_report.html` (the same report,
+styled for a browser — the one to open, share, or attach to an email,
+even for a non-technical reader). Nothing extra to write for that — the
+HTML report opens in your default browser automatically the moment the
+run finishes. To reopen a past run's report later:
 
 ```bash
-Start-Process aginiti_assessment_report.html   # Windows (PowerShell)
-open aginiti_assessment_report.html            # macOS
-xdg-open aginiti_assessment_report.html        # Linux
+Start-Process results\2026-09-23_154012\aginiti_assessment_report.html   # Windows (PowerShell)
+open results/2026-09-23_154012/aginiti_assessment_report.html            # macOS
+xdg-open results/2026-09-23_154012/aginiti_assessment_report.html        # Linux
 ```
 
 ### `aginiti scan` — let it decide
@@ -163,8 +183,12 @@ tries it gets, spent across whichever techniques currently look most
 promising. Each technique only runs once per scan against a real target,
 so **for this specific starting pack** (11 techniques today — the 4 named
 ones plus 7 broader probes) a budget above ~15-20 rarely finds more; it's
-a different number from how deep any one named technique itself can go
-once you run it directly with `aginiti attack` below.
+a different number from how deep any one named technique itself can go.
+IKEA/SECRET/MIA each keep their own fixed, small query cap inside a scan
+(20/10/4) no matter how large `--budget` is — on purpose, so one
+technique can't quietly eat the whole scan's budget. Want one of them to
+go much deeper? Run it directly instead: `aginiti attack secret --queries 30`
+below, which is never capped the way the same technique is inside `scan`.
 
 | Tier | Use this when |
 |---|---|
@@ -294,13 +318,13 @@ refuse writing jailbreak prompts, even for authorized testing.
 ## 4 · Reports
 
 You'll rarely need this on its own — every `scan` and `attack` run above
-already auto-saves `aginiti_assessment_report.md` for you. `aginiti
-report` exists for the rare case where you want to regenerate one
-afterward without re-running anything — most commonly, to also produce a
-redacted copy for wider circulation:
+already auto-saves `aginiti_assessment_report.md` for you, into its own
+`results/<run>/` folder. `aginiti report` exists for the rare case where
+you want to regenerate one afterward without re-running anything — most
+commonly, to also produce a redacted copy for wider circulation:
 
 ```bash
-aginiti report --input findings.json --redact
+aginiti report --input results/2026-09-23_154012/findings.json --redact
 ```
 
 ---
@@ -363,6 +387,8 @@ pip install "aginiti-redteam[demo-target]"
 aginiti-demo-target
 # port 8001 already taken? run it on another one instead:
 aginiti-demo-target --port 8010
+# want an A/B comparison against real defenses instead of the vulnerable default?
+aginiti-demo-target --hardened
 
 # --- Terminal 1: aginiti scan -- let it decide (try this first) ---
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
@@ -376,13 +402,13 @@ aginiti attack ikea --target http://localhost:8001 --topic "HR payroll records" 
 aginiti attack mia --target http://localhost:8001 --dataset candidates.json --probes 3
 aginiti attack secret --target http://localhost:8001 --domain "HR records" --queries 5
 
-# --- rarely needed: regenerate a report from a saved findings.json ---
-aginiti report --input findings.json --redact
+# --- rarely needed: regenerate a report for a past run (results/<run>/) ---
+aginiti report --input results/2026-09-23_154012/findings.json --redact
 
-# --- open the HTML report in a browser ---
-Start-Process aginiti_assessment_report.html   # Windows (PowerShell)
-open aginiti_assessment_report.html            # macOS
-xdg-open aginiti_assessment_report.html        # Linux
+# --- each run's HTML report opens automatically; to reopen one later ---
+Start-Process results\2026-09-23_154012\aginiti_assessment_report.html   # Windows (PowerShell)
+open results/2026-09-23_154012/aginiti_assessment_report.html            # macOS
+xdg-open results/2026-09-23_154012/aginiti_assessment_report.html        # Linux
 
 # --- already have your own target? use its URL everywhere above instead ---
 aginiti attack spe --target https://your-agent.example.com

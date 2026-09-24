@@ -61,6 +61,8 @@ Run a real assessment straight from your terminal:
 aginiti-demo-target
 #   Port 8001 already taken? Run it on another one instead:
 aginiti-demo-target --port 8010
+#   Vulnerable by default (--vanilla) -- add --hardened for a defended A/B comparison:
+aginiti-demo-target --hardened
 
 # In a second terminal: aginiti scan -- let it decide (try this first)
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
@@ -74,22 +76,23 @@ aginiti attack ikea --target http://localhost:8001 --topic "HR records" --querie
 aginiti attack secret --target http://localhost:8001 --domain "HR records" --queries 10
 aginiti attack mia --target http://localhost:8001 --dataset candidates.json
 
-# Regenerate a Markdown report from a saved findings.json, without re-running anything
-aginiti report --input findings.json
+# Regenerate a Markdown report for a past run, without re-running anything
+aginiti report --input results/<run>/findings.json
 ```
 
 Every `scan`/`attack` run prints one authorized-use reminder, then auto-saves
 `findings.json` (the full structured result), `aginiti_assessment_report.md` (a
 human-readable, OWASP LLM Top 10–mapped Markdown report), and `aginiti_assessment_report.html`
-(the same report, styled for a browser) into the current directory (`--output-dir` to
-redirect). Open the HTML report straight from your terminal — `Start-Process
-aginiti_assessment_report.html` (Windows), `open aginiti_assessment_report.html` (macOS), or
-`xdg-open aginiti_assessment_report.html` (Linux) — no Markdown viewer needed, so it's easy
-to hand to a non-technical reader too. `--tier` accepts `data_leakage | unauthorized_actions |
-discovery_recon | full_assessment`; use `--attack-category` instead for one of 11 precise
-named groups (`aginiti scan --list-attack-categories` to see all of them). Every subcommand
-has its own `--help`; `aginiti attack mia --dataset` expects a JSON file shaped
-`{"documents": [{"id", "text"}, ...], "non_member_reference_docs": [{"id", "text"}, ...]}`.
+(the same report, styled for a browser) into their own fresh, timestamped subdirectory of
+`./results` (`--output-dir` to redirect elsewhere), e.g. `results/2026-09-23_154012/` — so a
+later run never overwrites an earlier one's results. The HTML report opens in your default
+browser automatically the moment the run finishes (`--no-open-report` to skip this) — no
+Markdown viewer needed, so it's easy to hand to a non-technical reader too. `--tier` accepts
+`data_leakage | unauthorized_actions | discovery_recon | full_assessment`; use
+`--attack-category` instead for one of 11 precise named groups (`aginiti scan
+--list-attack-categories` to see all of them). Every subcommand has its own `--help`; `aginiti
+attack mia --dataset` expects a JSON file shaped `{"documents": [{"id", "text"}, ...],
+"non_member_reference_docs": [{"id", "text"}, ...]}`.
 
 Point `--target` at any real, HTTP-reachable agent you're authorized to test instead of the
 local demo target — nothing about the CLI requires it.

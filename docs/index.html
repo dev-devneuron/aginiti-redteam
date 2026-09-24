@@ -650,12 +650,17 @@ pip install "aginiti-redteam[demo-target]"</code></pre>
         concern and lets it decide for itself which technique to try; <code>aginiti attack</code> runs
         one specific, named technique directly. Both auto-save <code>findings.json</code>, a
         severity-sorted, OWASP-mapped <code>aginiti_assessment_report.md</code>, and the same report as
-        <code>aginiti_assessment_report.html</code> for opening straight in a browser — nothing extra to
-        write for that.</p>
+        <code>aginiti_assessment_report.html</code> into their own fresh, timestamped subdirectory of
+        <code>./results</code> (e.g. <code>results/2026-09-23_154012/</code>) — so a later run never
+        overwrites an earlier one's results, and <code>results</code>' contents sort newest-first by
+        name descending. The HTML report opens in your default browser automatically the moment the run
+        finishes.</p>
       <pre><code># Start a local target agent to try Aginiti against (seeds itself, then serves on :8001)
 aginiti-demo-target
 #   Port 8001 already taken? Run it on another one instead:
 aginiti-demo-target --port 8010
+#   Vulnerable by default (--vanilla) -- add --hardened for a defended A/B comparison:
+aginiti-demo-target --hardened
 
 # In a second terminal: aginiti scan -- let it decide (try this first)
 aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
@@ -669,8 +674,8 @@ aginiti attack ikea --target http://localhost:8001 --topic "HR records" --querie
 aginiti attack secret --target http://localhost:8001 --domain "HR records" --queries 5
 aginiti attack mia --target http://localhost:8001 --dataset candidates.json --probes 3
 
-# Regenerate a report from a saved findings.json, without re-running anything (rarely needed)
-aginiti report --input findings.json</code></pre>
+# Regenerate a report for a past run, without re-running anything (rarely needed)
+aginiti report --input results/&lt;run&gt;/findings.json</code></pre>
       <div class="tablewrap">
         <table>
           <tr><th>Technique</th><th>Quick check</th><th>Typical</th><th>Paper's own budget</th></tr>
@@ -686,21 +691,33 @@ aginiti report --input findings.json</code></pre>
         <p><code>aginiti scan</code>'s own <code>--budget</code> means something different: each
           technique only runs once per scan, and against the real-target pack (11 techniques today) a
           budget above ~15-20 rarely finds more — a separate ceiling from how deep any one named
-          technique can go when run directly with <code>aginiti attack</code> above.</p>
+          technique can go. IKEA/SECRET/MIA each keep their own fixed, small query cap inside a scan
+          (20/10/4) no matter how large <code>--budget</code> is, on purpose, so one technique can't
+          quietly eat the whole scan's budget. Want one of them to go much deeper? Run it directly
+          instead — <code>aginiti attack secret --queries 30</code> — which is never capped the way the
+          same technique is inside <code>scan</code>.</p>
       </div>
       <p>Point <code>--target</code> at any real, HTTP-reachable agent you're authorized to test instead
         of the local demo target — nothing about the CLI requires it. Every subcommand has its own
         <code>--help</code>. Full CLI walkthrough: <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/TUTORIAL.md">docs/TUTORIAL.md</a>.</p>
-      <p>Open the HTML report straight from your terminal — no Markdown viewer needed, so it's easy to
-        hand to a non-technical reader too:</p>
+      <p><code>aginiti-demo-target --hardened</code> (vanilla, all defenses off, is the default) turns on
+        a real, if intentionally simple, defense stack for an A/B comparison against the exact same
+        attacks: an LLM input-filter classifier that screens the question before retrieval/generation
+        ever run, a system-prompt guardrail against PII/secret disclosure, output redaction (DLP) for
+        SSNs/emails/phone numbers/card-shaped digit runs/API-key-shaped tokens, a sliding-window rate
+        limiter (20 requests/minute per client), and a short conversation-memory window with a caution
+        nudge against systematic information harvesting across turns. <code>GET /health</code> reports the
+        active mode.</p>
+      <p>No Markdown viewer needed — easy to hand to a non-technical reader too. To reopen a past run's
+        report later instead of waiting for the next auto-open:</p>
       <pre><code># Windows (PowerShell)
-Start-Process aginiti_assessment_report.html
+Start-Process results\2026-09-23_154012\aginiti_assessment_report.html
 
 # macOS
-open aginiti_assessment_report.html
+open results/2026-09-23_154012/aginiti_assessment_report.html
 
 # Linux
-xdg-open aginiti_assessment_report.html</code></pre>
+xdg-open results/2026-09-23_154012/aginiti_assessment_report.html</code></pre>
 
       <h3 class="h-anchor" id="u-python-api">Python API — for programmatic or custom use</h3>
       <p>Everything the CLI does is also a plain library call, for scripting your own assessments or

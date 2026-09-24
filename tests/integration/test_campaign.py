@@ -11,11 +11,12 @@ from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary, Pr
 from aginiti.core.policies.base import Candidate
 
 
-def _operator(op_id, effects_success=(), effects_failure=(), preconditions=(), cost=1):
+def _operator(op_id, effects_success=(), effects_failure=(), preconditions=(), cost=1, kind="prompt"):
     return Operator(
         id=op_id, description=op_id, prompt="x", channel="direct",
         preconditions=preconditions, effects_success=effects_success,
         effects_failure=effects_failure, cost_prompts=cost, risk_tier=RiskTier.LOW,
+        kind=kind,
     )
 
 
@@ -184,6 +185,90 @@ def test_campaign_respects_preconditions_via_scripted_policy():
 
     assert result.outcome == "SUCCESS"
     assert result.operators_executed == ["gate", "locked_op"]
+
+
+def test_campaign_multi_pass_reruns_a_deep_attack_operator_when_budget_remains():
+    """Regression test for the reported gap: `aginiti scan --budget 50`
+    stopped the moment the (small) operator pack ran dry, no matter how
+    much budget was left. With enable_multi_pass=True and a single
+    deep_attack operator whose cost (10) fits twice inside the budget
+    (25), the campaign must start a second round and run it again instead
+    of reporting SEARCH_EXHAUSTED after just one execution."""
+    op = _operator("ikea_like", kind="deep_attack", cost=10,
+                    effects_success=(ClaimEffect("side_fact", ClaimStatus.CONFIRMED),))
+    library = OperatorLibrary([op])
+    mission = Mission(goal="test", success_criteria=("unreachable",), budget=25, risk_threshold=RiskTier.LOW)
+
+    result = run_campaign(mission, library, agent=object(), policy=_ScriptedPolicy(),
+                           adapter=_FakeAdapter(succeed=True), stop_on_mission_success=False,
+                           enable_multi_pass=True, max_steps=10)
+
+    # Round 1: budget 25 -> 15 (>= cost 10, round 2 starts). Round 2:
+    # budget 15 -> 5 (< cost 10, genuinely exhausted, round 3 never starts).
+    assert result.operators_executed == ["ikea_like", "ikea_like"]
+    assert result.prompts_used == 20
+    assert result.outcome == "BUDGET_EXHAUSTED"
+
+
+def test_campaign_multi_pass_never_reruns_a_prompt_operator():
+    """The scoping decision this feature was built around: kind="prompt"
+    operators keep the permanent one-shot rule in EVERY round, since a
+    repeat run of a fixed-text prompt against unchanged target state is
+    provably redundant -- unlike deep_attack operators, which do real
+    fresh exploration on every call. Same budget/cost shape as the
+    deep_attack test above (would clearly support a second round on cost
+    alone) -- the only difference is `kind`, and that alone must be
+    enough to suppress the rerun."""
+    op = _operator("system_prompt_extraction_like", kind="prompt", cost=10,
+                    effects_success=(ClaimEffect("side_fact", ClaimStatus.CONFIRMED),))
+    library = OperatorLibrary([op])
+    mission = Mission(goal="test", success_criteria=("unreachable",), budget=25, risk_threshold=RiskTier.LOW)
+
+    result = run_campaign(mission, library, agent=object(), policy=_ScriptedPolicy(),
+                           adapter=_FakeAdapter(succeed=True), stop_on_mission_success=False,
+                           enable_multi_pass=True, max_steps=10)
+
+    assert result.operators_executed == ["system_prompt_extraction_like"]
+    assert result.prompts_used == 10
+    assert result.outcome == "SEARCH_EXHAUSTED"
+
+
+def test_campaign_multi_pass_off_by_default_matches_prior_behavior():
+    """enable_multi_pass defaults to False -- every existing caller
+    (the benchmark suite, understanding_loop.py, generate_target_
+    profile.py, and any test that doesn't pass it explicitly) must see
+    EXACTLY the original single-pass behavior: a deep_attack operator
+    still only runs once, even with ample budget remaining and
+    stop_on_mission_success=False."""
+    op = _operator("ikea_like", kind="deep_attack", cost=10,
+                    effects_success=(ClaimEffect("side_fact", ClaimStatus.CONFIRMED),))
+    library = OperatorLibrary([op])
+    mission = Mission(goal="test", success_criteria=("unreachable",), budget=25, risk_threshold=RiskTier.LOW)
+
+    result = run_campaign(mission, library, agent=object(), policy=_ScriptedPolicy(),
+                           adapter=_FakeAdapter(succeed=True), stop_on_mission_success=False)
+
+    assert result.operators_executed == ["ikea_like"]
+    assert result.outcome == "SEARCH_EXHAUSTED"
+
+
+def test_campaign_multi_pass_does_not_affect_stop_on_mission_success_true():
+    """Benchmark-protocol safety: enable_multi_pass=True combined with the
+    benchmark suite's own stop_on_mission_success=True (measuring prompts-
+    used-to-success) must still stop the instant the mission is satisfied
+    -- multi-pass only ever matters once the loop would otherwise report
+    SEARCH_EXHAUSTED/BUDGET_EXHAUSTED with budget left, which stopping on
+    success never reaches."""
+    op = _operator("ikea_like", kind="deep_attack", cost=10,
+                    effects_success=(ClaimEffect("goal_achieved", ClaimStatus.CONFIRMED),))
+    library = OperatorLibrary([op])
+    mission = Mission(goal="test", success_criteria=("goal_achieved",), budget=25, risk_threshold=RiskTier.LOW)
+
+    result = run_campaign(mission, library, agent=object(), policy=_ScriptedPolicy(),
+                           adapter=_FakeAdapter(succeed=True), enable_multi_pass=True)
+
+    assert result.operators_executed == ["ikea_like"]
+    assert result.outcome == "SUCCESS"
 
 
 def test_campaign_logs_start_and_finish(caplog):

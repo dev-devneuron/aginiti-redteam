@@ -64,9 +64,24 @@ tests/unit/test_prepare_onyx_upload.py
 # generic "compare two benchmark result JSONs" tooling, useful independent
 # of Onyx (e.g. for the upcoming vanilla-target-agent work). Kept tracked.
 
-# Attack run output (scripts/run_ikea.py) — one timestamped file per run
+# Attack run output (scripts/run_ikea.py, and the aginiti CLI's default
+# --output-dir "results" -- each scan/attack run gets its own fresh,
+# timestamped subdirectory of results/, e.g. results/20260923_154012/).
+# No leading slash -- matches at any depth (repo root AND docker/results/,
+# where the docker/ CLI workflow writes its own run output), same reason
+# findings.json below has no leading slash either. Confirmed no tracked
+# file anywhere in this repo actually lives under a directory literally
+# named "results" before adding this (scripts/results/ and
+# benchmarks/scaled_evals/results/ are their own, already-covered, more
+# specific paths, not affected either way). The bare filenames are kept
+# too, defense in depth, in case --output-dir is ever pointed elsewhere.
 scripts/results/
+results/
 findings.json
+aginiti_assessment_report.md
+aginiti_assessment_report.html
+aginiti_assessment_report_redacted.md
+aginiti_assessment_report_redacted.html
 
 # Cloned official paper repos (IKEA, RAG_MIA, SPE-LLM) kept locally for
 # comparing this project's implementation against the papers' own code --
