@@ -135,13 +135,25 @@ class BaseAttack(ABC):
                  api_key: str, otel_ingester=None,
                  fallback_llm_provider: Optional[str] = None,
                  fallback_api_key: Optional[str] = None,
-                 endpoint: Optional[AgentEndpoint] = None):
+                 endpoint: Optional[AgentEndpoint] = None,
+                 api_keys: Optional[list[str]] = None):
         # fallback_llm_provider/fallback_api_key (additive,
         # both default None — every existing call site keeps working
         # unchanged). See _init_llm's docstring for when the fallback is used.
+        #
+        # api_keys (additive, default None — every existing call site keeps
+        # working unchanged): _init_llm has always accepted a multi-key
+        # rotation pool for this exact provider (several free-tier keys to
+        # spread a rate limit across, see its own docstring), but this
+        # constructor never forwarded it -- only a handful of call sites
+        # that bypass __init__ and call self._init_llm(...) directly (e.g.
+        # SECRETAttack's semantic_shift_llm) could actually use it. Finishes
+        # that wiring so any BaseAttack subclass can opt in through its own
+        # constructor without bypassing this one.
         self.target_url = target_url
         self.llm = self._init_llm(
-            llm_provider, api_key, fallback_llm_provider, fallback_api_key
+            llm_provider, api_key, fallback_llm_provider, fallback_api_key,
+            api_keys=api_keys,
         )
         self.otel = otel_ingester
         # endpoint (Phase 2 Slice B, plans/

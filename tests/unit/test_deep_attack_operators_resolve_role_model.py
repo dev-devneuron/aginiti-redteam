@@ -26,6 +26,15 @@ _ALL_PROVIDER_KEYS = (
 def clear_all_provider_keys(monkeypatch):
     for env_var in _ALL_PROVIDER_KEYS:
         monkeypatch.delenv(env_var, raising=False)
+    # _resolve_role_model now imports aginiti.providers.llm's
+    # _load_groq_keys, which walks GROQ_API_KEY_2, _3, ... with no fixed
+    # upper bound -- the first import of that module in a test process also
+    # runs its own module-level load_dotenv(), which (on a machine with a
+    # real, populated .env, e.g. local dev) pulls real numbered keys into
+    # os.environ. Clear a generous range so every test here sees exactly
+    # the keys it sets, not whatever a developer's own .env contains.
+    for i in range(2, 51):
+        monkeypatch.delenv(f"GROQ_API_KEY_{i}", raising=False)
 
 
 class TestResolveRoleModel:
@@ -33,13 +42,14 @@ class TestResolveRoleModel:
         monkeypatch.setenv("SECRET_OPERATOR_OPTIMIZER_LLM_PROVIDER", "gemini/gemini-3.5-flash")
         monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
 
-        model, key = dao._resolve_role_model(
+        model, key, keys = dao._resolve_role_model(
             "SECRET_OPERATOR_OPTIMIZER_LLM_PROVIDER", "groq/openai/gpt-oss-20b",
             "gemini/gemini-3.5-flash",
         )
 
         assert model == "gemini/gemini-3.5-flash"
         assert key == "fake-gemini-key"
+        assert keys is None
 
     def test_explicit_env_var_override_still_raises_if_its_own_key_missing(self, monkeypatch):
         monkeypatch.setenv("SECRET_OPERATOR_OPTIMIZER_LLM_PROVIDER", "openai/gpt-4o-mini")
@@ -54,13 +64,33 @@ class TestResolveRoleModel:
     def test_defaults_to_groq_when_groq_key_is_available(self, monkeypatch):
         monkeypatch.setenv("GROQ_API_KEY", "fake-groq-key")
 
-        model, key = dao._resolve_role_model(
+        model, key, keys = dao._resolve_role_model(
             "SECRET_OPERATOR_OPTIMIZER_LLM_PROVIDER", "groq/openai/gpt-oss-20b",
             "gemini/gemini-3.5-flash",
         )
 
         assert model == "groq/openai/gpt-oss-20b"
         assert key == "fake-groq-key"
+        assert keys == ["fake-groq-key"]
+
+    def test_returns_the_full_groq_key_pool_when_multiple_keys_configured(self, monkeypatch):
+        """The actual fix this module exists for: a single free-tier Groq
+        key's TPM limit is easy to exhaust across Phase 1's optimizer +
+        evaluator calls -- .env commonly has GROQ_API_KEY_2, _3, ... for
+        exactly this reason. Every configured key must come back, not just
+        the first."""
+        monkeypatch.setenv("GROQ_API_KEY", "fake-groq-key-1")
+        monkeypatch.setenv("GROQ_API_KEY_2", "fake-groq-key-2")
+        monkeypatch.setenv("GROQ_API_KEY_3", "fake-groq-key-3")
+
+        model, key, keys = dao._resolve_role_model(
+            "SECRET_OPERATOR_OPTIMIZER_LLM_PROVIDER", "groq/openai/gpt-oss-20b",
+            "gemini/gemini-3.5-flash",
+        )
+
+        assert model == "groq/openai/gpt-oss-20b"
+        assert key == "fake-groq-key-1"
+        assert keys == ["fake-groq-key-1", "fake-groq-key-2", "fake-groq-key-3"]
 
     def test_falls_back_to_primary_model_when_groq_key_absent(self, monkeypatch, caplog):
         """The exact regression test for the reported bug: a user with only
@@ -69,26 +99,28 @@ class TestResolveRoleModel:
         instead, with a warning, not a raised ValueError."""
         monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
 
-        model, key = dao._resolve_role_model(
+        model, key, keys = dao._resolve_role_model(
             "SECRET_OPERATOR_OPTIMIZER_LLM_PROVIDER", "groq/openai/gpt-oss-20b",
             "gemini/gemini-3.5-flash",
         )
 
         assert model == "gemini/gemini-3.5-flash"
         assert key == "fake-gemini-key"
+        assert keys is None
 
     def test_falls_back_to_any_non_groq_primary_provider(self, monkeypatch):
         """Same fallback, proven for a second, different provider -- not
         special-cased to Gemini alone."""
         monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-anthropic-key")
 
-        model, key = dao._resolve_role_model(
+        model, key, keys = dao._resolve_role_model(
             "MIA_OPERATOR_SHADOW_LLM_PROVIDER", "groq/openai/gpt-oss-20b",
             "anthropic/claude-3-5-haiku-latest",
         )
 
         assert model == "anthropic/claude-3-5-haiku-latest"
         assert key == "fake-anthropic-key"
+        assert keys is None
 
     def test_raises_when_nothing_at_all_is_configured(self, monkeypatch):
         with pytest.raises(ValueError, match="GEMINI_API_KEY"):
@@ -121,6 +153,22 @@ class TestBuildSecretAttackUsesFallback:
 
         assert attack._optimizer_llm_provider == "groq/openai/gpt-oss-20b"
         assert attack._evaluator_llm_provider == "groq/openai/gpt-oss-20b"
+
+    def test_build_secret_attack_wires_the_full_groq_key_pool_through(self, monkeypatch):
+        """Regression test for the rate-limit bug this fix closes: a single
+        Groq key was being used for Phase 1 even when .env had several
+        (GROQ_API_KEY_2, _3, ...) -- SECRETAttack must receive all of them,
+        not just the first, and forward the same pool to the evaluator by
+        default."""
+        monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
+        monkeypatch.setenv("GROQ_API_KEY", "fake-groq-key-1")
+        monkeypatch.setenv("GROQ_API_KEY_2", "fake-groq-key-2")
+
+        endpoint = dao.AgentEndpoint(base_url="http://localhost:8001")
+        attack = dao._build_secret_attack(endpoint, dao._load_secret_config())
+
+        assert attack._optimizer_api_keys == ["fake-groq-key-1", "fake-groq-key-2"]
+        assert attack._evaluator_api_keys == ["fake-groq-key-1", "fake-groq-key-2"]
 
 
 class TestBuildInterrogationAttackUsesFallback:

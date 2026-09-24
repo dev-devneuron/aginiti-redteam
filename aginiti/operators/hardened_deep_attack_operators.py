@@ -344,14 +344,15 @@ def _build_secret_attack(endpoint: AgentEndpoint, config) -> SECRETAttack:
 
     `config` is a `deep_attack_operators._SECRETConfig`, bound via
     `functools.partial` in `hardened_deep_attack_operators()` below."""
-    optimizer_model, optimizer_key = _resolve_role_model(
+    optimizer_model, optimizer_key, optimizer_keys = _resolve_role_model(
         _SECRET_OPTIMIZER_ENV_VAR, _SECRET_OPTIMIZER_DEFAULT_GROQ_MODEL, config.llm_provider
     )
     evaluator_env = os.environ.get(_SECRET_EVALUATOR_ENV_VAR)
     if evaluator_env:
         evaluator_model, evaluator_key = evaluator_env, _key_for(evaluator_env)
+        evaluator_keys = None
     else:
-        evaluator_model, evaluator_key = optimizer_model, optimizer_key
+        evaluator_model, evaluator_key, evaluator_keys = optimizer_model, optimizer_key, optimizer_keys
     return SECRETAttack(
         target_url=endpoint.base_url,
         llm_provider=config.llm_provider,
@@ -359,8 +360,10 @@ def _build_secret_attack(endpoint: AgentEndpoint, config) -> SECRETAttack:
         external_corpus=_SECRET_EXTERNAL_CORPUS,
         optimizer_llm_provider=optimizer_model,
         optimizer_api_key=optimizer_key,
+        optimizer_api_keys=optimizer_keys,
         evaluator_llm_provider=evaluator_model,
         evaluator_api_key=evaluator_key,
+        evaluator_api_keys=evaluator_keys,
         semantic_shift_llm_provider=config.semantic_shift_llm_provider,
         semantic_shift_api_key=_key_for(config.semantic_shift_llm_provider),
         embed_model=config.embed_model,
@@ -401,7 +404,7 @@ def _build_interrogation_attack(reference_docs: list[dict], config):
     `functools.partial` (together with `reference_docs`, the genuinely
     persona-specific part) in `hardened_deep_attack_operators()` below."""
     def factory(endpoint: AgentEndpoint) -> InterrogationAttack:
-        shadow_model, shadow_key = _resolve_role_model(
+        shadow_model, shadow_key, shadow_keys = _resolve_role_model(
             _MIA_SHADOW_ENV_VAR, _MIA_SHADOW_DEFAULT_GROQ_MODEL, config.llm_provider
         )
         return InterrogationAttack(
@@ -411,6 +414,7 @@ def _build_interrogation_attack(reference_docs: list[dict], config):
             non_member_reference_docs=reference_docs,
             shadow_llm_provider=shadow_model,
             shadow_llm_api_key=shadow_key,
+            shadow_llm_api_keys=shadow_keys,
             n_probe_questions=config.n_probe_questions,
             endpoint=endpoint,
             endpoint_kwargs={"headers": endpoint.headers},

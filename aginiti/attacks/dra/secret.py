@@ -425,6 +425,17 @@ class SECRETAttack(BaseAttack):
     optimizer_llm_provider, optimizer_api_key : str or None
         Phase 1's Optimizer LLM. Defaults to ``llm_provider``/``api_key`` if
         not set — only used if ``jailbreak_artifact`` is ``None``.
+    optimizer_api_keys, evaluator_api_keys : list[str] or None
+        Optional multi-key rotation pools for the Optimizer/Evaluator LLMs
+        (same mechanic as ``semantic_shift_api_keys`` below — see
+        ``BaseAttack._init_llm``'s ``api_keys`` docstring). Take precedence
+        over the singular ``optimizer_api_key``/``evaluator_api_key`` when
+        given; ``evaluator_api_keys`` defaults to ``optimizer_api_keys`` if
+        not supplied. Motivated by the same call-volume pressure: Phase 1
+        makes ``n_iter * n_cand`` optimizer calls plus a comparable number
+        of evaluator calls before ever reaching Phase 2, so it's often the
+        first thing to hit a free-tier single-key rate limit, not the
+        semantic-shift step Phase 2 already has a pool for.
     evaluator_llm_provider, evaluator_api_key : str or None
         Phase 1's Evaluator LLM. Defaults to ``optimizer_llm_provider`` (see
         ``JailbreakOptimizer``'s own docstring for why this default, unlike
@@ -558,8 +569,10 @@ class SECRETAttack(BaseAttack):
         jailbreak_artifact: Optional[JailbreakArtifact] = None,
         optimizer_llm_provider: Optional[str] = None,
         optimizer_api_key: Optional[str] = None,
+        optimizer_api_keys: Optional[list[str]] = None,
         evaluator_llm_provider: Optional[str] = None,
         evaluator_api_key: Optional[str] = None,
+        evaluator_api_keys: Optional[list[str]] = None,
         seed_prompt: str = DEFAULT_EXTRACTION_INSTRUCTION,
         phase1_n_iter: int = 20,
         phase1_n_cand: int = 3,
@@ -618,8 +631,10 @@ class SECRETAttack(BaseAttack):
         self.jailbreak_artifact = jailbreak_artifact
         self._optimizer_llm_provider = optimizer_llm_provider or llm_provider
         self._optimizer_api_key = optimizer_api_key if optimizer_api_key is not None else api_key
+        self._optimizer_api_keys = optimizer_api_keys
         self._evaluator_llm_provider = evaluator_llm_provider
         self._evaluator_api_key = evaluator_api_key
+        self._evaluator_api_keys = evaluator_api_keys
         self._phase1_seed_prompt = seed_prompt
         self._phase1_n_iter = phase1_n_iter
         self._phase1_n_cand = phase1_n_cand
@@ -792,8 +807,10 @@ class SECRETAttack(BaseAttack):
             target_url=self.target_url,
             optimizer_llm_provider=self._optimizer_llm_provider,
             optimizer_api_key=self._optimizer_api_key,
+            optimizer_api_keys=self._optimizer_api_keys,
             evaluator_llm_provider=self._evaluator_llm_provider,
             evaluator_api_key=self._evaluator_api_key,
+            evaluator_api_keys=self._evaluator_api_keys,
             seed_prompt=self._phase1_seed_prompt,
             n_iter=self._phase1_n_iter,
             n_cand=self._phase1_n_cand,
