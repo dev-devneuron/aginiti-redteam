@@ -372,19 +372,32 @@ def _collect_scan_findings(execution_log, library) -> list[dict]:
     a guess), everything else as a leak_type="none" non-finding, so the
     report's ASR/Non-Findings-Summary counts include every step the
     campaign actually ran, not just the deep-attack ones.
+
+    Every finding dict also carries `entry.operator_id` under the
+    "operator" key (e.g. "secret_jailbreak_exfiltration",
+    "mia_membership_inference") -- a scan mixes many different techniques
+    in one report, and `attack_type`/`leak_type` alone don't say WHICH
+    specific technique produced a given finding, only its broad family.
+    LeakFinding itself is left untouched (locked, see CLAUDE.md SS3) --
+    this is a dict-level key added after `_dc.asdict(f)`, not a new
+    dataclass field.
     """
     import dataclasses as _dc
 
     results: list[dict] = []
     for entry in execution_log:
         if entry.deep_attack_findings:
-            results.extend(_dc.asdict(f) for f in entry.deep_attack_findings)
+            for f in entry.deep_attack_findings:
+                d = _dc.asdict(f)
+                d["operator"] = entry.operator_id
+                results.append(d)
             continue
 
         owasp_raw = _operator_owasp_category(library, entry.operator_id)
         confirmed = entry.overall_success
         results.append({
             "attack_type": "CAMPAIGN",
+            "operator": entry.operator_id,
             "tier_used": "black_box",
             "confidence": 0.75 if confirmed else 0.0,
             "confirmed": confirmed,

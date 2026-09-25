@@ -29,6 +29,74 @@ changes.
   tag) -- live-verified against a running target: an
   `access_control_layer_probe` operator (previously unreachable from
   `aginiti scan`) was selected and produced a real confirmed finding.
+- The HTML assessment report now has a "Download PDF" button in its
+  header, using the browser's own `window.print()` rather than a
+  server-generated `.pdf` file: this report is designed to be a
+  standalone, shareable artifact, and a recipient who only has the one
+  `.html` file (forwarded, uploaded, opened on a different machine) has
+  no sibling `.pdf` sitting next to it and no Python environment to
+  generate one -- the browser's built-in print-to-PDF always works, with
+  no dependency on Chrome/Edge being installed wherever the report was
+  originally created (unlike `aginiti/reporting/pdf_export.py`'s
+  existing headless-browser subprocess approach, which remains a
+  separate, CLI-time convenience for a different use case). New
+  `@media print` rules force the light color palette regardless of the
+  viewer's OS dark-mode setting (severity colors were tuned for contrast
+  against light surfaces, and a dark background wastes ink/toner), keep
+  every severity badge/card background from being silently stripped
+  (`print-color-adjust: exact`), hide the button itself in the printed
+  output, and avoid finding/KPI cards splitting awkwardly across page
+  breaks. Live-verified end to end: rendered a real report through
+  Chrome's headless `--print-to-pdf`, then rendered the resulting PDF
+  pages to PNG for visual inspection -- confirmed the button is absent,
+  colors and severity styling are fully intact, and cards don't split
+  mid-card.
+
+### Changed
+
+- `docs/index.html` rewritten to be CLI-first, matching the README's own
+  recent rewrite: removed the "If you cloned the repo -- the original
+  CLI" section, which presented `python scripts/run_campaign.py` as a
+  peer option to `aginiti scan` right after `aginiti scan` was already
+  shown in full -- exactly the "separate script per attack" workflow the
+  CLI replaced. The CLI & environment-variable reference table was headed
+  "Flag (git checkout only)" while listing real `aginiti scan` flags
+  available from a plain `pip install` -- actively misleading, not just
+  outdated; rewritten as the actual `aginiti scan`/`attack` flag
+  reference (also added `--output-dir`/`--redact`/`--no-open-report`,
+  which existed on the CLI but weren't documented here at all). The
+  Adaptive Mode Python example hand-built `[*data_exposure_operators(),
+  *deep_attack_operators()]` (11 operators) -- updated to
+  `all_target_agnostic_operators()` (47 operators/8 packs), the same
+  single-source-of-truth list `aginiti scan --target` now loads. Fixed a
+  results-table claim ("11 named attack methodologies... ArtPrompt,
+  Crescendo, PAIR...") that conflated the `--attack-category` taxonomy's
+  11 real values with an unrelated, partially-inaccurate paper-name list
+  -- same shape of overclaim already found and fixed in README.md.
+  Stale counts (1,925 tests, pre-expansion operator-pack sizing) updated
+  throughout. `docs/USAGE.md`'s own "Reference" section had the identical
+  gap (only documented `scripts/run_campaign.py`'s flags, no `aginiti
+  scan`/`attack` table at all) -- fixed the same way.
+- `docs/ARCHITECTURE.md`: fixed a broken example
+  (`OperatorLibrary.by_category(...)` called as a class method --
+  `by_category` is an instance method, this raises `TypeError`) and a
+  stale `python scripts/run_campaign.py` CLI reference.
+- `docs/ROADMAP.md`: moved "a dedicated `aginiti` CLI wrapper" from "Next
+  up" to "Shipped" -- it shipped.
+- `docs/TUTORIAL.md`, `docs/USAGE.md`, `docs/BENCHMARKS.md`: corrected
+  stale test counts and the same pre-expansion "11 techniques" operator-
+  pack sizing claim `aginiti scan --budget`'s own docs made.
+- Moved 3 local-only, gitignored dev-journal files (`how-it-works.md`,
+  `integration_executive_summary.md`, `feature-implementation.md`) from
+  `docs/` to `plans/` and deleted an empty scratch file (`docs/issues.md`)
+  for local clarity -- confirmed via `git ls-files docs/` that none of
+  these (nor `executive-presentation.md`/`secret_spe_benchmarks.md`,
+  left in place) were ever part of the public repo; this is pure local
+  housekeeping with no effect on git history either way. Separately
+  flagged, not changed: `docs/testing_your_own_onyx_deployment.md` is
+  also gitignored despite reading as genuinely current, well-scoped,
+  public-facing content -- looks like an accidental inclusion in the
+  same gitignore block, left for a maintainer decision.
 
 ### Fixed
 

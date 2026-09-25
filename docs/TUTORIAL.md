@@ -180,10 +180,11 @@ point for any new target.
 
 Pick a `--tier` — a broad security concern — and a `--budget` — how many
 tries it gets, spent across whichever techniques currently look most
-promising. Each technique only runs once per scan against a real target,
-so **for this specific starting pack** (11 techniques today — the 4 named
-ones plus 7 broader probes) a budget above ~15-20 rarely finds more; it's
-a different number from how deep any one named technique itself can go.
+promising. Each technique only runs once per scan against a real target
+(47 target-agnostic techniques today across 8 packs — the 4 named deep
+attacks plus 43 broader probes), and once every eligible one has had a
+turn, a new round starts automatically if budget remains — it's a
+different number from how deep any one named technique itself can go.
 IKEA/SECRET/MIA each keep their own fixed, small query cap inside a scan
 (20/10/4) no matter how large `--budget` is — on purpose, so one
 technique can't quietly eat the whole scan's budget. Want one of them to
@@ -355,7 +356,7 @@ show it working live.
 | **~5×** | fewer questions needed than guessing blindly, for the same result |
 | **98%** | fewer questions blocked by the target's own defenses |
 | **4/5** | categories where we matched NVIDIA's own security scanner exactly |
-| **1,925** | automated checks, run before every release |
+| **2,004** | automated checks, run before every release |
 
 Real, confirmed leaks found on real (not our own) systems during testing:
 

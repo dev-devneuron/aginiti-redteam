@@ -306,10 +306,21 @@ def _render_finding(f: dict, index: int, attack_code: str, redact: bool = False)
         f"**Why flagged (detection reasoning):** {f.get('reasoning', '')}",
         f"**Confidence (detector certainty):** {f.get('confidence', 0):.2f}",
         f"**OWASP LLM (risk category):** {owasp}",
+    ]
+    # Only present for `aginiti scan` findings (_collect_scan_findings in
+    # cli.py) -- a scan mixes many different techniques in one report, so
+    # naming exactly which one produced this finding matters; a standalone
+    # `aginiti attack <technique>` report already states its one technique
+    # in the run metadata/header, so this key is absent there and the line
+    # is skipped rather than showing a redundant/empty value.
+    operator = f.get("operator")
+    if operator:
+        lines.append(f"**Attack technique (operator):** `{operator}`")
+    lines.extend([
         f"**Remediation (recommended fix):** {f.get('recommendation', '')}",
         f"**Target response (complete reply):** {full_response_display}",
         "",
-    ]
+    ])
     return lines
 
 
