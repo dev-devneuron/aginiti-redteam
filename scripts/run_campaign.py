@@ -81,19 +81,28 @@ adapter a real --agent-url target uses) only supports channel="direct"
 and raises ValueError for anything else. Silently keeping build_library()
 as the default with --agent-url would crash on most of its operators. So:
 --agent-url switches the default library to
-`[*data_exposure_operators(), *deep_attack_operators()]` -- the two
-target-agnostic packs this project already built specifically to compose
-onto ANY BaseAdapter-backed text-in/text-out target (see data_exposure.py's
-own module docstring). Omitting --agent-url keeps build_library() exactly
-as before.
+`campaign_builder.all_target_agnostic_operators()` -- all 8
+channel="direct" packs this project has built (47 operators total:
+data_exposure, deep_attack, encoding_variants, output_filter_evasion,
+low_resource_language_evasion, ascii_art_evasion, session_isolation_probe,
+access_control_layer_probe), each verified to compose onto ANY
+BaseAdapter-backed text-in/text-out target (see data_exposure.py's own
+module docstring, and all_target_agnostic_operators()'s own docstring for
+the channel="direct" verification). Omitting --agent-url keeps
+build_library() exactly as before.
 
 Tier classification (implemented here, not a new field on Operator or a
 retag of ~90 existing operator definitions across the codebase -- that
 would be a much larger, invasive change than "make this script dynamic"
 calls for): each operator is classified from tags it ALREADY carries on
 its first `effects_success` ClaimEffect -- owasp_llm_category and
-attack_category, both already set on every data_exposure_operators() and
-deep_attack_operators() entry (verified directly, not assumed):
+attack_category, both already set on every operator across all 8
+all_target_agnostic_operators() packs (verified directly, not assumed --
+this also covers the encoding_variants/ascii_art_evasion/low_resource_
+language_evasion operators' attack_category="encoding_attack" tag, which
+needs no separate branch below since every one of them is ALSO tagged
+with a matching owasp_llm_category; see campaign_builder.classify_tier's
+own docstring):
 
     discovery_recon      : attack_category in {TOOL_DISCOVERY, LOW_VALUE_RECONNAISSANCE}
     unauthorized_actions  : owasp_llm_category in {LLM01_PROMPT_INJECTION, LLM06_EXCESSIVE_AGENCY}
@@ -108,11 +117,11 @@ deep_attack_operators() entry (verified directly, not assumed):
 An operator with none of these tags falls into no specific tier (excluded
 from data_leakage/unauthorized_actions/discovery_recon, included only
 under full_assessment/no filter). This means tier filtering is fully
-meaningful against data_exposure_operators()/deep_attack_operators() (every
-entry is tagged) but only partially meaningful against the older DemoAgent
-mock scenario library (most of its payroll/GitHub/helpdesk operators
-predate this OWASP/attack-category tagging effort) -- a known, accepted
-limitation, not silently hidden.
+meaningful against all_target_agnostic_operators() (every entry across
+all 8 packs is tagged) but only partially meaningful against the older
+DemoAgent mock scenario library (most of its payroll/GitHub/helpdesk
+operators predate this OWASP/attack-category tagging effort) -- a known,
+accepted limitation, not silently hidden.
 
 Attack-category classification: unlike --tier (a 3-bucket grouping this
 script derives from OWASP/attack_category tags), --attack-category filters
@@ -158,8 +167,12 @@ SECRET's semantic-shift provider (tracks --model automatically unless its
 own env var is set separately) or MIA's shadow provider (deliberately a
 DIFFERENT model family from the attacker LLM by the paper's own design --
 overriding it via the same flag would defeat that). data_exposure_operators()
-are static templated prompts with no LLM calls of their own, so --model has
-no effect on them. SPE-LLM needs no LLM at all, --model is inert for it.
+and the other 5 non-deep-attack packs (encoding_variants, ascii_art_evasion,
+low_resource_language_evasion, output_filter_evasion, session_isolation_probe,
+access_control_layer_probe -- verified directly, none of them import
+litellm/BaseAttack) are all static templated prompts with no LLM calls of
+their own, so --model has no effect on them. SPE-LLM needs no LLM at all,
+--model is inert for it.
 """
 from __future__ import annotations
 

@@ -36,10 +36,16 @@ from aginiti.core.graph.owasp_llm_taxonomy import (
 from aginiti.core.graph.schema import RiskTier
 from aginiti.core.mission import Mission
 from aginiti.core.scenarios import multi_path_mission
+from aginiti.operators.access_control_layer_probe import access_control_layer_probe_operators
+from aginiti.operators.ascii_art_evasion import build_ascii_art_evasion_operators
 from aginiti.operators.data_exposure import data_exposure_operators
 from aginiti.operators.deep_attack_operators import deep_attack_operators
 from aginiti.operators.definitions import build_library
+from aginiti.operators.encoding_variants import build_encoding_evasion_operators
 from aginiti.operators.library import Operator, OperatorLibrary
+from aginiti.operators.low_resource_language_evasion import build_low_resource_language_operators
+from aginiti.operators.output_filter_evasion import output_filter_evasion_operators
+from aginiti.operators.session_isolation_probe import session_isolation_probe_operators
 
 TIER_CHOICES = ["data_leakage", "unauthorized_actions", "discovery_recon", "full_assessment"]
 
@@ -62,6 +68,16 @@ def classify_tier(op: Operator) -> Optional[str]:
     TOOL_DISCOVERY recon probe; recon is the more specific/useful bucket for
     it). An operator with none of these tags falls into no specific tier --
     included only under ``full_assessment``/no filter.
+
+    No explicit ``attack_category == ENCODING_ATTACK`` branch exists here,
+    even though encoding_variants/ascii_art_evasion/low_resource_language_
+    evasion all carry that tag -- verified directly (not assumed) that
+    every one of those operators is ALSO tagged with a matching
+    ``owasp_llm_category`` (LLM01 for the jailbreak/override-style ones,
+    LLM07/LLM02 for the system-prompt/secret-extraction ones), so the
+    existing OWASP-based branches below already classify all of them
+    correctly into unauthorized_actions/data_leakage. Adding a redundant
+    ENCODING_ATTACK check would be dead code, not a missing one.
     """
     if not op.effects_success:
         return None
@@ -73,6 +89,41 @@ def classify_tier(op: Operator) -> Optional[str]:
     if effect.owasp_llm_category in _DATA_LEAKAGE_OWASP:
         return "data_leakage"
     return None
+
+
+def all_target_agnostic_operators() -> list[Operator]:
+    """
+    Every ``channel="direct"`` operator pack this project has built --
+    verified directly (not assumed) that all 47 operators across these 8
+    families declare ``channel="direct"``, the one channel
+    ``HTTPAgentAdapter`` supports (see ``build_campaign``'s own docstring
+    for why that matters: the older ``build_library()`` DemoAgent scenario
+    library mixes in ``channel="slack"``/``"github_issue"`` operators that
+    would crash against a real HTTP target). Composes onto ANY
+    ``BaseAdapter``-backed text-in/text-out target, not just the mock
+    target -- this is the single list `--agent-url` (both `aginiti scan`
+    and ``scripts/run_campaign.py``, via ``build_campaign`` below) loads.
+
+    Previously `--agent-url` only loaded ``data_exposure_operators()`` +
+    ``deep_attack_operators()`` (11 operators) -- the other 6 families
+    (encoding/ASCII-art/low-resource-language evasion, output-filter
+    evasion, session-isolation, access-control-layer probes) existed and
+    were already ``channel="direct"``-compatible, just never wired in here
+    when they were built, so a real ``--target`` scan was silently missing
+    over three-quarters of this project's own target-agnostic technique
+    library. classify_tier() needed no changes to handle the additional
+    36 operators correctly -- see its own docstring for why.
+    """
+    return [
+        *data_exposure_operators(),
+        *deep_attack_operators(),
+        *build_encoding_evasion_operators(),
+        *output_filter_evasion_operators(),
+        *build_low_resource_language_operators(),
+        *build_ascii_art_evasion_operators(),
+        *session_isolation_probe_operators(),
+        *access_control_layer_probe_operators(),
+    ]
 
 
 def _success_keys(op: Operator) -> set[str]:
@@ -107,10 +158,11 @@ def build_campaign(
 
     Omitting all three reproduces the exact original zero-flag behavior:
     the in-memory ``DemoAgent`` scenario library and ``multi_path_mission()``.
-    Passing ``agent_url`` switches the operator library to the two
-    target-agnostic packs (``data_exposure_operators()`` +
-    ``deep_attack_operators()``) and derives a ``Mission`` whose
-    ``success_criteria`` come from whatever operators survive filtering.
+    Passing ``agent_url`` switches the operator library to
+    ``all_target_agnostic_operators()`` (all 8 ``channel="direct"`` packs,
+    47 operators -- see that function's own docstring) and derives a
+    ``Mission`` whose ``success_criteria`` come from whatever operators
+    survive filtering.
 
     Raises ``CampaignBuildError`` if ``tier`` or ``attack_category`` matches
     zero operators in the loaded library.
@@ -123,7 +175,7 @@ def build_campaign(
         agent = None
     else:
         if agent_url:
-            operators = [*data_exposure_operators(), *deep_attack_operators()]
+            operators = all_target_agnostic_operators()
             endpoint = AgentEndpoint(base_url=agent_url)
             agent = HTTPAgentAdapter(endpoint)
         else:

@@ -11,6 +11,24 @@ changes.
 
 ### Added
 
+- `aginiti scan --target`/`scripts/run_campaign.py --agent-url` now load
+  all 8 `channel="direct"` operator packs (47 operators total) instead of
+  just 2 (`data_exposure_operators()` + `deep_attack_operators()`, 11
+  operators) -- the other 6 (`encoding_variants`, `ascii_art_evasion`,
+  `low_resource_language_evasion`, `output_filter_evasion`,
+  `session_isolation_probe`, `access_control_layer_probe`) were already
+  built and already `channel="direct"`-compatible (verified directly),
+  just never wired into `campaign_builder.build_campaign()`'s
+  `--agent-url` branch -- a real `--target` scan was silently missing
+  over three-quarters of this project's own target-agnostic technique
+  library. New `campaign_builder.all_target_agnostic_operators()` is the
+  single list both entry points load. `classify_tier()` needed no changes
+  to correctly bucket the additional 36 operators (verified: every one of
+  them already carries an `owasp_llm_category` tag that the existing
+  tier logic classifies correctly, in addition to their `attack_category`
+  tag) -- live-verified against a running target: an
+  `access_control_layer_probe` operator (previously unreachable from
+  `aginiti scan`) was selected and produced a real confirmed finding.
 - The HTML assessment report now has a "Download PDF" button in its
   header, using the browser's own `window.print()` rather than a
   server-generated `.pdf` file: this report is designed to be a

@@ -529,7 +529,8 @@ def _cmd_scan(args: argparse.Namespace) -> None:
         # exhausted, on a library with enough eligible operators).
         #
         # enable_multi_pass=True: once every eligible operator has run once
-        # (the pack has only 11 target-agnostic operators total) and budget
+        # (the pack has 47 target-agnostic operators total across 8 packs,
+        # see campaign_builder.all_target_agnostic_operators) and budget
         # remains, start a new round instead of stopping -- only the 4
         # deep-attack operators (IKEA/SECRET/MIA/SPE) become re-eligible;
         # the cheap prompt probes keep their permanent one-shot rule (a
