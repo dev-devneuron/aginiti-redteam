@@ -413,6 +413,23 @@ class TestGenerateMarkdownReport:
         # Old label must not appear.
         assert "**Leaked:**" not in markdown
 
+    def test_finding_shows_operator_when_present(self, tmp_path):
+        """`aginiti scan` findings carry an "operator" key (set by cli.py's
+        _collect_scan_findings) naming the exact technique that produced
+        the finding -- a scan mixes many techniques in one report, so
+        attack_type alone ("CAMPAIGN"/"DRA"/etc.) isn't specific enough."""
+        findings = [_finding()]
+        findings[0]["operator"] = "secret_jailbreak_exfiltration"
+        markdown = generate_markdown_report(_run_ikea_schema(findings), tmp_path / "r.md")
+        assert "**Attack technique (operator):** `secret_jailbreak_exfiltration`" in markdown
+
+    def test_finding_omits_operator_line_when_absent(self, tmp_path):
+        """A standalone `aginiti attack <technique>` report never sets
+        "operator" per-finding (the run's one technique is already in the
+        header) -- must not show an empty/placeholder line for it."""
+        markdown = generate_markdown_report(_run_ikea_schema([_finding()]), tmp_path / "r.md")
+        assert "Attack technique (operator)" not in markdown
+
     def test_methodology_tier1_black_box(self, tmp_path):
         markdown = generate_markdown_report(_run_ikea_schema([_finding()]), tmp_path / "r.md")
         assert "Tier 1 black-box" in markdown

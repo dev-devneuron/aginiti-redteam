@@ -474,6 +474,16 @@ tr:last-child td {
   padding: 0.2rem 0.6rem;
   border-radius: var(--radius-sm);
 }
+.finding-operator-chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-sm);
+}
 
 .finding-status-bar {
   padding: 0.6rem 1.25rem;
@@ -702,6 +712,13 @@ def _render_finding_card(f: dict, index: int, attack_code: str, redact: bool) ->
         else full_response
     )
 
+    # Only present for `aginiti scan` findings (_collect_scan_findings in
+    # cli.py) -- see markdown_report.py's identical note for why a
+    # standalone `aginiti attack <technique>` report doesn't need this
+    # (already states its one technique elsewhere, no per-finding key set).
+    operator = f.get("operator")
+    operator_chip_html = f'<span class="finding-operator-chip">{_esc(operator)}</span>' if operator else ""
+
     return f"""
     <div class="finding-card">
       <div class="finding-header">
@@ -710,6 +727,7 @@ def _render_finding_card(f: dict, index: int, attack_code: str, redact: bool) ->
           <span class="sev-pill {sev}">{_esc(sev_upper)}</span>
         </div>
         <span class="finding-owasp-chip">{_esc(owasp)}</span>
+        {operator_chip_html}
       </div>
 
       <div class="finding-status-bar {status_class}">
