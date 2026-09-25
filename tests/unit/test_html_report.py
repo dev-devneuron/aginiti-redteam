@@ -97,6 +97,24 @@ class TestGenerateHtmlReport:
         html = generate_html_report(_run_ikea_schema([finding]), tmp_path / "r.html")
         assert "LLM07:2025 - System Prompt Leakage" in html
 
+    def test_finding_shows_operator_chip_when_present(self, tmp_path):
+        """`aginiti scan` findings carry an "operator" key (set by cli.py's
+        _collect_scan_findings) naming the exact technique that produced
+        the finding -- a scan mixes many techniques in one report, so
+        attack_type alone ("CAMPAIGN"/"DRA"/etc.) isn't specific enough."""
+        finding = _finding(operator="secret_jailbreak_exfiltration")
+        html = generate_html_report(_run_ikea_schema([finding]), tmp_path / "r.html")
+        assert '<span class="finding-operator-chip">secret_jailbreak_exfiltration</span>' in html
+
+    def test_finding_omits_operator_chip_when_absent(self, tmp_path):
+        """A standalone `aginiti attack <technique>` report never sets
+        "operator" per-finding (the run's one technique is already in the
+        header) -- must not render an empty chip for it. The CSS class
+        itself is always present (static stylesheet); only the rendered
+        <span> tag must be absent."""
+        html = generate_html_report(_run_ikea_schema([_finding()]), tmp_path / "r.html")
+        assert '<span class="finding-operator-chip">' not in html
+
     def test_no_findings_shows_none_detected_and_empty_buckets(self, tmp_path):
         html = generate_html_report(_run_ikea_schema([]), tmp_path / "r.html")
         assert "NONE DETECTED" in html

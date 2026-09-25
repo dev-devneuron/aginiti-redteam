@@ -613,6 +613,10 @@ class TestCollectScanFindings:
         assert findings[0]["severity"] == "high"
         assert findings[0]["leak_type"] != "none"
         assert findings[0]["owasp_override"] == "LLM07:2025 - System Prompt Leakage"
+        # Which exact operator produced this finding -- a scan mixes many
+        # techniques in one report, so this has to be more specific than
+        # attack_type/owasp_override alone.
+        assert findings[0]["operator"] == "system_prompt_extraction"
 
     def test_non_confirmed_step_becomes_a_none_leak_type_non_finding(self):
         library = self._mock_library()
@@ -638,6 +642,10 @@ class TestCollectScanFindings:
         assert findings[0]["leak_type"] == "verbatim"
         assert findings[0]["severity"] == real_finding.severity
         assert findings[0]["probe_used"] == real_finding.probe_used
+        # The wrapping Operator's id is attached after asdict(), not part
+        # of the real LeakFinding object itself (that dataclass stays
+        # locked/untouched -- see _collect_scan_findings's own docstring).
+        assert findings[0]["operator"] == "spe_system_prompt_extraction"
 
     def test_report_sorts_confirmed_campaign_finding_into_the_right_severity_section(self, tmp_path):
         from aginiti.reporting import generate_markdown_report
