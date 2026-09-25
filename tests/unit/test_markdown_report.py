@@ -632,10 +632,10 @@ class TestTargetConfiguration:
             },
         )
         markdown = generate_markdown_report(report, tmp_path / "r.md")
-        assert "## Target Configuration" in markdown
-        assert "**Authenticated as:** legal" in markdown
-        assert "| RBAC | On |" in markdown
-        assert "| System-Prompt Guardrail | Off |" in markdown
+        assert "## Target Configuration & Security Posture" in markdown
+        assert "**Authenticated Persona:** legal" in markdown
+        assert "| RBAC | Active |" in markdown
+        assert "| System-Prompt Guardrail | Disabled |" in markdown
 
     def test_unknown_toggle_key_falls_back_to_title_case_label(self, tmp_path):
         # A future defense this test file doesn't know about yet -- proves
@@ -644,7 +644,7 @@ class TestTargetConfiguration:
             [_finding()], target_toggle_state={"some_new_defense_enabled": True},
         )
         markdown = generate_markdown_report(report, tmp_path / "r.md")
-        assert "| Some New Defense | On |" in markdown
+        assert "| Some New Defense | Active |" in markdown
 
     def test_string_toggle_state_shown_as_a_note_not_a_table(self, tmp_path):
         # run_ikea_hardened.py's fallback when /config couldn't be reached.
@@ -664,9 +664,9 @@ class TestTargetConfiguration:
     def test_persona_shown_without_toggle_state(self, tmp_path):
         report = _run_benchmark_schema([_finding()], persona="ops")
         markdown = generate_markdown_report(report, tmp_path / "r.md")
-        assert "## Target Configuration" in markdown
-        assert "**Authenticated as:** ops" in markdown
-        assert "| Defense | State |" not in markdown
+        assert "## Target Configuration & Security Posture" in markdown
+        assert "**Authenticated Persona:** ops" in markdown
+        assert "| Defense Mechanism | Status |" not in markdown
 
 
 class TestOverallRiskVerdict:

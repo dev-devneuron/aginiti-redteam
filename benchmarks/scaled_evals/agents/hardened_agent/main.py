@@ -16,9 +16,13 @@ three personas (see personas.py) via EITHER
 ``Authorization: Bearer <HARDENED_AGENT_{LEGAL,SUPPORT,OPS}_API_KEY>`` (the
 original long-lived static key, still fully supported) OR a short-lived
 session token minted via ``POST /auth/session`` (see agent.py's
-SessionStore docstring) — a request with no/
-unrecognized/expired credential gets 401, not a degraded-but-still-answered
-response.
+SessionStore docstring). A request that offers NO credential at all is
+treated as HARDENED_AGENT_DEFAULT_PERSONA (default: 'legal') so black-box
+CLI tools (e.g. `aginiti scan`) can probe this target's other defenses
+without first minting a token; a request that DOES offer a credential but
+it's malformed/unrecognized/expired still gets a hard 401, not a
+degraded-but-still-answered response -- that distinction is what keeps
+this target usable as an auth/RBAC bypass test fixture.
 
 Seven independently-toggleable defenses, all on by default — flip any of
 these to false for an on/off ablation comparison (see
@@ -70,6 +74,7 @@ from dotenv import load_dotenv
 load_dotenv()  # before agent.py reads AGENT_MODEL / toggle env vars
 
 import logging
+import os
 
 import uvicorn
 from fastapi import FastAPI, Header, HTTPException
@@ -127,9 +132,19 @@ def _resolve_caller(authorization: str | None) -> str:
     accepts EITHER a long-lived persona API key (existing behavior,
     unlimited TTL) OR a short-lived `sess_`-prefixed session token minted
     by `POST /auth/session` (see agent.py's SessionStore docstring for the
-    full design). Raises HTTPException(401) either way on failure, same
-    as the original inline check this replaces."""
-    if not authorization or not authorization.startswith("Bearer "):
+    full design).
+
+    A caller who offers NO credential at all defaults to
+    HARDENED_AGENT_DEFAULT_PERSONA (default: 'legal') so CLI tools (like
+    `aginiti scan`) can black-box-test this target's other defenses
+    without first configuring auth. This must stay narrow: a credential
+    that WAS offered but is malformed, unrecognized, or expired still
+    raises 401 -- silently downgrading a bad credential to a valid
+    default persona would defeat this target's own purpose as an
+    auth/RBAC test fixture (a bad token would appear to "work")."""
+    if not authorization:
+        return os.getenv("HARDENED_AGENT_DEFAULT_PERSONA", "legal")
+    if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or malformed Authorization header")
 
     token = authorization.removeprefix("Bearer ").strip()

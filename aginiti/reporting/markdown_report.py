@@ -84,6 +84,18 @@ _TOGGLE_LABELS = {
     "redaction_enabled": "Output Redaction",
     "memory_enabled": "Conversation Memory",
     "guardrail_enabled": "System-Prompt Guardrail",
+    "input_filter_enabled": "Input Filter Classifier",
+    "audit_log_enabled": "Audit Logging",
+}
+
+_DEFENSE_DESCRIPTIONS = {
+    "input_filter_enabled": "Pre-flight classifier blocking adversarial/malicious prompts before processing",
+    "guardrail_enabled": "System prompt directives instructing agent not to disclose sensitive data",
+    "redaction_enabled": "Output scrubbing of PII, credentials, and confidential tokens",
+    "rate_limit_enabled": "Request frequency thresholding to prevent automated probing",
+    "memory_enabled": "Multi-turn conversational context tracking across queries",
+    "rbac_enabled": "Role-Based Access Control filtering documents during retrieval",
+    "audit_log_enabled": "Structured security logging of interaction events",
 }
 
 
@@ -103,6 +115,15 @@ def _truncate(text: str, n: int) -> str:
     return text[:n] + ("..." if len(text) > n else "")
 
 
+def _safe_num(val, default=0):
+    if isinstance(val, (int, float)):
+        return val
+    try:
+        return int(val)
+    except Exception:
+        return default
+
+
 def _normalize(report: dict) -> dict:
     """Extract a common shape from either JSON schema this repo produces.
 
@@ -119,16 +140,19 @@ def _normalize(report: dict) -> dict:
     """
     if "run_metadata" in report:
         meta = report["run_metadata"]
+        findings = report["findings"]
+        total_q = _safe_num(meta.get("total_queries"), default=len(findings))
+        sent_q = _safe_num(meta.get("queries_sent", total_q), default=total_q)
         return {
             "target": meta["agent_url"],
-            "queries": meta["total_queries"],
-            "queries_sent": meta.get("queries_sent", meta["total_queries"]),
+            "queries": total_q,
+            "queries_sent": sent_q,
             "runtime_seconds": meta["runtime_seconds"],
             "timestamp": meta["timestamp"],
             "embed_model": meta["embed_model"],
             "llm_provider": meta.get("llm_provider", ""),
             "attack": meta["attack"],
-            "findings": report["findings"],
+            "findings": findings,
             "refused_queries": report.get("refused_queries", []),
             "metrics": report.get("metrics"),
             "authorized_by": meta.get("authorized_by"),
@@ -140,32 +164,33 @@ def _normalize(report: dict) -> dict:
             # First real caller: scripts/run_ikea_hardened.py. Absent
             # for callers that don't set these (e.g. run_healthcare_benchmark.py).
             "persona": meta.get("persona"),
+            "target_profile": meta.get("target_profile"),
+            "target_description": meta.get("target_description"),
             "target_toggle_state": meta.get("target_toggle_state"),
         }
     if "run" in report:
         meta = report["run"]
+        findings = report["findings"]
+        max_q = _safe_num(meta.get("max_queries"), default=len(findings))
+        sent_q = _safe_num(meta.get("queries_sent", max_q), default=max_q)
         refused_queries = report.get("refused_queries", [])
         return {
             "target": meta["target_url"],
-            "queries": meta["max_queries"],
-            # Fallback matches the run_metadata branch above: assume the
-            # full budget was sent when queries_sent isn't recorded (a
-            # legacy file, from before this field existed) — NOT
-            # len(findings)+len(refused_queries), which would silently
-            # undercount for any legacy file that had real refusals the old
-            # schema never captured.
-            "queries_sent": meta.get("queries_sent", meta["max_queries"]),
+            "queries": max_q,
+            "queries_sent": sent_q,
             "runtime_seconds": meta["duration_seconds"],
             "timestamp": meta["started_at"],
             "embed_model": meta.get("embed_model", ""),
             "llm_provider": meta.get("llm_provider", ""),
             "attack": meta.get("attack", "ikea"),
-            "findings": report["findings"],
+            "findings": findings,
             "refused_queries": refused_queries,
             "metrics": None,
             "authorized_by": meta.get("authorized_by"),
             "engagement_id": meta.get("engagement_id"),
             "persona": meta.get("persona"),
+            "target_profile": meta.get("target_profile"),
+            "target_description": meta.get("target_description"),
             "target_toggle_state": meta.get("target_toggle_state"),
         }
     raise ValueError(
@@ -409,16 +434,25 @@ def generate_markdown_report(
 
     persona = data.get("persona")
     toggle_state = data.get("target_toggle_state")
-    if persona or toggle_state:
-        lines.append("## Target Configuration")
+    target_profile = data.get("target_profile")
+    target_description = data.get("target_description")
+    if persona or toggle_state or target_profile or target_description:
+        lines.append("## Target Configuration & Security Posture")
+        if target_profile:
+            lines.append(f"- **Target Profile:** {target_profile}")
+        if target_description:
+            lines.append(f"- **Description:** {target_description}")
         if persona:
-            lines.append(f"**Authenticated as:** {persona}")
+            lines.append(f"- **Authenticated Persona:** {persona}")
         if isinstance(toggle_state, dict) and toggle_state:
             lines.append("")
-            lines.append("| Defense | State |")
-            lines.append("|---------|-------|")
+            lines.append("### Active Defense Layers")
+            lines.append("| Defense Mechanism | Status | What it does |")
+            lines.append("|:---|:---|:---|")
             for key, value in toggle_state.items():
-                lines.append(f"| {_toggle_label(key)} | {'On' if value else 'Off'} |")
+                status_str = "Active" if value else "Disabled"
+                description = _DEFENSE_DESCRIPTIONS.get(key, "")
+                lines.append(f"| {_toggle_label(key)} | {status_str} | {description} |")
         elif isinstance(toggle_state, str):
             lines.append(f"**Target toggle state:** {toggle_state}")
         lines.append("")

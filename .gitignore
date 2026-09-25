@@ -15,8 +15,12 @@ build/
 
 # Virtual environments
 .venv/
+.venv*/
 venv/
 env/
+aginiti-demo/
+aginiti-demo*/
+.claude/
 
 # Testing / coverage
 .pytest_cache/

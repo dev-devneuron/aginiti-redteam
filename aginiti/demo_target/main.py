@@ -84,7 +84,7 @@ def chat(req: ChatRequest, request: Request) -> ChatResponse:
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "hardened": _get_agent().hardened}
+    return {"status": "ok", "hardened": _is_hardened()}
 
 
 def _parse_args() -> argparse.Namespace:

@@ -290,10 +290,107 @@ def _open_report(html_path: Path) -> None:
         print(f"(Could not auto-open {html_path} in a browser -- open it manually.)")
 
 
+def _probe_target_profile(target_url: Optional[str]) -> dict:
+    """Probe the target endpoint's /health to discover if it is an Aginiti
+    Hardened Demo Agent (5 defenses active), a Vanilla Demo Agent (defenses
+    off / vulnerable baseline), or an External Target.
+
+    Returns dict with target_profile, target_description, and target_toggle_state.
+    """
+    if not target_url or not str(target_url).startswith("http"):
+        return {
+            "target_profile": "In-Memory / Local Target",
+            "target_description": "Target executed locally without external HTTP endpoint.",
+            "target_toggle_state": None,
+        }
+
+    import urllib.request
+
+    health_url = target_url.rstrip("/") + "/health"
+    urls_to_try = [health_url.replace("localhost", "127.0.0.1")] if "localhost" in health_url else [health_url]
+
+    for url in urls_to_try:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "aginiti-redteam/scanner"})
+            with urllib.request.urlopen(req, timeout=1.0) as resp:
+                if resp.status == 200:
+                    payload = json.loads(resp.read().decode("utf-8"))
+                    if isinstance(payload, dict) and "hardened" in payload:
+                        is_hardened = bool(payload["hardened"])
+                        if is_hardened:
+                            return {
+                                "target_profile": "Hardened Target Agent (Defenses Active)",
+                                "target_description": (
+                                    "Aginiti Demo Target with 5 defense layers enabled "
+                                    "(Input Filter Classifier, System-Prompt Guardrails, "
+                                    "Output PII/Secret Redaction, Request Rate Limiting, "
+                                    "Multi-turn Conversation Memory)."
+                                ),
+                                "target_toggle_state": {
+                                    "input_filter_enabled": True,
+                                    "guardrail_enabled": True,
+                                    "redaction_enabled": True,
+                                    "rate_limit_enabled": True,
+                                    "memory_enabled": True,
+                                },
+                            }
+                        else:
+                            return {
+                                "target_profile": "Vanilla Target Agent (Defenses Disabled)",
+                                "target_description": (
+                                    "Aginiti Demo Target in Vanilla mode with all security "
+                                    "defenses disabled (vulnerable baseline for red-team benchmarking)."
+                                ),
+                                "target_toggle_state": {
+                                    "input_filter_enabled": False,
+                                    "guardrail_enabled": False,
+                                    "redaction_enabled": False,
+                                    "rate_limit_enabled": False,
+                                    "memory_enabled": False,
+                                },
+                            }
+        except Exception:
+            continue
+
+    return {
+        "target_profile": "External Black-Box Target",
+        "target_description": "External target assessed via black-box HTTP endpoint.",
+        "target_toggle_state": None,
+    }
+
+
+def _print_target_banner(target_url: Optional[str], target_info: dict) -> None:
+    """Print clean startup info describing the target agent and its active defenses in a structured multi-line block."""
+    from aginiti.reporting.markdown_report import _TOGGLE_LABELS
+    profile = target_info.get("target_profile", "External Black-Box Target")
+    desc = target_info.get("target_description")
+    toggle_state = target_info.get("target_toggle_state")
+
+    sep = "─" * 68
+    print(sep, flush=True)
+    print("🎯 Target System Profile & Security Posture", flush=True)
+    print(sep, flush=True)
+    print(f"  • Endpoint       : {target_url or '(in-memory demo agent)'}", flush=True)
+    print(f"  • Profile        : {profile}", flush=True)
+    if desc:
+        print(f"  • Description    : {desc}", flush=True)
+
+    if isinstance(toggle_state, dict) and toggle_state:
+        print("  • Defense Layers :", flush=True)
+        for k, v in toggle_state.items():
+            label = _TOGGLE_LABELS.get(k, k.replace('_enabled', '').replace('_', ' ').title())
+            status = "[✓ ACTIVE]  " if v else "[✗ DISABLED]"
+            print(f"      {status} {label}", flush=True)
+    elif toggle_state is None:
+        print("  • Defense Layers : Zero-Knowledge (External Black-Box)", flush=True)
+    print(sep, flush=True)
+
+
 def _write_attack_outputs(
     output_dir: Path, report_name: str, attack: str, target: str,
     findings: list, started: float, embed_model: str, llm_provider: str,
-    redact: bool, open_report: bool = True,
+    redact: bool, open_report: bool = True, total_queries: Optional[int] = None,
+    target_info: Optional[dict] = None,
 ) -> None:
     """Shared output path for all 4 `aginiti attack` subcommands -- creates
     a fresh, timestamped subdirectory of `output_dir` (see `_new_run_dir`)
@@ -305,16 +402,31 @@ def _write_attack_outputs(
     so a later run never overwrites an earlier one's results."""
     from aginiti.reporting import generate_html_report, generate_markdown_report
 
+    target_profile = target_info.get("target_profile") if target_info else None
+    target_desc = target_info.get("target_description") if target_info else None
+    target_toggles = target_info.get("target_toggle_state") if target_info else None
+
+    if total_queries is not None and isinstance(total_queries, (int, float)):
+        queries_count = int(total_queries)
+    else:
+        try:
+            queries_count = int(total_queries) if total_queries is not None else len(findings)
+        except Exception:
+            queries_count = len(findings)
+
     run_dir = _new_run_dir(output_dir)
     report = {
         "run_metadata": {
             "attack": attack,
             "agent_url": target,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "total_queries": len(findings),
+            "total_queries": queries_count,
             "runtime_seconds": time.monotonic() - started,
             "embed_model": embed_model,
             "llm_provider": llm_provider,
+            "target_profile": target_profile,
+            "target_description": target_desc,
+            "target_toggle_state": target_toggles,
         },
         "findings": [dataclasses.asdict(f) for f in findings],
     }
@@ -418,7 +530,7 @@ def _collect_scan_findings(execution_log, library) -> list[dict]:
 
 
 def _write_scan_outputs(output_dir: Path, report_name: str, target: Optional[str], result, library,
-                         started: float, open_report: bool = True) -> None:
+                         started: float, open_report: bool = True, target_info: Optional[dict] = None) -> None:
     """`aginiti scan`'s output writer -- reuses generate_markdown_report()/
     generate_html_report() (the same OWASP-mapped, severity-sorted reports
     `aginiti attack` produces) over findings translated from the campaign's
@@ -429,6 +541,10 @@ def _write_scan_outputs(output_dir: Path, report_name: str, target: Optional[str
     from aginiti.reporting import generate_html_report, generate_markdown_report
 
     from aginiti.providers.llm import active_provider_name
+
+    target_profile = target_info.get("target_profile") if target_info else None
+    target_desc = target_info.get("target_description") if target_info else None
+    target_toggles = target_info.get("target_toggle_state") if target_info else None
 
     run_dir = _new_run_dir(output_dir)
     findings = _collect_scan_findings(result.execution_log, library)
@@ -447,6 +563,9 @@ def _write_scan_outputs(output_dir: Path, report_name: str, target: Optional[str
             # specifically describes the judge, not necessarily every LLM
             # call this run made.
             "llm_provider": f"{active_provider_name()} (judge)",
+            "target_profile": target_profile,
+            "target_description": target_desc,
+            "target_toggle_state": target_toggles,
         },
         "findings": findings,
         "decision_log": [dataclasses.asdict(d) for d in result.decision_log],
@@ -507,6 +626,8 @@ def _cmd_scan(args: argparse.Namespace) -> None:
     # buffered while other output flushes immediately, reordering what the
     # user actually sees despite this line executing first.
     print(_AUTH_BANNER, flush=True)
+    target_info = _probe_target_profile(args.target)
+    _print_target_banner(args.target, target_info)
     started = time.monotonic()
 
     try:
@@ -544,7 +665,7 @@ def _cmd_scan(args: argparse.Namespace) -> None:
         print(f"\nOutcome: {result.outcome} | steps: {result.steps_executed} | "
               f"prompts used: {result.prompts_used}/{mission.budget}")
         _write_scan_outputs(Path(args.output_dir), args.report, args.target, result, library, started,
-                            open_report=not args.no_open_report)
+                            open_report=not args.no_open_report, target_info=target_info)
     finally:
         if args.target and agent is not None:
             agent.endpoint.close()
@@ -564,13 +685,16 @@ def _cmd_attack_ikea(args: argparse.Namespace) -> None:
     # buffered while other output flushes immediately, reordering what the
     # user actually sees despite this line executing first.
     print(_AUTH_BANNER, flush=True)
+    target_info = _probe_target_profile(args.target)
+    _print_target_banner(args.target, target_info)
     started = time.monotonic()
     attack = IKEAAttack(target_url=args.target, llm_provider=model, api_key=key)
     findings = attack.execute_black_box(topic=args.topic, max_queries=args.queries)
     _write_attack_outputs(
         Path(args.output_dir), args.report, "ikea", args.target, findings, started,
         embed_model="chromadb/all-MiniLM-L6-v2", llm_provider=model, redact=args.redact,
-        open_report=not args.no_open_report,
+        open_report=not args.no_open_report, total_queries=getattr(attack, "queries_sent", len(findings)),
+        target_info=target_info,
     )
 
 
@@ -600,6 +724,8 @@ def _cmd_attack_secret(args: argparse.Namespace) -> None:
     # buffered while other output flushes immediately, reordering what the
     # user actually sees despite this line executing first.
     print(_AUTH_BANNER, flush=True)
+    target_info = _probe_target_profile(args.target)
+    _print_target_banner(args.target, target_info)
     started = time.monotonic()
     attack = SECRETAttack(
         target_url=args.target, llm_provider=model, api_key=key,
@@ -611,7 +737,8 @@ def _cmd_attack_secret(args: argparse.Namespace) -> None:
     _write_attack_outputs(
         Path(args.output_dir), args.report, "secret", args.target, findings, started,
         embed_model="chromadb/all-MiniLM-L6-v2", llm_provider=model, redact=args.redact,
-        open_report=not args.no_open_report,
+        open_report=not args.no_open_report, total_queries=attack.queries_sent,
+        target_info=target_info,
     )
 
 
@@ -638,6 +765,8 @@ def _cmd_attack_mia(args: argparse.Namespace) -> None:
     # buffered while other output flushes immediately, reordering what the
     # user actually sees despite this line executing first.
     print(_AUTH_BANNER, flush=True)
+    target_info = _probe_target_profile(args.target)
+    _print_target_banner(args.target, target_info)
     started = time.monotonic()
     attack = InterrogationAttack(
         target_url=args.target, llm_provider=model, api_key=key,
@@ -647,7 +776,8 @@ def _cmd_attack_mia(args: argparse.Namespace) -> None:
     _write_attack_outputs(
         Path(args.output_dir), args.report, "mia", args.target, findings, started,
         embed_model="", llm_provider=model, redact=args.redact,
-        open_report=not args.no_open_report,
+        open_report=not args.no_open_report, total_queries=getattr(attack, "queries_sent", len(findings)),
+        target_info=target_info,
     )
 
 
@@ -668,13 +798,16 @@ def _cmd_attack_spe(args: argparse.Namespace) -> None:
     # buffered while other output flushes immediately, reordering what the
     # user actually sees despite this line executing first.
     print(_AUTH_BANNER, flush=True)
+    target_info = _probe_target_profile(args.target)
+    _print_target_banner(args.target, target_info)
     started = time.monotonic()
     attack = SPEAttack(target_url=args.target, classifier_llm_provider=model, classifier_api_key=key)
     findings = attack.execute_black_box()
     _write_attack_outputs(
         Path(args.output_dir), args.report, "spe", args.target, findings, started,
         embed_model="", llm_provider=model, redact=args.redact,
-        open_report=not args.no_open_report,
+        open_report=not args.no_open_report, total_queries=getattr(attack, "queries_sent", len(findings)),
+        target_info=target_info,
     )
 
 

@@ -356,7 +356,7 @@ show it working live.
 | **~5×** | fewer questions needed than guessing blindly, for the same result |
 | **98%** | fewer questions blocked by the target's own defenses |
 | **4/5** | categories where we matched NVIDIA's own security scanner exactly |
-| **2,004** | automated checks, run before every release |
+| **2,010** | automated checks, run before every release |
 
 Real, confirmed leaks found on real (not our own) systems during testing:
 

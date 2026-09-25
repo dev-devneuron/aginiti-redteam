@@ -19,16 +19,34 @@ Point it at any AI chatbot, RAG assistant, tool-calling agent, or multi-agent sy
 | **~5x Search Efficiency** | Reaches confirmed ground-truth exploit states in 5x fewer queries than fixed-order scanners by steering around defense dead-ends. | Benchmarked against 8-layer hardened agent (`docs/BENCHMARKS.md`). |
 | **Industry Alignment** | Findings independently verified against **NVIDIA's garak**, plus live tool-chain exfiltration beyond REST boundaries. | Mapped to OWASP Top 10 for LLM Applications (2025). |
 | **Research-Backed Attack Techniques** | Covers RAG Data Reconstruction (IKEA, SECRET), Membership Inference, and System Prompt Extraction as standalone `aginiti attack` modules, plus scan-mode techniques like Crescendo escalation, PAIR-style refinement, encoding evasion, indirect prompt injection, and tool abuse. | Grounded in peer-reviewed papers (ICLR, ACM CCS, IEEE TIFS). |
-| **Zero-Cost Offline Suite** | **1,997 unit tests** run in under 30 seconds with 100% mocked offline endpoints (zero API tokens spent). | Run locally via `pytest tests/`. |
+| **Zero-Cost Offline Suite** | **2,010 unit tests** run in under 30 seconds with 100% mocked offline endpoints (zero API tokens spent). | Run locally via `pytest tests/`. |
 
 ---
 
 ## ⚡ Quick Start: Assess an Agent in 60 Seconds
 
-Run a real red-teaming assessment directly from your terminal. **No Git clone or code checkout required.**
+### Option A: 1-Click Automated Demo (Recommended)
+Run our automated quickstart script to initialize an environment, launch the hardened demo target in the background, run a full 50-query assessment across all 47 operators, open the interactive HTML report, and cleanly shut down the server when finished:
+
+**macOS / Linux**
+```bash
+curl -sSL https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/quickstart.sh | bash
+```
+*(Or clone the repo and run `./quickstart.sh`)*
+
+**Windows (PowerShell)**
+```powershell
+irm https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/quickstart.ps1 | iex
+```
+*(Or clone the repo and run `.\quickstart.ps1`)*
+
+---
+
+### Option B: Step-by-Step Manual Setup
+Prefer manual control? Run the assessment step-by-step:
 
 ```
-Fresh Machine Quickstart
+Manual Setup Flow
   │
   ├─ 1. Configure Environment & API Key
   ├─ 2. pip install "aginiti-redteam[demo-target]"
@@ -36,19 +54,26 @@ Fresh Machine Quickstart
   └─ 4. Run Scan: aginiti scan --target http://localhost:8001 (Terminal 2)
 ```
 
-### 1. Set Up Environment & LLM API Key
-Aginiti is provider-agnostic — set an API key for whichever LLM provider you use (Gemini, OpenAI, Groq, Anthropic, or Mistral all work; OpenAI is shown below as the example), then create and activate an isolated virtual environment. Run all three lines together, in order:
+### 1. Set Up Environment & API Keys
+Aginiti uses LLMs to plan campaigns, execute attacks, and judge responses. 
+
+> [!TIP]
+> **Open-Weight Model Support (Groq):** Certain deep-attack techniques (such as RAG exfiltration analysis and shadow interrogation) require open-weight models (e.g., Llama 3.3). We strongly recommend adding a **Groq API key** (`GROQ_API_KEY`) alongside your preferred frontier provider (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`).
+
+Create your `.env` file and activate an isolated virtual environment:
 
 **macOS / Linux**
 ```bash
-export OPENAI_API_KEY="sk-..."
+echo 'OPENAI_API_KEY="sk-..."' > .env
+echo 'GROQ_API_KEY="gsk_..."' >> .env
 python -m venv .venv
 source .venv/bin/activate
 ```
 
 **Windows (PowerShell)**
 ```powershell
-$env:OPENAI_API_KEY="sk-..."
+Set-Content -Path .env -Value 'OPENAI_API_KEY="sk-..."'
+Add-Content -Path .env -Value 'GROQ_API_KEY="gsk_..."'
 python -m venv .venv
 .venv\Scripts\activate
 ```
@@ -241,7 +266,7 @@ aginiti-redteam/
 │   └── dev_fixtures/            # Unit testing mock agents
 ├── docker/                      # Standalone end-user Dockerfile & docker-compose.yml
 ├── docs/                        # In-depth ARCHITECTURE, BENCHMARKS, and TUTORIAL guides
-└── tests/                       # 1,997 unit and integration tests (100% offline)
+└── tests/                       # 2,010 unit and integration tests (100% offline)
 ```
 
 ---
