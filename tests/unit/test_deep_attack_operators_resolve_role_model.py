@@ -262,3 +262,17 @@ class TestConfigResolvedFreshNotFrozenAtImportTime:
         # inspect its keywords directly rather than constructing the real
         # attack (which would need a working AgentEndpoint).
         assert ikea_op.attack_factory.keywords["config"].llm_provider == "openai/gpt-4o-mini"
+
+
+def test_key_for_uses_any_provider_override_for_unmapped_provider(monkeypatch):
+    from aginiti.operators.deep_attack_operators import _key_for
+    monkeypatch.setenv("AGINITI_LLM_MODEL", "deepseek/deepseek-chat")
+    monkeypatch.setenv("AGINITI_LLM_API_KEY", "ds-key")
+    assert _key_for("deepseek/deepseek-chat") == "ds-key"
+
+
+def test_key_for_unmapped_provider_without_override_still_raises(monkeypatch):
+    import pytest
+    from aginiti.operators.deep_attack_operators import _key_for
+    with pytest.raises(ValueError, match="No known API key env var"):
+        _key_for("deepseek/deepseek-chat")

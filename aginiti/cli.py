@@ -133,15 +133,26 @@ def _resolve_model(explicit: Optional[str]) -> tuple[str, str]:
     the first available key found (litellm raises its own clear error if
     that key doesn't actually match the model's provider).
 
+    ``AGINITI_LLM_MODEL``/``AGINITI_LLM_API_KEY`` (any LiteLLM provider,
+    see ``aginiti.providers.llm.CUSTOM_MODEL_ENV``) is the default when set,
+    ahead of the fixed order above, and supplies the key for an explicit
+    ``--model`` on that same provider.
+
     Raises ``SystemExit`` with an actionable message if no key can be
     found at all -- never proceeds with an attack that would silently fail
     every call.
     """
+    from aginiti.providers.llm import CUSTOM_KEY_ENV, CUSTOM_MODEL_ENV
+
+    custom_model = os.environ.get(CUSTOM_MODEL_ENV)
+    custom_key = os.environ.get(CUSTOM_KEY_ENV)
     if explicit:
         provider = explicit.split("/", 1)[0]
         env_var = _PROVIDER_ENV_FOR.get(provider)
         if env_var and os.environ.get(env_var):
             return explicit, os.environ[env_var]
+        if custom_model and custom_key and custom_model.split("/", 1)[0] == provider:
+            return explicit, custom_key
         for env_var, _ in _PROVIDER_DEFAULTS:
             if os.environ.get(env_var):
                 return explicit, os.environ[env_var]
@@ -150,6 +161,12 @@ def _resolve_model(explicit: Optional[str]) -> tuple[str, str]:
             f"environment. Set one of: {', '.join(v for v, _ in _PROVIDER_DEFAULTS)}."
         )
 
+    if custom_model:
+        # Empty string, not None, for a keyless model (e.g. ollama/*): the
+        # attacks treat a falsy key as "let LiteLLM read the provider's own
+        # env var".
+        return custom_model, custom_key or ""
+
     for env_var, default_model in _PROVIDER_DEFAULTS:
         if os.environ.get(env_var):
             return default_model, os.environ[env_var]
@@ -157,6 +174,7 @@ def _resolve_model(explicit: Optional[str]) -> tuple[str, str]:
     raise SystemExit(
         "No LLM API key found. Set one of "
         + ", ".join(v for v, _ in _PROVIDER_DEFAULTS)
+        + f", or {CUSTOM_MODEL_ENV} + {CUSTOM_KEY_ENV} for any other LiteLLM provider"
         + " (in your environment or a .env file), or pass --model explicitly."
     )
 
@@ -595,11 +613,19 @@ def _cmd_scan(args: argparse.Namespace) -> None:
     from aginiti.core.campaign import run_campaign
     from aginiti.core.campaign_builder import CampaignBuildError, build_campaign
 
-    if args.model:
-        model, _ = _resolve_model(args.model)
-        os.environ["IKEA_OPERATOR_LLM_PROVIDER"] = model
-        os.environ["SECRET_OPERATOR_LLM_PROVIDER"] = model
-        os.environ["MIA_OPERATOR_LLM_PROVIDER"] = model
+    # Point every deep-attack operator at the same model the rest of the
+    # scan uses. An explicit --model overrides any per-operator env var;
+    # otherwise the auto-detected model (AGINITI_LLM_MODEL first, then the
+    # first provider key found) only fills in operators the user hasn't
+    # configured individually -- without this, those operators fell back to
+    # a hardcoded Gemini default and failed for anyone without a Gemini key.
+    model, _ = _resolve_model(args.model)
+    for env_var in ("IKEA_OPERATOR_LLM_PROVIDER", "SECRET_OPERATOR_LLM_PROVIDER",
+                    "MIA_OPERATOR_LLM_PROVIDER", "SPE_OPERATOR_LLM_PROVIDER"):
+        if args.model:
+            os.environ[env_var] = model
+        else:
+            os.environ.setdefault(env_var, model)
 
     # Deliberately NO --deep-attack-queries-style flag here: `aginiti scan`
     # keeps each deep-attack Operator's own fixed, small query cap (IKEA
