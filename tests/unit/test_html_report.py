@@ -39,6 +39,25 @@ class TestGenerateHtmlReport:
         assert out_path.read_text(encoding="utf-8") == html
         assert html.startswith("<!doctype html>")
 
+    def test_pdf_download_button_present_and_wired_to_window_print(self, tmp_path):
+        """Client-side window.print(), not a server-generated .pdf file --
+        this report is designed to be a standalone, shareable artifact, so
+        the download option has to work even for a recipient who only has
+        this one .html file (no sibling .pdf, no Python environment)."""
+        html = generate_html_report(_run_ikea_schema([_finding()]), tmp_path / "r.html")
+        assert 'onclick="window.print()"' in html
+        assert "Download PDF" in html
+
+    def test_pdf_button_hidden_and_light_theme_forced_when_printing(self, tmp_path):
+        """@media print must win over the dark-mode block even when the
+        viewer's OS prefers dark -- see the CSS comment for why this needs
+        !important rather than a plain :root override."""
+        html = generate_html_report(_run_ikea_schema([_finding()]), tmp_path / "r.html")
+        print_block = html.split("@media print")[1].split("</style>")[0]
+        assert ".pdf-download-btn" in print_block
+        assert "display: none" in print_block
+        assert "!important" in print_block
+
     def test_no_paper_baseline_anywhere(self, tmp_path):
         html = generate_html_report(_run_ikea_schema([_finding()]), tmp_path / "r.html")
         assert "Paper Baseline" not in html
