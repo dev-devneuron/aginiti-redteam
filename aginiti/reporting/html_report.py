@@ -219,6 +219,40 @@ body {
   font-size: 0.82rem;
   color: var(--text-secondary);
 }
+
+/* PDF download -- window.print() rather than a server-generated file: this
+   report is designed to be a standalone, shareable artifact (see the
+   module docstring), and a recipient who only has this one .html file
+   (forwarded, uploaded, opened on a different machine) has no sibling
+   .pdf sitting next to it and no Python environment to generate one --
+   the browser's own print-to-PDF always works, with no dependency on
+   Chrome/Edge being installed wherever the ORIGINAL report was created
+   (unlike aginiti/reporting/pdf_export.py's headless-browser subprocess
+   approach, which is a CLI-time convenience for a different use case,
+   not a fit for a button on the page itself). */
+.pdf-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  background: var(--text);
+  color: var(--surface);
+  border: 1px solid var(--text);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pdf-download-btn:hover {
+  opacity: 0.85;
+}
+.pdf-download-btn svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
 .meta-chip strong {
   color: var(--text);
 }
@@ -578,6 +612,76 @@ footer {
   font-size: 0.8rem;
   color: var(--text-muted);
 }
+
+@media print {
+  /* Force the light palette regardless of the viewer's OS dark-mode
+     setting: a dark background sent to a printer/PDF wastes ink, and
+     every severity color below was tuned for contrast against the light
+     surfaces. !important on each custom property, not just a plain
+     :root override, because the dark-mode block above is
+     ":root:not([data-theme=\"light\"])" -- higher selector specificity
+     than a bare ":root" here would otherwise still win even though this
+     rule comes later in the stylesheet. */
+  :root {
+    --bg: #f8fafc !important;
+    --surface: #ffffff !important;
+    --surface-subtle: #f1f5f9 !important;
+    --surface-card: #ffffff !important;
+    --border: #e2e8f0 !important;
+    --border-strong: #cbd5e1 !important;
+    --text: #0f172a !important;
+    --text-secondary: #475569 !important;
+    --text-muted: #64748b !important;
+    --sev-critical-bg: #fef2f2 !important;
+    --sev-critical-border: #fecaca !important;
+    --sev-critical-text: #991b1b !important;
+    --sev-critical-badge: #dc2626 !important;
+    --sev-high-bg: #fff7ed !important;
+    --sev-high-border: #fed7aa !important;
+    --sev-high-text: #9a3412 !important;
+    --sev-high-badge: #ea580c !important;
+    --sev-medium-bg: #fffbeb !important;
+    --sev-medium-border: #fde68a !important;
+    --sev-medium-text: #92400e !important;
+    --sev-medium-badge: #d97706 !important;
+    --sev-low-bg: #eff6ff !important;
+    --sev-low-border: #bfdbfe !important;
+    --sev-low-text: #1e40af !important;
+    --sev-low-badge: #2563eb !important;
+    --sev-clean-bg: #ecfdf5 !important;
+    --sev-clean-border: #a7f3d0 !important;
+    --sev-clean-text: #065f46 !important;
+    --sev-clean-badge: #059669 !important;
+    --code-bg: #0f172a !important;
+    --code-text: #f8fafc !important;
+  }
+
+  body {
+    background: #ffffff;
+  }
+
+  /* Every severity badge/card background on this report is load-bearing
+     information (which finding is critical vs. low), not decoration --
+     browsers strip background colors by default when printing unless a
+     page opts back in explicitly. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .pdf-download-btn {
+    display: none;
+  }
+
+  .dashboard-container {
+    max-width: none;
+    padding: 0.5rem 0 2rem;
+  }
+
+  .finding-card, .kpi-card, .summary-card, .panel-card {
+    break-inside: avoid;
+  }
+}
 """
 
 
@@ -811,6 +915,10 @@ def generate_html_report(report: dict, output_path: str | Path, redact: bool = F
       <div class="meta-chip">Date: <strong>{_esc(date_str)}</strong></div>
       <div class="meta-chip">Target: <strong>{_esc(data['target'])}</strong></div>
       {auth_html}
+      <button class="pdf-download-btn" onclick="window.print()" title="Opens the browser's print dialog -- choose 'Save as PDF' as the destination">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>
+        Download PDF
+      </button>
     </div>
   </header>
 

@@ -9,6 +9,31 @@ changes.
 
 ## [Unreleased]
 
+### Added
+
+- The HTML assessment report now has a "Download PDF" button in its
+  header, using the browser's own `window.print()` rather than a
+  server-generated `.pdf` file: this report is designed to be a
+  standalone, shareable artifact, and a recipient who only has the one
+  `.html` file (forwarded, uploaded, opened on a different machine) has
+  no sibling `.pdf` sitting next to it and no Python environment to
+  generate one -- the browser's built-in print-to-PDF always works, with
+  no dependency on Chrome/Edge being installed wherever the report was
+  originally created (unlike `aginiti/reporting/pdf_export.py`'s
+  existing headless-browser subprocess approach, which remains a
+  separate, CLI-time convenience for a different use case). New
+  `@media print` rules force the light color palette regardless of the
+  viewer's OS dark-mode setting (severity colors were tuned for contrast
+  against light surfaces, and a dark background wastes ink/toner), keep
+  every severity badge/card background from being silently stripped
+  (`print-color-adjust: exact`), hide the button itself in the printed
+  output, and avoid finding/KPI cards splitting awkwardly across page
+  breaks. Live-verified end to end: rendered a real report through
+  Chrome's headless `--print-to-pdf`, then rendered the resulting PDF
+  pages to PNG for visual inspection -- confirmed the button is absent,
+  colors and severity styling are fully intact, and cards don't split
+  mid-card.
+
 ### Changed
 
 - `docs/index.html` rewritten to be CLI-first, matching the README's own
