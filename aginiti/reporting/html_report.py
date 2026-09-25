@@ -5,11 +5,10 @@ Generates an executive-ready, modern HTML assessment report dashboard
 from the exact same normalized data as generate_markdown_report.
 
 Features:
-- Responsive dashboard layout (max-width: 1200px, responsive CSS grid, fully dynamic across all devices)
+- Responsive dashboard layout (max-width: 1200px, responsive CSS grid)
 - Color-coded severity tiers (Critical, High, Medium, Low, Secure)
 - Executive KPI summary cards (Risk level, ASR, Queries/Runtime, Findings breakdown)
 - Two-column overview panel (Target details & Risk summary)
-- Target Configuration & Defense Posture panel (Layer-by-layer breakdown)
 - Structured, visually distinct finding cards with boxed test probes,
   highlighted evidence, detection rationale, confidence scores, and remediation.
 - Built-in light/dark theme support with crisp typography and zero external runtime dependencies.
@@ -22,7 +21,6 @@ from pathlib import Path
 
 from aginiti.reporting.markdown_report import (
     _ATTACK_DISPLAY_NAMES,
-    _DEFENSE_DESCRIPTIONS,
     _FULL_RESPONSE_TRUNCATE_CHARS,
     _LEAK_TYPE_DISPLAY_NAMES,
     _OWASP_DEFAULT,
@@ -178,7 +176,6 @@ body {
   max-width: 1200px;
   margin: 0 auto;
   padding: 2.5rem 1.5rem 6rem;
-  width: 100%;
 }
 
 /* Header */
@@ -275,7 +272,7 @@ body {
 /* KPI Cards Grid */
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 1.25rem;
   margin-bottom: 2rem;
 }
@@ -288,10 +285,6 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-width: 0;
-  overflow: hidden;
-  word-break: break-word;
-  overflow-wrap: break-word;
 }
 .kpi-label {
   font-size: 0.75rem;
@@ -302,42 +295,27 @@ body {
   margin-bottom: 0.5rem;
 }
 .kpi-value {
-  font-size: 1.6rem;
+  font-size: 1.65rem;
   font-weight: 700;
   color: var(--text);
-  line-height: 1.25;
-  margin: 0.35rem 0;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  min-width: 0;
+  line-height: 1.2;
 }
 .kpi-subtext {
   font-size: 0.84rem;
   color: var(--text-secondary);
   margin-top: 0.35rem;
-  line-height: 1.4;
 }
 
 /* Severity Pill */
 .sev-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.78rem;
+  display: inline-block;
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  padding: 0.3rem 0.75rem;
+  padding: 0.25rem 0.65rem;
   border-radius: 999px;
   line-height: 1.2;
-  white-space: normal;
-  max-width: 100%;
-  box-sizing: border-box;
-  text-align: center;
-  word-break: break-word;
-  overflow-wrap: break-word;
 }
 .sev-pill.critical { background: var(--sev-critical-bg); color: var(--sev-critical-text); border: 1px solid var(--sev-critical-border); }
 .sev-pill.high { background: var(--sev-high-bg); color: var(--sev-high-text); border: 1px solid var(--sev-high-border); }
@@ -348,17 +326,20 @@ body {
 /* Two-column Overview */
 .overview-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  grid-template-columns: 1.2fr 1fr;
   gap: 1.5rem;
   margin-bottom: 2rem;
+}
+@media (max-width: 860px) {
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .panel-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 1.4rem;
-  min-width: 0;
-  overflow: hidden;
 }
 .panel-title {
   font-size: 1rem;
@@ -375,7 +356,6 @@ table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.88rem;
-  min-width: 320px;
 }
 th, td {
   padding: 0.65rem 0.85rem;
@@ -402,11 +382,9 @@ tr:last-child td {
   border-bottom: none;
 }
 .tablewrap {
-  width: 100%;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 /* Scope Banner */
@@ -419,7 +397,6 @@ tr:last-child td {
   margin-bottom: 2.25rem;
   font-size: 0.88rem;
   color: var(--text-secondary);
-  line-height: 1.5;
 }
 .scope-banner strong {
   color: var(--text);
@@ -436,8 +413,6 @@ tr:last-child td {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem;
 }
 .section-count {
   font-size: 0.82rem;
@@ -469,7 +444,6 @@ tr:last-child td {
   margin-bottom: 1.5rem;
   overflow: hidden;
   box-shadow: 0 1px 4px rgba(0,0,0,0.02);
-  min-width: 0;
 }
 .finding-header {
   padding: 0.9rem 1.25rem;
@@ -533,7 +507,6 @@ tr:last-child td {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  min-width: 0;
 }
 .field-label {
   font-size: 0.72rem;
@@ -558,7 +531,6 @@ tr:last-child td {
   color: var(--text);
   white-space: pre-wrap;
   word-break: break-word;
-  overflow-wrap: anywhere;
 }
 
 /* Leak Evidence Box */
@@ -576,7 +548,6 @@ tr:last-child td {
   color: var(--text);
   white-space: pre-wrap;
   word-break: break-word;
-  overflow-wrap: anywhere;
   font-weight: 500;
 }
 
@@ -589,15 +560,12 @@ tr:last-child td {
   padding: 0.85rem 1rem;
   font-size: 0.88rem;
   color: var(--sev-low-text);
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow-wrap: anywhere;
 }
 
 /* Details Grid inside card */
 .card-details-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
   padding: 0.75rem 0;
   border-top: 1px solid var(--border);
@@ -614,7 +582,6 @@ tr:last-child td {
   color: var(--text);
   white-space: pre-wrap;
   word-break: break-word;
-  overflow-wrap: anywhere;
 }
 
 /* Non-Findings and Refusal */
@@ -625,8 +592,6 @@ tr:last-child td {
   padding: 1.25rem 1.4rem;
   margin-bottom: 1.5rem;
   font-size: 0.9rem;
-  min-width: 0;
-  overflow: hidden;
 }
 
 footer {
@@ -636,88 +601,6 @@ footer {
   text-align: center;
   font-size: 0.8rem;
   color: var(--text-muted);
-}
-
-/* Responsive Breakpoints */
-@media (max-width: 900px) {
-  .overview-grid {
-    grid-template-columns: 1fr;
-    gap: 1.25rem;
-  }
-  .kpi-grid {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-    gap: 1rem;
-  }
-}
-
-@media (max-width: 600px) {
-  .dashboard-container {
-    padding: 1.25rem 0.85rem 4rem;
-  }
-  .top-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.85rem;
-  }
-  .report-title {
-    font-size: 1.45rem;
-  }
-  .header-meta {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-  .meta-chip {
-    width: 100%;
-    box-sizing: border-box;
-    justify-content: flex-start;
-  }
-  .pdf-download-btn {
-    width: 100%;
-    box-sizing: border-box;
-    justify-content: center;
-  }
-  .kpi-grid {
-    grid-template-columns: 1fr;
-    gap: 0.85rem;
-  }
-  .kpi-card {
-    padding: 1rem 1.15rem;
-  }
-  .panel-card, .summary-card {
-    padding: 1.1rem 1rem;
-  }
-  .finding-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-  .finding-id-group {
-    width: 100%;
-    justify-content: space-between;
-  }
-  .finding-owasp-chip {
-    width: 100%;
-    box-sizing: border-box;
-    text-align: left;
-  }
-  .finding-body {
-    padding: 1rem;
-    gap: 0.85rem;
-  }
-  .card-details-grid {
-    grid-template-columns: 1fr;
-  }
-  table {
-    font-size: 0.82rem;
-  }
-  th, td {
-    padding: 0.5rem 0.65rem;
-  }
-  .probe-box, .leak-box, .remediation-box, .response-preview {
-    font-size: 0.82rem;
-    padding: 0.75rem 0.85rem;
-  }
 }
 
 @media print {
@@ -915,28 +798,14 @@ def generate_html_report(report: dict, output_path: str | Path, redact: bool = F
             parts.append(f"Engagement: <strong>{_esc(data['engagement_id'])}</strong>")
         auth_html = f'<div class="meta-chip">{" | ".join(parts)}</div>'
 
-    # Risk verdict and color (cleanly separated for concise badge & non-overflow subtext)
+    # Risk verdict and color
+    risk_verdict = _overall_risk_verdict(reportable)
     risk_sev = "clean"
-    if not reportable:
-        risk_badge = "NONE DETECTED"
-        risk_subtext = "No findings detected within query budget (see coverage note)"
-        risk_sev = "clean"
-    else:
+    if reportable:
         confirmed = [f for f in reportable if f.get("confirmed")]
         pool = confirmed if confirmed else reportable
-        worst_f = max(
-            pool,
-            key=lambda f: {"critical": 4, "high": 3, "medium": 2, "low": 1}.get(
-                f.get("severity", "low").lower(), 0
-            ),
-        )
-        worst_sev = worst_f.get("severity", "low").lower()
+        worst_sev = max(pool, key=lambda f: {"critical": 4, "high": 3, "medium": 2, "low": 1}.get(f.get("severity", "low"), 0)).get("severity", "low").lower()
         risk_sev = worst_sev if worst_sev in severity_order else "low"
-        risk_badge = risk_sev.upper()
-        if confirmed:
-            risk_subtext = "Confirmed data disclosure (verified by LLM-as-judge)"
-        else:
-            risk_subtext = "Structural disclosure only - no confirmed data leak"
 
     # ASR calculation
     metrics = data["metrics"]
@@ -964,74 +833,22 @@ def generate_html_report(report: dict, output_path: str | Path, redact: bool = F
         if "avg_cosine" in metrics:
             metrics_rows += f"<tr><td>Avg Cosine Similarity</td><td><strong>{metrics['avg_cosine']:.2f}</strong></td><td>Vector distance in embedding space</td></tr>"
 
-    # Target Configuration & Security Posture Panel
+    # Target Configuration
     target_config_html = ""
-    target_profile = data.get("target_profile")
-    target_desc = data.get("target_description")
     persona = data.get("persona")
     toggle_state = data.get("target_toggle_state")
-
-    if target_profile or target_desc or persona or toggle_state:
-        profile_pill_class = "low"
-        if target_profile and "Hardened" in target_profile:
-            profile_pill_class = "clean"
-        elif target_profile and "Vanilla" in target_profile:
-            profile_pill_class = "medium"
-
-        profile_header_html = ""
-        if target_profile:
-            profile_header_html = (
-                f'<div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.6rem;">'
-                f'<span class="sev-pill {profile_pill_class}" style="font-size: 0.78rem; padding: 0.25rem 0.65rem;">'
-                f'{_esc(target_profile)}</span>'
-                f'</div>'
-            )
-
-        desc_html = (
-            f'<p style="color: var(--text-secondary); margin-bottom: 0.85rem; font-size: 0.88rem;">'
-            f'{_esc(target_desc)}</p>'
-            if target_desc else ""
-        )
-        persona_html = (
-            f'<p style="margin-bottom: 0.75rem; color: var(--text-secondary); font-size: 0.88rem;">'
-            f'Authenticated Persona: <strong>{_esc(persona)}</strong></p>'
-            if persona else ""
-        )
-
-        toggle_table = ""
+    if persona or toggle_state:
+        rows = ""
         if isinstance(toggle_state, dict) and toggle_state:
             rows = "".join(
-                f'<tr>'
-                f'<td><strong>{_esc(_toggle_label(k))}</strong></td>'
-                f'<td><span class="sev-pill {"clean" if v else "low"}">{"Active (On)" if v else "Disabled (Off)"}</span></td>'
-                f'<td>{_esc(_DEFENSE_DESCRIPTIONS.get(k, "Target security layer"))}</td>'
-                f'</tr>'
+                f"<tr><td>{_esc(_toggle_label(k))}</td><td><span class=\"sev-pill {'clean' if v else 'low'}\">{'Active' if v else 'Disabled'}</span></td></tr>"
                 for k, v in toggle_state.items()
             )
-            toggle_table = f"""
-            <div class="tablewrap" style="margin-top: 0.5rem;">
-              <table>
-                <thead>
-                  <tr>
-                    <th style="width: 28%;">Defense Layer</th>
-                    <th style="width: 22%;">Status</th>
-                    <th style="width: 50%;">Security Function</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows}
-                </tbody>
-              </table>
-            </div>"""
-        elif isinstance(toggle_state, str):
-            toggle_table = f'<p style="color: var(--text-secondary); font-size: 0.88rem;">Target toggle state: <code>{_esc(toggle_state)}</code></p>'
-
+        toggle_table = f'<div class="tablewrap"><table><tr><th>Defense Layer</th><th>Status</th></tr>{rows}</table></div>' if rows else ""
         target_config_html = f"""
         <div class="panel-card" style="margin-bottom: 2rem;">
-          <h2 class="panel-title">Target Configuration & Security Posture</h2>
-          {profile_header_html}
-          {desc_html}
-          {persona_html}
+          <h2 class="panel-title">Target Configuration</h2>
+          {f'<p style="margin-bottom: 0.75rem; color: var(--text-secondary);">Authenticated Persona: <strong>{_esc(persona)}</strong></p>' if persona else ''}
           {toggle_table}
         </div>"""
 
@@ -1093,8 +910,8 @@ def generate_html_report(report: dict, output_path: str | Path, redact: bool = F
   <section class="kpi-grid">
     <div class="kpi-card">
       <span class="kpi-label">Overall Risk Rating</span>
-      <div class="kpi-value"><span class="sev-pill {risk_sev}">{_esc(risk_badge)}</span></div>
-      <span class="kpi-subtext">{_esc(risk_subtext)}</span>
+      <div class="kpi-value"><span class="sev-pill {risk_sev}">{_esc(risk_verdict)}</span></div>
+      <span class="kpi-subtext">Highest confirmed finding severity</span>
     </div>
 
     <div class="kpi-card">
