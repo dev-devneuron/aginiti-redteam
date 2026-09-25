@@ -123,7 +123,8 @@ class TestGenerateHtmlReport:
         attack_type alone ("CAMPAIGN"/"DRA"/etc.) isn't specific enough."""
         finding = _finding(operator="secret_jailbreak_exfiltration")
         html = generate_html_report(_run_ikea_schema([finding]), tmp_path / "r.html")
-        assert '<span class="finding-operator-chip">secret_jailbreak_exfiltration</span>' in html
+        assert '<span class="finding-operator-chip">' in html
+        assert "secret_jailbreak_exfiltration" in html.split('class="finding-operator-chip">')[1].split("</span>")[0]
 
     def test_finding_omits_operator_chip_when_absent(self, tmp_path):
         """A standalone `aginiti attack <technique>` report never sets

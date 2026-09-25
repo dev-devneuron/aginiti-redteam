@@ -1,247 +1,164 @@
 # Aginiti Red-Team Framework 🛡️🤖
 
-**Aginiti** is an autonomous security-assessment and penetration-testing engine for
-enterprise agentic AI systems — chatbots, RAG assistants, tool-calling agents, and
-multi-agent fleets.
+[![PyPI Version](https://img.shields.io/pypi/v/aginiti-redteam.svg)](https://pypi.org/project/aginiti-redteam/)
+[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)]()
+[![Tests](https://img.shields.io/badge/tests-2010%20passing-brightgreen.svg)]()
+[![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)]()
 
-Rather than executing a static list of prompts and checking pass/fail, Aginiti builds an
-active **Security State Graph (SSG)** of the target, evaluates security controls, and
-plans multi-step exploits autonomously — the way a human red-teamer reasons, at machine
-speed.
+**Aginiti is an autonomous, evidence-driven red-teaming and penetration-testing engine for AI agents.**
 
-**Proven, not just architected:** benchmarked head-to-head against fixed-order
-enumeration (~5x fewer requests to the same outcomes) and validated against NVIDIA's
-garak (findings agreed exactly on every comparable category) on real, production-realistic
-targets. 11 attack methodologies, grounded in 10+ published research papers, 1,925 tests.
-Full numbers: [`docs/BENCHMARKS.md`](https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/BENCHMARKS.md).
+Point Aginiti at any AI chatbot, RAG assistant, or tool-calling agent. Rather than running a static list of prompts, Aginiti plans adaptive multi-turn attack campaigns in real time: accumulating everything it observes into an active **Security State Graph (SSG)** and dynamically selecting the most effective attack techniques turn-by-turn.
+
+---
+
+## ⚡ Key Highlights
+
+* **~5x Search Efficiency:** Reaches verified exploit states in 5x fewer queries than fixed-order scanners by steering around defense dead-ends.
+* **Industry & Standards Aligned:** Evaluates target defenses against the **OWASP Top 10 for LLM Applications (2025)** and **MITRE ATLAS**.
+* **Research-Backed Attack Suite:** Includes standalone RAG exfiltration (*IKEA*, *SECRET*), Shadow Membership Inference (*MIA*), System Prompt Extraction (*SPE-LLM*), Encoding & Low-Resource Language Evasions (*NeurIPS/ACL*), and Tool Abuse.
+* **Instant Reports:** Generates structured `findings.json`, executive Markdown reports, and styled, interactive HTML reports automatically.
 
 ---
 
 ## 🚀 Installation
 
-Install the core library (for running standalone attacks and HTTP adapters):
+Install the core library and CLI:
 ```bash
 pip install aginiti-redteam
 ```
 
-Add `[demo-target]` for a local target agent to try Aginiti against, with no target of your
-own required:
+To include the practice target agent (`aginiti-demo-target`) for local A/B testing:
 ```bash
 pip install "aginiti-redteam[demo-target]"
 ```
-**Already have your own target agent and don't need the demo one?** The plain
-`pip install aginiti-redteam` above is all you need — skip the extra.
 
 ---
 
-## ⚙️ Configuration & Prerequisites
+## ⚙️ Configuration
 
-Aginiti campaigns use an LLM provider to evaluate vulnerability conditions, judge target responses, and calculate attacker utility.
+Aginiti uses LLMs to plan campaigns, execute attacks, and judge target responses. 
 
-Set up your API keys in your environment or a `.env` file:
-```env
-# Attacker/Judge LLM keys (LiteLLM routes these automatically). Set any one --
-# the CLI below auto-detects whichever is present and picks that provider's
-# current default model.
-GEMINI_API_KEY=your_gemini_api_key
-OPENAI_API_KEY=your_openai_api_key
-GROQ_API_KEY=your_groq_api_key
-ANTHROPIC_API_KEY=your_anthropic_api_key
-MISTRAL_API_KEY=your_mistral_api_key
+**Open-Weight Model Key (Recommended):** Certain deep-attack techniques (such as RAG exfiltration analysis and shadow interrogation) require open-weight models (e.g. Llama 3.3). We strongly recommend setting a **Groq API key** (`GROQ_API_KEY`) alongside your preferred frontier provider (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`).
+
+Create a `.env` file in your workspace:
+
+**macOS / Linux**
+```bash
+echo 'OPENAI_API_KEY="sk-..."' > .env
+echo 'GROQ_API_KEY="gsk_..."' >> .env
+```
+
+**Windows (PowerShell)**
+```powershell
+Set-Content -Path .env -Value 'OPENAI_API_KEY="sk-..."'
+Add-Content -Path .env -Value 'GROQ_API_KEY="gsk_..."'
 ```
 
 ---
 
-## ⚡ CLI Quickstart (no code required)
+## 💻 CLI Quickstart
 
-Run a real assessment straight from your terminal:
+### 🚀 Option A: 1-Minute Automated Assessment Demo
+Run the end-to-end automated demo (initializes environment, starts the hardened demo target in background, runs full assessment across all 47 operators, opens HTML report, and shuts down server):
+
+**macOS / Linux**
+```bash
+curl -sSL https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/quickstart.sh | bash
+```
+
+**Windows (PowerShell)**
+```powershell
+irm https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/quickstart.ps1 | iex
+```
+
+---
+
+### Option B: Step-by-Step Manual Commands
+
+#### 1. Start a Practice Target (Optional)
+Launch a local target agent seeded with multi-domain corporate records (HR, IT, DevSecOps, Vendor Invoices):
 
 ```bash
-# Start a local target agent to try Aginiti against (seeds itself, then serves on :8001)
-aginiti-demo-target
-#   Port 8001 already taken? Run it on another one instead:
-aginiti-demo-target --port 8010
-#   Vulnerable by default (--vanilla) -- add --hardened for a defended A/B comparison:
-aginiti-demo-target --hardened
+# Vanilla mode (defenses off — vulnerable baseline)
+aginiti-demo-target --port 8001
 
-# In a second terminal: aginiti scan -- let it decide (try this first)
-aginiti scan --target http://localhost:8001 --tier data_leakage --budget 15
-aginiti scan --target http://localhost:8001 --tier unauthorized_actions --budget 15
-aginiti scan --target http://localhost:8001 --tier discovery_recon --budget 10
-aginiti scan --target http://localhost:8001 --tier full_assessment --budget 20
-
-# ...or aginiti attack -- you decide, one technique at a time
-aginiti attack spe --target http://localhost:8001
-aginiti attack ikea --target http://localhost:8001 --topic "HR records" --queries 10
-aginiti attack secret --target http://localhost:8001 --domain "HR records" --queries 10
-aginiti attack mia --target http://localhost:8001 --dataset candidates.json
-
-# Regenerate a Markdown report for a past run, without re-running anything
-aginiti report --input results/<run>/findings.json
+# Hardened mode (all 5 defense layers enabled: input classifier, system guardrails, DLP redactor, rate limiter, memory)
+aginiti-demo-target --port 8001 --hardened
 ```
 
-Every `scan`/`attack` run prints one authorized-use reminder, then auto-saves
-`findings.json` (the full structured result), `aginiti_assessment_report.md` (a
-human-readable, OWASP LLM Top 10–mapped Markdown report), and `aginiti_assessment_report.html`
-(the same report, styled for a browser) into their own fresh, timestamped subdirectory of
-`./results` (`--output-dir` to redirect elsewhere), e.g. `results/2026-09-23_154012/` — so a
-later run never overwrites an earlier one's results. The HTML report opens in your default
-browser automatically the moment the run finishes (`--no-open-report` to skip this) — no
-Markdown viewer needed, so it's easy to hand to a non-technical reader too. `--tier` accepts
-`data_leakage | unauthorized_actions | discovery_recon | full_assessment`; use
-`--attack-category` instead for one of 11 precise named groups (`aginiti scan
---list-attack-categories` to see all of them). Every subcommand has its own `--help`; `aginiti
-attack mia --dataset` expects a JSON file shaped `{"documents": [{"id", "text"}, ...],
-"non_member_reference_docs": [{"id", "text"}, ...]}`.
+### 2. Autonomous Multi-Turn Scan (`aginiti scan`)
+Let Aginiti autonomously map vulnerabilities across the target:
 
-Point `--target` at any real, HTTP-reachable agent you're authorized to test instead of the
-local demo target — nothing about the CLI requires it.
+```bash
+# Full multi-domain assessment (tries all attack categories)
+aginiti scan --target http://localhost:8001 --tier full_assessment --budget 50
+
+# Or focus on specific security tiers:
+aginiti scan --target http://localhost:8001 --tier data_leakage --budget 30
+aginiti scan --target http://localhost:8001 --tier unauthorized_actions --budget 20
+aginiti scan --target http://localhost:8001 --tier discovery_recon --budget 15
+```
+
+### 3. Targeted Deep Attacks (`aginiti attack`)
+Run individual, research-grounded attack algorithms directly:
+
+```bash
+# IKEA: Mutational RAG exfiltration walk
+aginiti attack ikea --target http://localhost:8001 --topic "corporate records" --queries 20
+
+# SECRET: Adaptive jailbreak RAG extraction
+aginiti attack secret --target http://localhost:8001 --domain "credentials and infrastructure" --queries 20
+
+# SPE: Heuristic System Prompt Extraction sweep
+aginiti attack spe --target http://localhost:8001
+
+# MIA: Shadow Membership Inference against candidate records
+aginiti attack mia --target http://localhost:8001 --dataset candidates.json
+```
+
+### 4. Regenerate Reports (`aginiti report`)
+Rebuild Markdown and HTML reports from existing finding artifacts without re-running queries:
+
+```bash
+aginiti report --input results/2026-09-24_124156/findings.json
+```
 
 ---
 
-## 💻 Python API
+## 📊 Assessment Output & Reports
 
-Aginiti supports two modes of execution: **Direct Mode** (for full-scale standalone audits) and **Adaptive Mode** (for autonomous orchestrated campaigns).
+Every scan and attack run automatically creates a timestamped folder under `./results/` containing:
+1. **`findings.json`**: Complete structured JSON output with OWASP mappings, confidence scores, and raw transcripts.
+2. **`aginiti_assessment_report.md`**: Human-readable Markdown summary with severity breakdown and remediation advice.
+3. **`aginiti_assessment_report.html`**: Beautiful, browser-ready interactive dashboard with visual status cards, automatically opened upon scan completion.
 
-### **1. Direct Mode (Standalone Auditing)**
-Use this mode to run a targeted, heavy search loop against an endpoint using one of our mathematical exfiltration/jailbreak algorithms.
+---
 
-#### **Example: IKEA Data Reconstruction Attack**
-This attack attempts to reconstruct sensitive records (such as database entries) from the target agent's RAG system.
+## 🐍 Python API
+
+Aginiti can also be integrated directly into automated CI/CD security pipelines:
+
 ```python
 from aginiti.attacks.dra.ikea import IKEAAttack
 
-# 1. Initialize the standalone attack
+# Run a targeted black-box exfiltration audit
 attack = IKEAAttack(
-    target_url="http://localhost:8001",  # base URL only -- AgentEndpoint appends /chat itself
-    llm_provider="gemini/gemini-3.5-flash",
-    api_key="your_api_key"
+    target_url="http://localhost:8001",
+    llm_provider="groq/llama-3.3-70b-versatile"
 )
 
-# 2. Run the exfiltration audit
-# topic: the target domain containing sensitive info
-# max_queries: query budget to extract and verify data reconstruction
-findings = attack.execute_black_box(topic="HR Payroll database", max_queries=20)
+findings = attack.execute_black_box(topic="DevSecOps and AWS credentials", max_queries=20)
 
-# 3. Analyze results
 for finding in findings:
     if finding.confirmed:
-        print(f" leaked content: {finding.leaked_content}")
-        print(f"   Severity: {finding.severity} | Confidence: {finding.confidence}")
-```
-
-Other available standalone attacks include:
-*   `SECRETAttack` (`aginiti.attacks.dra.secret`): Iterative adversarial jailbreak suffix optimization.
-*   `InterrogationAttack` (`aginiti.attacks.mia.interrogation`): Membership Inference Attack to check if specific PII records were used to train or ground the target agent.
-*   `SPELLMAttack` (`aginiti.attacks.spe.spe_llm`): System Prompt Extraction audit.
-
----
-
-### **2. Adaptive Mode (Autonomous Campaigns)**
-Use this mode to run the Aginiti Campaign Engine. The planner evaluates the target's security state graph and selects the optimal sequence of reconnaissance and exploitation operators.
-
-#### **Example: Setting up a Campaign**
-```python
-from aginiti.core.campaign import run_campaign
-from aginiti.core.scenarios import multi_path_mission
-from aginiti.operators.definitions import build_library
-from aginiti.adapters.http_agent_adapter import HTTPAgentAdapter
-from aginiti.connectors.endpoint import AgentEndpoint
-
-# 1. Establish a persistent session to the target agent
-endpoint = AgentEndpoint(base_url="http://localhost:8001")
-agent_adapter = HTTPAgentAdapter(endpoint)
-
-# 2. Configure the audit mission and build the operators
-mission = multi_path_mission()
-library = build_library()
-
-# 3. Run the campaign loop
-result = run_campaign(
-    mission=mission,
-    library=library,
-    agent=agent_adapter,
-    max_steps=25
-)
-
-# 4. Review the outcome
-print(f"Campaign Outcome: {result.outcome}")  # SUCCESS | BUDGET_EXHAUSTED
-print(f"Steps executed: {result.steps_executed}")
-print(f"Total prompt budget spent: {result.prompts_used}")
-```
-
----
-
-## 🎯 Fine-Tuning the Audit Scope
-
-You can filter the operator library to restrict the campaign to specific types of attacks.
-
-### **Filtering by Security Tier**
-Tiers represent broad categories of security posture. You can filter the operator library in Python before launching the campaign:
-
-```python
-from aginiti.operators.data_exposure import data_exposure_operators
-from aginiti.operators.deep_attack_operators import deep_attack_operators
-from aginiti.operators.library import OperatorLibrary
-
-# Load all core operators
-all_operators = [*data_exposure_operators(), *deep_attack_operators()]
-
-# Example: Filter to only include Data Leakage operators (IKEA, SECRET, MIA, SPE)
-data_leakage_operators = [
-    op for op in all_operators 
-    if op.effects_success and op.effects_success[0].owasp_llm_category in {
-        "LLM02_SENSITIVE_INFORMATION_DISCLOSURE", "LLM07_SYSTEM_PROMPT_LEAKAGE"
-    }
-]
-
-library = OperatorLibrary(data_leakage_operators)
-```
-
-### **Filtering by Attack Category**
-You can also filter the library by one of the **11 specific attack methodologies** using `.by_category()`:
-
-```python
-# Allowed Categories: 
-# "direct_prompt_attack", "encoding_attack", "rag_poisoning", 
-# "indirect_injection", "tool_discovery", "tool_manipulation", 
-# "markdown_network_exfiltration", "multi_step_chain", 
-# "decoy", "known_defended", "low_value_reconnaissance"
-
-library = OperatorLibrary(all_operators).by_category("multi_step_chain", "tool_discovery")
-```
-
----
-
-## 🛠️ Troubleshooting Windows Installation
-
-On certain Windows machines, compiling vector databases locally using `chromadb` can trigger an `onnxruntime` or `numpy` DLL loading exception.
-
-If you encounter a `DLL load failed` error, resolve it by installing these compatible binary versions:
-```powershell
-pip install onnxruntime==1.17.0 numpy==1.26.4
-```
-Alternatively, bypass local ONNX computation completely by setting up cloud-based embeddings (e.g. `embed_model="openai/text-embedding-3-small"`).
-
----
-
-## 📊 Result Analysis & Evidence Extraction
-
-After a campaign finishes, you can extract the final security graph claims to generate compliance or vulnerability reports:
-
-```python
-# Print verified vulnerabilities discovered during the campaign
-for claim in result.ssg.claims:
-    print(f"Vulnerability: {claim.key} -> Status: {claim.status.value} (Confidence: {claim.confidence.value})")
+        print(f"[{finding.severity.upper()}] Leaked: {finding.leaked_content}")
 ```
 
 ---
 
 ## 🔗 Links & Resources
 
-*   **GitHub Repository:** For local developer setups, starting Docker target containers, or contributing, visit [Aginiti Red-Team GitHub](https://github.com/dev-devneuron/aginiti-redteam).
-*   **Full Usage Guide:** [`docs/USAGE.md`](https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/USAGE.md) — every attack's parameters and query budget, target authentication, where results/cache files land, and a gotchas/FAQ list.
-*   **Hands-on Tutorial:** [`docs/TUTORIAL.md`](https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/TUTORIAL.md) — a copy-paste walkthrough of the full CLI and Python API, start to finish.
-*   **Detailed Documentation:** Refer to the `docs/` folder in the repository for detailed papers on the Aginiti planning model, evidence classification, and mitigation guides.
-*   **Contributors:** [Muhammad Hammad Irfan](https://github.com/MuhammadHammadIrfan), [Omer Bin Dawood](https://github.com/OmerBinDawood)
-*   **License:** MIT
+* **GitHub Repository:** [https://github.com/dev-devneuron/aginiti-redteam](https://github.com/dev-devneuron/aginiti-redteam)
+* **Documentation & Guides:** [Aginiti Docs](https://github.com/dev-devneuron/aginiti-redteam/tree/main/docs)
+* **Authors:** [Muhammad Hammad Irfan](https://github.com/MuhammadHammadIrfan), [Omer Bin Dawood](https://github.com/OmerBinDawood)
+* **License:** MIT

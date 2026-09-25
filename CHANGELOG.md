@@ -11,6 +11,30 @@ changes.
 
 ### Added
 
+- `quickstart.sh` (macOS/Linux/WSL) and `quickstart.ps1` (Windows
+  PowerShell) -- one-command demo scripts that create/reuse an isolated
+  venv, install `aginiti-redteam[demo-target]`, pre-seed the local ONNX
+  embedding model and ChromaDB collection, pick a free port for the
+  hardened demo target (prompting for another one if 8001 is taken),
+  launch it in the background, run a full `aginiti scan --tier
+  full_assessment --budget 50` against it, and shut the target down on
+  exit -- the `curl ... | bash` / `irm ... | iex` one-liners now shown in
+  both READMEs. Both scripts also guard against an orphaned demo target
+  left behind by a killed earlier run of themselves (matched by command
+  line, not PID, so it's safe to run unconditionally), and verify after
+  their own readiness poll that the process actually answering on the
+  chosen port is the one they just started, not something else that
+  happened to be listening there.
+- `aginiti scan`/`attack` now probe the target's `/health` endpoint
+  before running (`aginiti/cli.py`'s `_probe_target_profile`) and print a
+  structured "Target System Profile & Security Posture" banner
+  classifying it as the Hardened Demo Agent, the Vanilla Demo Agent, or
+  an external black-box target -- the same `target_profile`/
+  `target_description`/`target_toggle_state` metadata now also flows into
+  `findings.json`'s `run_metadata` and renders as a "Target Configuration
+  & Security Posture" panel (with per-defense-layer status and a
+  one-line description of what each layer actually does) in both the
+  Markdown and HTML reports.
 - `aginiti scan --target`/`scripts/run_campaign.py --agent-url` now load
   all 8 `channel="direct"` operator packs (47 operators total) instead of
   just 2 (`data_exposure_operators()` + `deep_attack_operators()`, 11
@@ -100,6 +124,51 @@ changes.
 
 ### Fixed
 
+- `aginiti attack ikea` and `aginiti attack mia` crashed with
+  `AttributeError: '...Attack' object has no attribute 'queries_sent'`
+  right after the attack finished, before `findings.json`/the reports
+  ever got written -- `_cmd_attack_ikea`/`_cmd_attack_mia` in
+  `aginiti/cli.py` read `attack.queries_sent` directly, but only
+  `SECRETAttack` actually sets that attribute; `IKEAAttack` and
+  `InterrogationAttack` (MIA) never did (confirmed by inspecting each
+  class's `__init__`). `aginiti attack spe` already worked around this
+  with `getattr(attack, "queries_sent", len(findings))` -- the ikea/mia
+  call sites now use the same safe pattern. Existing CLI tests didn't
+  catch this because they mock the attack classes, and a `MagicMock`
+  auto-generates any attribute a caller asks for instead of raising
+  `AttributeError` the way the real classes do.
+- `benchmarks/scaled_evals/agents/hardened_agent/main.py`'s
+  `_resolve_caller` was changed (locally, uncommitted) to default to
+  `HARDENED_AGENT_DEFAULT_PERSONA` ("legal") on ANY auth failure --
+  including a malformed/unrecognized/expired credential, not just a
+  missing one -- silently contradicting the module's own docstring ("a
+  request with no/unrecognized/expired credential gets 401") and
+  defeating this target's purpose as an auth/RBAC bypass test fixture (a
+  bad token would appear to "work" instead of being rejected). Narrowed
+  back to only default when NO `Authorization` header is offered at all
+  (the actual intent -- letting `aginiti scan` black-box-test this
+  target without first minting a token); a header that IS present but
+  wrong still raises 401 as before.
+- `aginiti/reporting/markdown_report.py`'s new `_DEFENSE_DESCRIPTIONS`
+  dict (one-line descriptions of what each defense layer does, e.g.
+  "Pre-flight classifier blocking adversarial/malicious prompts before
+  processing") was defined but never referenced anywhere, in either
+  report. Wired into both the Markdown "Active Defense Layers" table
+  (new "What it does" column) and the HTML report's defense-layer table.
+- 3 `TestTargetConfiguration` tests in `tests/unit/test_markdown_report.py`
+  and 1 operator-chip test in `tests/unit/test_html_report.py` asserted
+  the PRE-existing "## Target Configuration" / "**Authenticated as:**" /
+  "On"/"Off" markdown and the plain (no "Technique:" prefix) HTML chip
+  markup -- both already changed (locally, uncommitted) to "## Target
+  Configuration & Security Posture" / "**Authenticated Persona:**" /
+  "Active"/"Disabled" and the "<strong>Technique:</strong> ..." chip
+  format. Updated the tests to match the new, intentional format instead
+  of reverting it.
+- Stale test-count claims (`1,925`/`1,997`/`2,004`/`2000`) across
+  `README.md`, `README_pypi.md`, `docs/BENCHMARKS.md`, `docs/TUTORIAL.md`,
+  and `docs/index.html` corrected to the current count (2,010, re-verified
+  via `pytest tests/ --collect-only -q` at fix time rather than reused
+  from an earlier planning pass).
 - SECRET's Phase 1 (jailbreak optimization) could still fail even after
   0.3.3's optimizer-model fix, this time from Groq rate-limiting rather
   than refusal: `_resolve_secret_optimizer`/`_resolve_role_model` picked

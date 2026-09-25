@@ -21,6 +21,7 @@ from pathlib import Path
 
 from aginiti.reporting.markdown_report import (
     _ATTACK_DISPLAY_NAMES,
+    _DEFENSE_DESCRIPTIONS,
     _FULL_RESPONSE_TRUNCATE_CHARS,
     _LEAK_TYPE_DISPLAY_NAMES,
     _OWASP_DEFAULT,
@@ -475,14 +476,17 @@ tr:last-child td {
   border-radius: var(--radius-sm);
 }
 .finding-operator-chip {
-  font-size: 0.75rem;
+  font-size: 0.76rem;
   font-weight: 600;
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  color: var(--text-muted);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  padding: 0.2rem 0.6rem;
+  color: var(--sev-low-text);
+  background: var(--sev-low-bg);
+  border: 1px solid var(--sev-low-border);
+  padding: 0.22rem 0.65rem;
   border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .finding-status-bar {
@@ -717,7 +721,18 @@ def _render_finding_card(f: dict, index: int, attack_code: str, redact: bool) ->
     # standalone `aginiti attack <technique>` report doesn't need this
     # (already states its one technique elsewhere, no per-finding key set).
     operator = f.get("operator")
-    operator_chip_html = f'<span class="finding-operator-chip">{_esc(operator)}</span>' if operator else ""
+    operator_chip_html = (
+        f'<span class="finding-operator-chip"><strong>Technique:</strong> {_esc(operator)}</span>'
+        if operator else ""
+    )
+
+    operator_grid_html = (
+        f'<div class="field-group">'
+        f'<span class="field-label">Attack Technique (Operator)</span>'
+        f'<div class="field-content"><code style="background: var(--surface-subtle); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85rem;">{_esc(operator)}</code></div>'
+        f'</div>'
+        if operator else ""
+    )
 
     return f"""
     <div class="finding-card">
@@ -726,8 +741,10 @@ def _render_finding_card(f: dict, index: int, attack_code: str, redact: bool) ->
           <span class="finding-id">Finding {_esc(attack_code)}-{index:03d}</span>
           <span class="sev-pill {sev}">{_esc(sev_upper)}</span>
         </div>
-        <span class="finding-owasp-chip">{_esc(owasp)}</span>
-        {operator_chip_html}
+        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+          {operator_chip_html}
+          <span class="finding-owasp-chip">{_esc(owasp)}</span>
+        </div>
       </div>
 
       <div class="finding-status-bar {status_class}">
@@ -746,13 +763,14 @@ def _render_finding_card(f: dict, index: int, attack_code: str, redact: bool) ->
         </div>
 
         <div class="card-details-grid">
-          <div class="field-group">
-            <span class="field-label">Detection Rationale</span>
-            <div class="field-content">{_esc(f.get('reasoning', ''))}</div>
-          </div>
+          {operator_grid_html}
           <div class="field-group">
             <span class="field-label">Certainty Score</span>
             <div class="field-content"><strong>{f.get('confidence', 0):.2f}</strong> / 1.00</div>
+          </div>
+          <div class="field-group">
+            <span class="field-label">Detection Rationale</span>
+            <div class="field-content">{_esc(f.get('reasoning', ''))}</div>
           </div>
         </div>
 
@@ -855,18 +873,46 @@ def generate_html_report(report: dict, output_path: str | Path, redact: bool = F
     target_config_html = ""
     persona = data.get("persona")
     toggle_state = data.get("target_toggle_state")
-    if persona or toggle_state:
+    target_profile = data.get("target_profile")
+    target_desc = data.get("target_description")
+    if target_profile or target_desc or persona or toggle_state:
+        profile_badge_class = "clean"
+        if target_profile and "Hardened" in target_profile:
+            profile_badge_class = "clean"
+        elif target_profile and "Vanilla" in target_profile:
+            profile_badge_class = "medium"
+        else:
+            profile_badge_class = "low"
+
+        profile_html = ""
+        if target_profile:
+            profile_html = (
+                f'<div style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">'
+                f'<span style="font-weight: 600; color: var(--text-primary);">Security Profile:</span>'
+                f'<span class="sev-pill {profile_badge_class}" style="font-size: 0.85rem; padding: 0.25rem 0.65rem;">'
+                f'{_esc(target_profile)}</span>'
+                f'</div>'
+            )
+
+        desc_html = f'<p style="margin-bottom: 0.75rem; color: var(--text-secondary);">{_esc(target_desc)}</p>' if target_desc else ""
+        persona_html = f'<p style="margin-bottom: 0.75rem; color: var(--text-secondary);">Authenticated Persona: <strong>{_esc(persona)}</strong></p>' if persona else ""
+
         rows = ""
         if isinstance(toggle_state, dict) and toggle_state:
             rows = "".join(
-                f"<tr><td>{_esc(_toggle_label(k))}</td><td><span class=\"sev-pill {'clean' if v else 'low'}\">{'Active' if v else 'Disabled'}</span></td></tr>"
+                f"<tr><td><strong>{_esc(_toggle_label(k))}</strong></td>"
+                f"<td><span class=\"sev-pill {'clean' if v else 'low'}\">{'Active' if v else 'Disabled'}</span></td>"
+                f"<td style=\"color: var(--text-secondary);\">{_esc(_DEFENSE_DESCRIPTIONS.get(k, ''))}</td></tr>"
                 for k, v in toggle_state.items()
             )
-        toggle_table = f'<div class="tablewrap"><table><tr><th>Defense Layer</th><th>Status</th></tr>{rows}</table></div>' if rows else ""
+        toggle_table = f'<div class="tablewrap" style="margin-top: 0.5rem;"><table><tr><th>Defense Layer</th><th>Status</th><th>What it does</th></tr>{rows}</table></div>' if rows else ""
+
         target_config_html = f"""
         <div class="panel-card" style="margin-bottom: 2rem;">
-          <h2 class="panel-title">Target Configuration</h2>
-          {f'<p style="margin-bottom: 0.75rem; color: var(--text-secondary);">Authenticated Persona: <strong>{_esc(persona)}</strong></p>' if persona else ''}
+          <h2 class="panel-title">Target Configuration & Security Posture</h2>
+          {profile_html}
+          {desc_html}
+          {persona_html}
           {toggle_table}
         </div>"""
 
