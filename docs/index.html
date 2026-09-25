@@ -253,7 +253,6 @@
         </li>
         <li><a href="#u-adaptive">Adaptive Mode — campaign engine</a>
           <ul>
-            <li><a href="#u-adaptive-cli">CLI usage</a></li>
             <li><a href="#u-adaptive-api">Python API</a></li>
             <li><a href="#u-adaptive-tiers">Tiers vs. categories</a></li>
             <li><a href="#u-adaptive-auth">Target authentication</a></li>
@@ -291,7 +290,7 @@
       <div class="badges">
         <span class="badge">Python 3.10+</span>
         <span class="badge">MIT License</span>
-        <span class="badge">1,925 tests · offline</span>
+        <span class="badge">2,004 tests · offline</span>
         <span class="badge">11 attack categories</span>
         <span class="badge">10+ cited papers</span>
       </div>
@@ -353,8 +352,9 @@
           <tr><td><strong>~5×</strong></td><td>fewer requests than fixed-order enumeration to reach the same ground-truth outcomes against a production-realistic target with 8 independently-toggleable defense layers</td></tr>
           <tr><td><strong>98%</strong></td><td>reduction in requests blocked by the target's own input filter — evidence the planner steers around dead ends, not around by brute volume</td></tr>
           <tr><td><strong>4/5</strong></td><td>attack categories where Aginiti and <a href="https://github.com/NVIDIA/garak">NVIDIA's garak</a> agreed exactly — plus real, confirmed findings (live tool exfiltration, network egress) a REST-only scanner cannot see at all</td></tr>
-          <tr><td><strong>11</strong></td><td>named attack methodologies, grounded in <strong>10+</strong> published, cited research papers — ArtPrompt, Crescendo, PAIR, CipherChat/MetaCipher, the Interrogation Attack, IKEA, SECRET, SPE-LLM, InjecAgent, and STAC among them</td></tr>
-          <tr><td><strong>1,925</strong></td><td>tests, fully offline — every LLM and network call mocked, full suite in under 30 seconds, zero API cost</td></tr>
+          <tr><td><strong>4</strong></td><td>standalone, paper-faithful attacks (IKEA, SECRET, Interrogation/MIA, SPE-LLM), each independently runnable or wrapped as a planner-selectable operator</td></tr>
+          <tr><td><strong>47</strong></td><td>target-agnostic operators across 8 technique packs (encoding evasion, ASCII-art evasion, low-resource-language evasion, output-filter evasion, session isolation, access-control probing, plus the 4 attacks above and the core data-exposure pack) that <code>aginiti scan</code> selects from automatically</td></tr>
+          <tr><td><strong>2,004</strong></td><td>tests, fully offline — every LLM and network call mocked, full suite in under 30 seconds, zero API cost</td></tr>
         </table>
       </div>
     </section>
@@ -428,7 +428,7 @@ cp .env.example .env
 
 # Run the full test suite — no API key required, every LLM/HTTP call is mocked
 pytest tests/ -v</code></pre>
-      <p>1,925 tests currently pass on a clean checkout, fully offline, in under 30 seconds.</p>
+      <p>2,004 tests currently pass on a clean checkout, fully offline, in under 30 seconds.</p>
 
       <p>To exercise real target agents locally (not required just to run the test suite):</p>
       <pre><code># Seed the local ChromaDB vector databases (computes embeddings offline, no API cost)
@@ -468,7 +468,7 @@ python scripts/run_campaign.py</code></pre>
 │   │   └── spe/                       # SPE-LLM (System Prompt Extraction)
 │   ├── connectors/                # HTTP client for the target agent under test
 │   ├── providers/                 # Aginiti's own LLM/embedding provider clients (LiteLLM-backed)
-│   ├── reporting/                 # Markdown/PDF report generation
+│   ├── reporting/                 # Markdown/HTML/PDF report generation
 │   ├── static_analysis/           # Zero-LLM-cost static checks
 │   └── transforms/                # Composable prompt-encoding pipeline
 ├── benchmarks/
@@ -478,7 +478,7 @@ python scripts/run_campaign.py</code></pre>
 │                                 #   planner claims — zero setup, no target/API key required
 ├── scripts/                      # Entry points — run_campaign.py, run_ikea.py, …
 ├── docs/                         # ARCHITECTURE.md, BENCHMARKS.md, ROADMAP.md, USAGE.md
-└── tests/                        # 1,925 tests, fully offline</code></pre>
+└── tests/                        # 2,004 tests, fully offline</code></pre>
       <p>Every top-level <code>aginiti/</code> subdirectory ships its own <code>README.md</code> describing
         exactly what belongs there — read the relevant one before adding a new module.</p>
 
@@ -689,9 +689,10 @@ aginiti report --input results/&lt;run&gt;/findings.json</code></pre>
       <div class="note">
         <div class="note-label">Note</div>
         <p><code>aginiti scan</code>'s own <code>--budget</code> means something different: each
-          technique only runs once per scan, and against the real-target pack (11 techniques today) a
-          budget above ~15-20 rarely finds more — a separate ceiling from how deep any one named
-          technique can go. IKEA/SECRET/MIA each keep their own fixed, small query cap inside a scan
+          technique only runs once per scan, and against the real-target pack (47 techniques today
+          across 8 packs) a new round starts automatically once every eligible one has had a turn, if
+          budget remains — a separate ceiling from how deep any one named technique can go.
+          IKEA/SECRET/MIA each keep their own fixed, small query cap inside a scan
           (20/10/4) no matter how large <code>--budget</code> is, on purpose, so one technique can't
           quietly eat the whole scan's budget. Want one of them to go much deeper? Run it directly
           instead — <code>aginiti attack secret --queries 30</code> — which is never capped the way the
@@ -917,38 +918,19 @@ findings = attack.execute_black_box()  # always exactly 3 probes, no budget to s
       <h3 class="h-anchor" id="u-adaptive">Adaptive Mode — the campaign engine</h3>
       <p>Same 4 attacks, plus everything else in the operator library, chosen automatically by a ranking
         function instead of by hand. The engine itself — <code>run_campaign()</code> — is plain Python and
-        works from a bare <code>pip install</code>. For the command-line path, prefer
-        <code>aginiti scan</code> (see <a href="#u-cli">CLI Quickstart</a> above) — it's the same
-        <code>--tier</code>/<code>--attack-category</code> filtering, ships with a plain
-        <code>pip install</code>, no git clone needed. <code>scripts/run_campaign.py</code> (git-clone
-        only) remains for two things the CLI doesn't cover: the zero-setup mock "DemoAgent" target shown
-        first below, and an explicit <code>--model</code> override for the deep-attack operators' own LLM
-        provider. Both paths are shown below.</p>
+        works from a bare <code>pip install</code>. <code>aginiti scan</code> (see
+        <a href="#u-cli">CLI Quickstart</a> above) is the command-line path — a plain
+        <code>pip install</code>, no git clone needed, with the exact same <code>--tier</code>/
+        <code>--attack-category</code>/<code>--model</code> filtering shown below in Python. Contributors
+        working from a git clone can run the identical engine with zero setup at all, against the
+        in-memory mock target, via <code>python scripts/run_campaign.py</code> — see
+        <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/TUTORIAL.md">docs/TUTORIAL.md</a>.</p>
 
-      <h4 id="u-adaptive-cli">If you cloned the repo — the original CLI</h4>
-      <pre><code># Mock target, zero setup — the 2-minute quickstart
-python scripts/run_campaign.py
-
-# A real target, filtered to one coarse tier, capped budget
-python scripts/run_campaign.py --agent-url http://localhost:8001 \
-    --tier data_leakage --budget 20
-
-# ...or a precise attack category instead of a tier (mutually exclusive)
-python scripts/run_campaign.py --agent-url http://localhost:8001 \
-    --attack-category encoding_attack rag_poisoning --budget 25
-
-# Override the deep-attack operators' own LLM provider
-python scripts/run_campaign.py --agent-url http://localhost:8001 \
-    --tier full_assessment --budget 40 --model groq/openai/gpt-oss-20b</code></pre>
-      <p style="font-size:.83rem;color:var(--text-faint);">Full implementation:
-        <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/scripts/run_campaign.py">scripts/run_campaign.py</a>.</p>
-
-      <h4 id="u-adaptive-api">If you only pip-installed — the Python API</h4>
+      <h4 id="u-adaptive-api">The Python API — for scripting or custom pipelines</h4>
       <pre><code>from aginiti.core.campaign import run_campaign
 from aginiti.core.mission import Mission
 from aginiti.core.graph.schema import RiskTier
-from aginiti.operators.data_exposure import data_exposure_operators
-from aginiti.operators.deep_attack_operators import deep_attack_operators
+from aginiti.core.campaign_builder import all_target_agnostic_operators
 from aginiti.operators.library import OperatorLibrary
 from aginiti.adapters.http_agent_adapter import HTTPAgentAdapter
 from aginiti.connectors.endpoint import AgentEndpoint
@@ -956,8 +938,9 @@ from aginiti.connectors.endpoint import AgentEndpoint
 endpoint = AgentEndpoint(base_url="http://localhost:8001")
 agent = HTTPAgentAdapter(endpoint)
 
-all_ops = [*data_exposure_operators(), *deep_attack_operators()]
-library = OperatorLibrary(all_ops).by_category("encoding_attack", "rag_poisoning")
+# all_target_agnostic_operators() is the same 47-operator/8-pack library
+# `aginiti scan --target ...` loads -- the single source of truth for both.
+library = OperatorLibrary(all_target_agnostic_operators()).by_category("encoding_attack", "rag_poisoning")
 
 mission = Mission(
     goal="Assess data-leakage exposure",
@@ -1080,10 +1063,10 @@ generate_markdown_report(report, "my_report.md")   # pass redact=True for a seco
           <code>embed_model</code> — a report dict missing any of these raises a bare <code>KeyError</code>
           rather than a helpful validation message. Copy the shape above rather than improvising one.</p>
       </div>
-      <p>If you cloned the repo, <code>scripts/run_ikea.py</code>/<code>run_secret.py</code>/etc. already do
-        all of this automatically, writing both a full JSON dump and a Markdown report under
-        <code>scripts/results/</code> — that convenience is script behavior, not library behavior, so it's
-        only there with a git checkout.</p>
+      <p><code>aginiti attack ikea</code>/etc. (see <a href="#u-cli">CLI Quickstart</a>) already do all of
+        this automatically — <code>findings.json</code>, Markdown, and HTML, into their own timestamped
+        <code>results/</code> subdirectory. This section is for building the same report dict yourself
+        when calling the attack classes directly in Python, e.g. inside a larger pipeline.</p>
       <p>How many queries an attack actually sent is inconsistent across the four — verified directly against
         each class:</p>
       <div class="tablewrap">
@@ -1118,16 +1101,29 @@ generate_markdown_report(report, "my_report.md")   # pass redact=True for a seco
           to relocate it — bypass with the <code>force_refresh</code> flags above if it's ever in your way.</p>
       </div>
 
-      <h3 class="h-anchor" id="u-reference">CLI &amp; environment-variable reference</h3>
+      <h3 class="h-anchor" id="u-reference"><code>aginiti</code> CLI &amp; environment-variable reference</h3>
+      <p>Every flag below works from a plain <code>pip install aginiti-redteam</code> — no git clone
+        needed. <code>aginiti scan</code>-specific flags first, then the flags shared by
+        <code>scan</code> and all 4 <code>aginiti attack</code> techniques.</p>
       <div class="tablewrap">
         <table>
-          <tr><th>Flag (git checkout only)</th><th>Effect</th></tr>
-          <tr><td><code>--agent-url</code></td><td>Target a real HTTP agent; switches the default library to the target-agnostic packs</td></tr>
+          <tr><th><code>aginiti scan</code> flag</th><th>Effect</th></tr>
+          <tr><td><code>--target</code> (required)</td><td>Web address of the agent you're testing</td></tr>
           <tr><td><code>--tier</code></td><td>One of the 4 coarse buckets — see Tiers vs. attack categories</td></tr>
-          <tr><td><code>--attack-category</code></td><td>One or more of the 11 precise categories (space-separated = union)</td></tr>
+          <tr><td><code>--attack-category</code></td><td>One or more of the 11 precise categories (space-separated = union); mutually exclusive with <code>--tier</code></td></tr>
           <tr><td><code>--list-attack-categories</code></td><td>Print all 11 with descriptions, exit — no key/network needed</td></tr>
-          <tr><td><code>--budget</code></td><td>Override the mission's prompt budget</td></tr>
-          <tr><td><code>--model</code></td><td>Override IKEA/SECRET/MIA's own primary attacker LLM</td></tr>
+          <tr><td><code>--budget</code></td><td>How many different techniques it's allowed to try in total — breadth, not depth (see the CLI Quickstart note above)</td></tr>
+        </table>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <tr><th>Shared flag (<code>scan</code> + every <code>attack</code> technique)</th><th>Effect</th></tr>
+          <tr><td><code>--output-dir</code></td><td>Where results are saved. Default: <code>./results</code></td></tr>
+          <tr><td><code>--report</code></td><td>File name for the Markdown report. Default: <code>aginiti_assessment_report.md</code></td></tr>
+          <tr><td><code>--redact</code></td><td>Also save a second, redacted copy safe to share more widely</td></tr>
+          <tr><td><code>--model</code></td><td>Override which LLM aginiti itself uses to run the attack and judge results. Default: auto-detects from whichever provider's key you have set</td></tr>
+          <tr><td><code>-v</code>, <code>--verbose</code></td><td>Show detailed technical logs</td></tr>
+          <tr><td><code>--no-open-report</code></td><td>Don't auto-open the HTML report in your browser</td></tr>
         </table>
       </div>
       <div class="tablewrap">
@@ -1137,15 +1133,20 @@ generate_markdown_report(report, "my_report.md")   # pass redact=True for a seco
           <tr><td><code>GROQ_API_KEY</code></td><td>Attacker/judge LLM (Groq via LiteLLM) — also SECRET's recommended optimizer provider</td></tr>
           <tr><td><code>OPENAI_API_KEY</code> / <code>ANTHROPIC_API_KEY</code></td><td>Attacker/judge LLM, respective providers</td></tr>
           <tr><td><code>EMBED_MODEL</code></td><td>Embedding backend — defaults to local, free <code>chromadb/all-MiniLM-L6-v2</code>; cloud alternatives need the matching provider key</td></tr>
-          <tr><td><code>IKEA_OPERATOR_LLM_PROVIDER</code> etc.</td><td>Per-attack operator defaults, read at import time by <code>deep_attack_operators.py</code> — set before importing it, or use <code>--model</code></td></tr>
+          <tr><td><code>IKEA_OPERATOR_LLM_PROVIDER</code> etc.</td><td>Per-attack operator defaults for <code>aginiti scan</code>, read fresh on every run by <code>deep_attack_operators.py</code> — or use <code>--model</code></td></tr>
         </table>
       </div>
 
       <h3 class="h-anchor" id="u-faq">Gotchas &amp; FAQ</h3>
-      <p><strong>I pip-installed but <code>python scripts/run_campaign.py</code> says "No module named
-        scripts"</strong><br>Expected — <code>scripts/</code> isn't part of the published package. Either
-        <code>git clone</code> the repo to get the CLI, or use the equivalent Python API shown in
-        <a href="#u-adaptive-api">Adaptive Mode</a>, which works from <code>pip install</code> alone.</p>
+      <p><strong>I want the zero-setup mock target with no <code>--target</code> at all</strong><br>That's
+        a git-clone-only convenience for contributors, not part of the published CLI —
+        <code>git clone</code> the repo, then <code>python scripts/run_campaign.py</code>. Everything else
+        on this page works from a plain <code>pip install</code>. Full walkthrough in
+        <a href="https://github.com/dev-devneuron/aginiti-redteam/blob/main/docs/TUTORIAL.md">docs/TUTORIAL.md</a>.</p>
+      <p><strong>I want the equivalent of the old per-attack scripts (<code>run_ikea.py</code> etc.)</strong><br><code>aginiti attack ikea</code>/<code>secret</code>/<code>mia</code>/<code>spe</code> (see
+        <a href="#u-cli">CLI Quickstart</a>) is the direct, pip-installable replacement — same attacks,
+        same auto-saved reports, no git clone. For programmatic use instead, see
+        <a href="#u-direct">Direct Mode</a>'s Python API.</p>
       <p><strong>SECRET's Phase 1 ran but found nothing, even at a generous budget</strong><br>Check what
         model the Optimizer is actually using. If <code>optimizer_llm_provider</code> was left unset, it
         silently inherited your main <code>llm_provider</code> — and a safety-aligned commercial model will

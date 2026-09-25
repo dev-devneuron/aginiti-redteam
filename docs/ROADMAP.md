@@ -33,6 +33,9 @@ explicitly marked as in progress — nothing here is claimed on architecture alo
   deterministic verbatim/fuzzy matching, never taken on an LLM judge's word alone.
 - **Attack-category selector** — pick any of 11 named attack methodologies directly, from
   the CLI or from Python, without hand-assembling an operator list.
+- **The `aginiti` CLI** — `aginiti scan`/`attack`/`report`, a plain `pip install` with no
+  git clone required; a full assessment is one command, auto-saving a severity-sorted,
+  OWASP-mapped Markdown and HTML report.
 
 ## In progress
 
@@ -50,8 +53,6 @@ explicitly marked as in progress — nothing here is claimed on architecture alo
 
 - **Feature/Attribute Inference Attack (FIA)** — inferring sensitive attributes about a
   corpus rather than membership or verbatim content.
-- **A dedicated `aginiti` CLI wrapper**, so a full assessment is a single command rather
-  than a script invocation.
 - **Cross-target learning** — carrying a diagnosed failure pattern from one target's
   campaign into the prior for the next, rather than starting cold every time.
 - **Broader multi-agent coverage** — extending the current A2A/MCP protocol coverage to
