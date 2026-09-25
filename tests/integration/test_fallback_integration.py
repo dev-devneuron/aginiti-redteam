@@ -89,7 +89,7 @@ def test_real_campaign_with_a_real_planner_completes_when_every_groq_key_is_exha
     # silently-empty result.
     assert result.outcome == "SUCCESS"
     assert result.steps_executed >= 1
-    assert provider_llm.last_fallback_reason() == "chat_json: groq pool exhausted, used gemini"
+    assert provider_llm.last_fallback_reason() == "chat_json: groq unavailable (RateLimitError), used gemini"
     # And the provider itself was never mutated by the fallback -- still
     # "groq" by default, just routed around per-call (see aginiti/providers/
     # llm.py's own docstring on why this distinction matters).
@@ -99,19 +99,39 @@ def test_real_campaign_with_a_real_planner_completes_when_every_groq_key_is_exha
 def test_real_campaign_raises_cleanly_when_groq_exhausted_and_no_gemini_key_configured(monkeypatch):
     # The other real-world case: no fallback available at all -- must fail
     # loudly (a clear RateLimitError), not silently produce a bogus result.
+    # Runs the REAL judge path (ObservationAdapter against a fake target),
+    # since that is where a dead LLM must surface: planning-aid calls
+    # (priors, reasoning pass) deliberately degrade on their own, but
+    # repeated judge failures abort the run rather than record every step
+    # as "not confirmed".
+    import aginiti.core.observation_adapter as oa
+    from aginiti.adapters.base import SendResult
+    from aginiti.core.observation_adapter import ObservationAdapter
+
+    class _FakeTarget:
+        def send(self, channel, prompt):
+            return SendResult(final_text="Sorry, I can't help with that.")
+
+        def ground_truth_mission_achieved(self):
+            return False
+
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    for var in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "MISTRAL_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("GROQ_API_KEY", "k0")
+    monkeypatch.setattr(provider_llm.time, "sleep", lambda s: None)
+    monkeypatch.setattr(oa, "_consecutive_judge_failures", 0)
     provider_llm._current_idx = 0
     provider_llm._last_fallback_reason = None
     monkeypatch.setattr(litellm, "completion", lambda model, messages, **kw: (_ for _ in ()).throw(_rate_limit_error()))
 
     library = OperatorLibrary(data_exposure_operators())
     mission = Mission(goal="fallback integration test", success_criteria=("system_prompt_disclosed",),
-                       success_mode="any", budget=3, risk_threshold=RiskTier.MEDIUM)
+                       success_mode="any", budget=5, risk_threshold=RiskTier.MEDIUM)
 
     with pytest.raises(litellm.RateLimitError):
         run_campaign(
-            mission, library, agent=object(), policy=AginitiPolicy(), adapter=_FakeAdapter(),
+            mission, library, agent=_FakeTarget(), policy=AginitiPolicy(), adapter=ObservationAdapter(),
             max_steps=mission.budget, seed=1, enable_reasoning_layer=True,
             target_briefing="Target: a test system.",
         )

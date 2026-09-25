@@ -503,3 +503,29 @@ def test_resolving_chain_search_is_bounded_by_max_depth():
 
     assert effect is None
     assert chain == ()
+
+
+def test_synthesize_insights_handles_llm_exception_gracefully():
+    ssg = SecurityStateGraph()
+    ssg.assert_claim("k1", "true", ClaimStatus.CONFIRMED)
+
+    with patch("aginiti.core.graph.insights.chat_json", side_effect=RuntimeError("LLM service unavailable")):
+        result = synthesize_insights(ssg, target_name="test-target")
+
+    assert result == []
+
+
+def test_run_reasoning_pass_handles_llm_exception_gracefully():
+    from aginiti.core.graph.insights import run_reasoning_pass, ReasoningPassResult
+    ssg = SecurityStateGraph()
+    ssg.assert_claim("k1", "true", ClaimStatus.CONFIRMED)
+    library = OperatorLibrary([])
+
+    with patch("aginiti.core.graph.insights.chat_json", side_effect=RuntimeError("LLM service unavailable")):
+        result = run_reasoning_pass(ssg, "test-target", library)
+
+    assert isinstance(result, ReasoningPassResult)
+    assert result.insights == []
+    assert result.updated_summary is None
+    assert result.branch_signal == ()
+

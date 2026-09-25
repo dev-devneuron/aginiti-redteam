@@ -126,6 +126,25 @@ class TestGenerateHtmlReport:
         assert '<span class="finding-operator-chip">' in html
         assert "secret_jailbreak_exfiltration" in html.split('class="finding-operator-chip">')[1].split("</span>")[0]
 
+    def test_operator_chip_has_info_tooltip_with_plain_language_description(self, tmp_path):
+        finding = _finding(operator="jailbreak_dan_style")
+        html = generate_html_report(_run_ikea_schema([finding]), tmp_path / "r.html")
+        chip = html.split('<span class="finding-operator-chip">')[1].split('<span class="finding-owasp-chip">')[0]
+        assert 'class="technique-info" tabindex="0"' in chip
+        assert "Do Anything Now" in chip.split('class="technique-tooltip"')[1]
+
+    def test_unknown_operator_renders_chip_without_info_icon(self, tmp_path):
+        finding = _finding(operator="some_custom_operator")
+        html = generate_html_report(_run_ikea_schema([finding]), tmp_path / "r.html")
+        chip = html.split('<span class="finding-operator-chip">')[1].split('<span class="finding-owasp-chip">')[0]
+        assert "some_custom_operator" in chip
+        assert 'class="technique-info"' not in chip
+
+    def test_technique_info_icon_hidden_when_printing(self, tmp_path):
+        html = generate_html_report(_run_ikea_schema([_finding()]), tmp_path / "r.html")
+        print_block = html.split("@media print")[1].split("</style>")[0]
+        assert ".technique-info" in print_block
+
     def test_finding_omits_operator_chip_when_absent(self, tmp_path):
         """A standalone `aginiti attack <technique>` report never sets
         "operator" per-finding (the run's one technique is already in the

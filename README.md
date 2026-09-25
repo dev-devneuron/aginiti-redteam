@@ -60,6 +60,8 @@ Aginiti uses LLMs to plan campaigns, execute attacks, and judge responses.
 > [!TIP]
 > **Open-Weight Model Support (Groq):** Certain deep-attack techniques (such as RAG exfiltration analysis and shadow interrogation) require open-weight models (e.g., Llama 3.3). We strongly recommend adding a **Groq API key** (`GROQ_API_KEY`) alongside your preferred frontier provider (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`).
 
+**Any other LLM provider:** set `AGINITI_LLM_MODEL` to a [LiteLLM](https://docs.litellm.ai/docs/providers) `provider/model` string (e.g. `deepseek/deepseek-chat`, `openrouter/meta-llama/llama-3.1-70b-instruct`) and `AGINITI_LLM_API_KEY` to its key. When set, it is used for planning, attacks and judging, ahead of the keys above.
+
 Create your `.env` file and activate an isolated virtual environment:
 
 **macOS / Linux**

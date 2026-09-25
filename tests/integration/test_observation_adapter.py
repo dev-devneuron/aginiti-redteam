@@ -537,3 +537,39 @@ def test_endpoint_is_passed_to_attack_factory_by_identity():
     ObservationAdapter().execute(op, ssg, _AgentWithEndpoint(endpoint=fake_endpoint))
 
     assert received_endpoints == [fake_endpoint]
+
+
+# -- _judge LLM-failure handling ------------------------------------------------
+# One failed judge call degrades to "unconfirmed" so a long scan survives it;
+# a run of failures must abort instead of reporting unevaluated steps as clean.
+
+def test_judge_isolated_llm_failure_degrades_to_unconfirmed_and_success_resets_count():
+    import aginiti.core.observation_adapter as oa
+
+    op = build_library().get("recon_capabilities")
+    oa._consecutive_judge_failures = 0
+    ok = {"confirmed_effect_ids": [], "details": {}, "reasoning": "none"}
+    with patch("aginiti.core.observation_adapter.chat_json",
+               side_effect=[RuntimeError("503"), RuntimeError("503"), ok, RuntimeError("503")]):
+        for _ in range(4):
+            verdict = oa._judge(op, "response", seed=1)
+
+    assert verdict["confirmed_effect_ids"] == []
+    assert "LLM provider error" in verdict["reasoning"]
+    assert oa._consecutive_judge_failures == 1  # the success in between reset the count
+    oa._consecutive_judge_failures = 0
+
+
+def test_judge_raises_after_consecutive_llm_failures():
+    import pytest
+
+    import aginiti.core.observation_adapter as oa
+
+    op = build_library().get("recon_capabilities")
+    oa._consecutive_judge_failures = 0
+    with patch("aginiti.core.observation_adapter.chat_json", side_effect=RuntimeError("provider down")):
+        oa._judge(op, "response", seed=1)
+        oa._judge(op, "response", seed=1)
+        with pytest.raises(RuntimeError, match="provider down"):
+            oa._judge(op, "response", seed=1)
+    assert oa._consecutive_judge_failures == 0

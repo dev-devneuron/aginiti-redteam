@@ -173,6 +173,15 @@ def _key_for(model: str) -> str | None:
     provider = model.split("/", 1)[0].lower()
     if provider in ("chromadb", "local", "onnx"):
         return None  # local embedding models need no API key
+    # The any-provider override (AGINITI_LLM_MODEL/AGINITI_LLM_API_KEY, see
+    # aginiti.providers.llm.CUSTOM_MODEL_ENV) supplies the key for its own
+    # provider, including providers not listed in _KEY_ENV_VAR.
+    from aginiti.providers.llm import CUSTOM_KEY_ENV, CUSTOM_MODEL_ENV
+    custom_model = os.environ.get(CUSTOM_MODEL_ENV, "")
+    if custom_model and custom_model.split("/", 1)[0].lower() == provider:
+        custom_key = os.environ.get(CUSTOM_KEY_ENV)
+        if custom_key or provider not in _KEY_ENV_VAR:
+            return custom_key or None  # None: LiteLLM reads the provider's own env var
     env_var = _KEY_ENV_VAR.get(provider)
     if env_var is None:
         raise ValueError(
