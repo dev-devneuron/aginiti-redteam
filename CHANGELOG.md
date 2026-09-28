@@ -11,6 +11,21 @@ changes.
 
 ### Added
 
+- Dynamic budgeting for reducible deep attacks: `Operator.min_cost_prompts`
+  (with an `effective_min_cost_prompts` property clamped to `cost_prompts`)
+  lets an operator that supports a smaller run stay eligible below its full
+  `cost_prompts`. IKEA declares `min_cost_prompts=3`; `_execute_deep_attack`
+  caps its `max_queries` to the remaining budget and charges exactly that,
+  so it is no longer hard-excluded (and its tail budget handed to a less
+  useful operator) when 3-19 prompts remain, and it never overshoots.
+  SECRET/MIA/SPE keep `effective_min == cost_prompts` (no partial run).
+- SECRET early-exit against actively-defending targets: `JailbreakArtifact.
+  deflected` (set when Phase 1 ends at score 0.0) makes
+  `SECRETAttack.execute_black_box` skip Phase 2 entirely rather than send
+  10+ deflected queries for zero findings; a secondary in-loop guard aborts
+  Phase 2 after 3 consecutive refusals with nothing extracted. A productive
+  query resets the streak, so a slow-starting run is never aborted.
+
 - HTML report: an info icon on each finding's Technique chip shows a
   one-sentence, plain-language explanation of that technique on hover
   (or keyboard focus/tap); the Markdown report prints the same sentence

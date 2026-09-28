@@ -610,6 +610,69 @@ class TestExecuteBlackBoxOrchestration:
             attack.execute_black_box()
         mock_close.assert_called_once()
 
+    def test_deflected_artifact_skips_phase2_entirely(self, monkeypatch):
+        # Primary early-exit: Phase 1 scored 0.0 (artifact.deflected), so
+        # the jailbreak is deflected before Phase 2 even starts -- run no
+        # Phase-2 queries at all rather than burn the whole budget.
+        attack = _make_attack(max_queries=10)
+        monkeypatch.setattr(attack, "_ensure_jailbreak_artifact",
+                            MagicMock(return_value=_artifact(score=0.0, deflected=True)))
+        process_mock = MagicMock(return_value=([], None))
+        monkeypatch.setattr(attack, "_process_response", process_mock)
+        with patch.object(AgentEndpoint, "check_reachable", return_value=True), \
+             patch.object(AgentEndpoint, "chat") as mock_chat:
+            findings = attack.execute_black_box()
+        assert findings == []
+        assert attack.queries_sent == 0
+        mock_chat.assert_not_called()
+        process_mock.assert_not_called()
+
+    def test_phase2_aborts_after_consecutive_refusals_with_no_extraction(self, monkeypatch):
+        # Secondary early-exit: Phase 1 scored above 0 (artifact NOT
+        # deflected), but the live target refuses every Phase-2 probe with
+        # nothing extracted -- abort after the threshold instead of running
+        # the full max_queries. _process_response signals a refusal by
+        # appending to refused_queries, matching the real method.
+        attack = _make_attack(max_queries=20)
+        monkeypatch.setattr(attack, "_ensure_jailbreak_artifact", MagicMock(return_value=_artifact()))
+
+        def refuse(query, response, domain):
+            attack.refused_queries.append({"probe": query, "response": response})
+            return ([], None)
+
+        monkeypatch.setattr(attack, "_process_response", MagicMock(side_effect=refuse))
+        monkeypatch.setattr(attack, "_semantic_shift_trigger", MagicMock(return_value="t"))
+        with patch.object(AgentEndpoint, "check_reachable", return_value=True), \
+             patch.object(AgentEndpoint, "chat", return_value="I can't help with that."):
+            findings = attack.execute_black_box()
+        assert findings == []
+        # Aborted at the threshold, nowhere near the full 20-query budget.
+        assert attack.queries_sent == 3
+        assert len(attack.refused_queries) == 3
+
+    def test_phase2_does_not_abort_when_extraction_is_progressing(self, monkeypatch):
+        # A run that keeps extracting (findings/new docs) must never be
+        # aborted by the refusal guard, even with occasional refusals mixed
+        # in -- the streak resets on any productive query.
+        attack = _make_attack(max_queries=6)
+        monkeypatch.setattr(attack, "_ensure_jailbreak_artifact", MagicMock(return_value=_artifact()))
+        f = _finding("q")
+
+        def sometimes_refuse(query, response, domain):
+            # refuse, extract, refuse, extract, ... -> streak never reaches 3
+            if attack.queries_sent % 2 == 0:
+                attack.refused_queries.append({"probe": query, "response": response})
+                return ([], None)
+            return ([_DiscoveredDoc(text=f"doc {attack.queries_sent}")], f)
+
+        monkeypatch.setattr(attack, "_process_response", MagicMock(side_effect=sometimes_refuse))
+        monkeypatch.setattr(attack, "_semantic_shift_trigger", MagicMock(return_value="t"))
+        with patch.object(AgentEndpoint, "check_reachable", return_value=True), \
+             patch.object(AgentEndpoint, "chat", return_value="resp"):
+            findings = attack.execute_black_box()
+        assert attack.queries_sent == 6  # ran the full budget, never aborted
+        assert findings  # made real progress
+
     def test_injected_endpoint_is_reused_without_constructing_a_new_one(self, monkeypatch):
         # The core Slice B/G guarantee (mirrors test_ikea.py's own
         # TestEndpointInjection test exactly): when a caller injects an

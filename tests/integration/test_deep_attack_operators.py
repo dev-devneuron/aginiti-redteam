@@ -261,6 +261,39 @@ def test_ikea_operator_runs_through_a_real_campaign_sharing_one_session():
     assert exec_result.ground_truth_mission_achieved is False  # HTTPAgentAdapter's own stub (Open Question 5)
 
 
+def test_reducible_ikea_operator_runs_at_short_budget_without_overshooting():
+    """The IKEA-lockout fix, end-to-end: with budget below IKEA's full
+    cost_prompts but at/above its min_cost_prompts, IKEA stays eligible,
+    runs a reduced extraction (capped max_queries), and is charged only the
+    remaining budget -- so prompts_used never exceeds the budget."""
+    real_op = deep_attack_operators()[0]  # ikea_sensitive_data_exfiltration
+    assert real_op.min_cost_prompts == 3 and real_op.cost_prompts == 20
+
+    captured = {}
+
+    class _RecordingIKEA:
+        def execute_black_box(self, **kwargs):
+            captured["max_queries"] = kwargs.get("max_queries")
+            return []  # no findings -> non-confirmed step, campaign completes
+
+    op = replace(real_op, attack_factory=lambda endpoint: _RecordingIKEA())
+    library = OperatorLibrary([op])
+    mission = Mission(
+        goal="reduced IKEA at short budget", success_criteria=("sensitive_data_exfiltrated",),
+        budget=8, risk_threshold=RiskTier.MEDIUM, constraints=(),
+    )
+    endpoint = AgentEndpoint(base_url="http://fake-target:8001")
+    agent = HTTPAgentAdapter(endpoint)
+
+    with patch.object(AgentEndpoint, "check_reachable", return_value=True):
+        result = run_campaign(mission, library, agent=agent, policy=StaticPolicy(), max_steps=5)
+
+    assert result.operators_executed == [op.id]  # eligible despite cost 20 > budget 8
+    assert captured["max_queries"] == 8          # capped to the remaining budget
+    assert result.prompts_used == 8              # charged the allocation, not 20
+    assert result.prompts_used <= mission.budget  # never overshoots
+
+
 def test_ikea_operator_survives_a_target_failure_without_crashing_the_campaign():
     # Same wiring as above, but the target is unreachable -- proves the
     # deep-attack path degrades exactly like a normal operator would

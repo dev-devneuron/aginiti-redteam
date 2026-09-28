@@ -347,6 +347,35 @@ class Operator:
     # query involves several of its own LLM/embedding/HTTP calls); a
     # cheaper attack's Operator definition should set this lower.
     attack_timeout_seconds: float = 300.0
+    # The fewest prompts this operator can still do useful work in, when
+    # it supports running a reduced slice of itself. Only meaningful for
+    # deep-attack operators whose query budget is tunable at execution
+    # time (currently IKEA, whose cost_prompts == max_queries exactly, so
+    # a reduced run is a straightforward smaller max_queries). None (the
+    # default, every prompt operator and every deep attack that can only
+    # run whole -- SECRET/MIA/SPE) means "cost_prompts is also the
+    # minimum": read `effective_min_cost_prompts`, never this field
+    # directly. This is what lets the planner keep such an operator
+    # eligible when the remaining budget is below its full cost_prompts,
+    # instead of hard-excluding it and spending the tail budget on a
+    # less-useful operator that happens to fit -- see
+    # aginiti/core/policies/base.py's satisfies_constraints and
+    # ObservationAdapter._execute_deep_attack, which caps the run to the
+    # budget actually allocated so it never overshoots.
+    min_cost_prompts: int | None = None
+
+    @property
+    def effective_min_cost_prompts(self) -> int:
+        """The real minimum budget this operator needs to run: its own
+        `min_cost_prompts` when set, otherwise `cost_prompts` (i.e. it can
+        only run whole). Clamped to never exceed `cost_prompts` -- a reduced
+        run can't cost more than the full run, and this keeps the invariant
+        intact when `cost_prompts` is lowered independently (e.g. a
+        dataclasses.replace() that shrinks cost but leaves min_cost_prompts
+        untouched)."""
+        if self.min_cost_prompts is None:
+            return self.cost_prompts
+        return min(self.min_cost_prompts, self.cost_prompts)
 
     def render_prompt(self, ssg: SecurityStateGraph) -> str:
         if not self.template_vars:
