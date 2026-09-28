@@ -328,3 +328,14 @@ def test_seed_target_priors_degrades_gracefully_when_rank_is_missing():
 
     insight = next(i for i in ssg.insights if i.related_probe_id == op_id)
     assert insight.priority_weight == 4.0  # bare "high" bucket weight, no nudge
+
+
+def test_seed_target_priors_handles_llm_exception_gracefully():
+    lib = _library()
+    ssg = SecurityStateGraph()
+    with patch("aginiti.core.graph.priors.chat_json", side_effect=RuntimeError("LLM failed")):
+        n = seed_target_priors(ssg, lib, "context", seed=1)
+
+    assert n == 0
+    assert len(ssg.insights) == 0
+

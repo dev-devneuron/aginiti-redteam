@@ -422,6 +422,7 @@ class TestGenerateMarkdownReport:
         findings[0]["operator"] = "secret_jailbreak_exfiltration"
         markdown = generate_markdown_report(_run_ikea_schema(findings), tmp_path / "r.md")
         assert "**Attack technique (operator):** `secret_jailbreak_exfiltration`" in markdown
+        assert "**What this technique does:** Uses an automatically tuned jailbreak prompt" in markdown
 
     def test_finding_omits_operator_line_when_absent(self, tmp_path):
         """A standalone `aginiti attack <technique>` report never sets

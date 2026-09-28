@@ -43,10 +43,13 @@ policy chose the operators).
   skipped).
 - `AGINITI_LLM_PROVIDER=gemini` still routes every call shape through
   Gemini instead of Groq -- unchanged.
-- Automatic Groq->Gemini fallback when the ENTIRE Groq key pool is
-  rate-limited is unchanged: not sticky (a later call still tries Groq
-  first), `last_fallback_reason()` still inspectable, the underlying
-  RateLimitError still raised unchanged if no GEMINI_API_KEY is set.
+- Automatic fallback when the ENTIRE Groq key pool fails (rate limits,
+  bad keys, and transient 5xx/timeout/connection errors, each retried
+  across the pool with a short backoff first): goes to the first
+  configured key among Gemini/OpenAI/Anthropic/Mistral. Not sticky (a
+  later call still tries Groq first), `last_fallback_reason()` still
+  inspectable, the underlying error still raised unchanged if no other
+  provider's key is set.
   This is a genuinely different fallback trigger than
   `BaseAttack._init_llm`'s (that one fails over on a *long hinted wait*
   from a single provider; this one fails over once every key in a POOL is
@@ -92,6 +95,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import warnings
 
 import litellm
@@ -132,15 +136,38 @@ _PROVIDER_MODELS = {
 # cli.py's own provider-priority order.
 _AUTO_DETECT_ORDER = ("gemini", "openai", "anthropic", "mistral")
 
+# Any-provider override: a full LiteLLM model string (e.g.
+# "deepseek/deepseek-chat", "openrouter/meta-llama/llama-3.1-70b-instruct",
+# "azure/<deployment>") plus the key for it. Takes priority over every
+# built-in provider above when set, so a user can route through ANY
+# provider LiteLLM supports without this module needing a hardcoded entry
+# (or knowing that provider's own env var name) for it. The key is passed
+# explicitly as `api_key`; if it's unset, LiteLLM falls back to that
+# provider's own standard env var, which also covers keyless local models
+# such as "ollama/llama3". Shared with aginiti/cli.py and
+# aginiti/operators/deep_attack_operators.py so the judge, the attacks and
+# the deep-attack operators all route to the same model.
+CUSTOM_MODEL_ENV = "AGINITI_LLM_MODEL"
+CUSTOM_KEY_ENV = "AGINITI_LLM_API_KEY"
+
 _current_idx = 0
-# Set to a short string describing the most recent automatic Groq->Gemini
-# fallback (e.g. "chat_json: groq pool exhausted, used gemini"), or None if
+# Set to a short string describing the most recent automatic Groq->other-
+# provider fallback (e.g. "chat_json: groq unavailable (RateLimitError),
+# used gemini"), or None if
 # the last call never needed one -- inspectable, not just silent.
 _last_fallback_reason: str | None = None
 
 
 def _gemini_available() -> bool:
     return bool(os.environ.get("GEMINI_API_KEY"))
+
+
+def _available_fallback_provider() -> str | None:
+    """Find the first available non-Groq fallback provider (Gemini, OpenAI, Anthropic, Mistral)."""
+    for provider in _AUTO_DETECT_ORDER:
+        if os.environ.get(_PROVIDER_ENV_KEYS[provider]):
+            return provider
+    return None
 
 
 def _resolve_active_provider() -> str:
@@ -168,7 +195,13 @@ def _resolve_active_provider() -> str:
     is configured anywhere, still returns "groq" so the existing,
     already-descriptive ``_load_groq_keys()`` error is what the user sees,
     rather than inventing a second, redundant error message here.
+
+    ``AGINITI_LLM_MODEL`` (see ``CUSTOM_MODEL_ENV``) outranks all of the
+    above: when set, every call goes to that exact LiteLLM model string and
+    this returns ``"custom"``.
     """
+    if os.environ.get(CUSTOM_MODEL_ENV):
+        return "custom"
     if _PROVIDER != "groq" and _PROVIDER in _PROVIDER_ENV_KEYS:
         return _PROVIDER
     if os.environ.get("GROQ_API_KEY"):
@@ -183,7 +216,17 @@ def _model_string(provider: str) -> str:
     """LiteLLM model string for any provider except groq (groq's own
     model string is built from _GROQ_MODEL directly at each call site,
     since it's paired with the key-rotation pool, not this lookup)."""
+    if provider == "custom":
+        return os.environ[CUSTOM_MODEL_ENV]
     return f"{provider}/{_PROVIDER_MODELS[provider]}"
+
+
+def _api_key_kwargs(provider: str) -> dict:
+    """Explicit `api_key` for the any-provider override; built-in providers
+    let LiteLLM read their own standard env var, as before."""
+    if provider == "custom" and os.environ.get(CUSTOM_KEY_ENV):
+        return {"api_key": os.environ[CUSTOM_KEY_ENV]}
+    return {}
 
 
 def _load_groq_keys() -> list[str]:
@@ -206,32 +249,29 @@ def _load_groq_keys() -> list[str]:
     return keys
 
 
-# Errors worth rotating past: a rate-limited key is the original case
-# (RateLimitError); an expired/revoked/invalid key -- confirmed live to
-# surface as litellm.BadRequestError ("expired_api_key"), not
-# RateLimitError -- is just as much a reason to
-# try the NEXT key in the pool as a rate limit is, since the pool's whole
-# point is "don't let one bad key stall every caller." AuthenticationError
-# covers the same "this specific key is bad" family for providers/error
-# shapes that map to it instead of BadRequestError. Deliberately NOT
-# catching every litellm exception here -- a real model-not-found or
-# malformed-request error should still fail fast and loud, not be masked
-# behind N retries of the same broken request against different keys.
-_ROTATABLE_ERRORS = (litellm.RateLimitError, litellm.AuthenticationError, litellm.BadRequestError)
+# Errors worth rotating/retrying past: rate limits, auth/bad-key errors,
+# transient 500/503 server errors, timeouts, and connection glitches.
+_ROTATABLE_ERRORS = (
+    litellm.RateLimitError,
+    litellm.AuthenticationError,
+    litellm.BadRequestError,
+    litellm.InternalServerError,
+    litellm.ServiceUnavailableError,
+    litellm.APIConnectionError,
+    litellm.Timeout,
+    litellm.APIError,
+)
 
 
 def _call_with_rotation(model: str, messages: list[dict], **kwargs):
     """Tries the current Groq key first, then rotates through the rest of
-    the pool on a rotatable error (see _ROTATABLE_ERRORS above -- expanded
-    from RateLimitError alone after a live-verified gap: an expired key in
-    the pool was getting retried forever at the same _current_idx instead
-    of being skipped, since BadRequestError wasn't caught here yet).
-    Sticks with whichever key last worked, same as the retired
-    llm_client.py's _call_with_rotation."""
+    the pool on a rotatable error (rate limits, 500/503 outages, bad keys).
+    Includes short exponential backoff between attempts to smooth over transient glitches."""
     global _current_idx
     keys = _load_groq_keys()
     last_err: Exception | None = None
-    for attempt in range(len(keys)):
+    num_attempts = max(len(keys), 3)
+    for attempt in range(num_attempts):
         idx = (_current_idx + attempt) % len(keys)
         try:
             result = litellm.completion(model=model, messages=messages, api_key=keys[idx], **kwargs)
@@ -239,6 +279,8 @@ def _call_with_rotation(model: str, messages: list[dict], **kwargs):
             return result
         except _ROTATABLE_ERRORS as e:
             last_err = e
+            if attempt < num_attempts - 1:
+                time.sleep(min(1.0 * (attempt + 1), 3.0))
             continue
     assert last_err is not None  # unreachable with an empty pool: _load_groq_keys() already raises
     raise last_err
@@ -256,18 +298,20 @@ def chat(messages: list[dict], temperature: float = 0.4, max_tokens: int = 1024,
     active = _resolve_active_provider()
     if active != "groq":
         _last_fallback_reason = None
-        resp = litellm.completion(model=_model_string(active), messages=messages, **kwargs)
+        resp = litellm.completion(model=_model_string(active), messages=messages,
+                                  **_api_key_kwargs(active), **kwargs)
         return resp.choices[0].message.content or ""
     try:
         resp = _call_with_rotation(f"groq/{_GROQ_MODEL}", messages, **kwargs)
         _last_fallback_reason = None
         return resp.choices[0].message.content or ""
-    except _ROTATABLE_ERRORS:
-        if not _gemini_available():
+    except _ROTATABLE_ERRORS as exc:
+        fallback = _available_fallback_provider()
+        if not fallback:
             raise
-        _last_fallback_reason = "chat: groq pool exhausted, used gemini"
+        _last_fallback_reason = f"chat: groq unavailable ({type(exc).__name__}), used {fallback}"
         _logger.warning(_last_fallback_reason)
-        resp = litellm.completion(model=f"gemini/{_GEMINI_MODEL}", messages=messages, **kwargs)
+        resp = litellm.completion(model=_model_string(fallback), messages=messages, **kwargs)
         return resp.choices[0].message.content or ""
 
 
@@ -275,26 +319,8 @@ def chat_json(messages: list[dict], temperature: float = 0.0, max_tokens: int = 
               seed: int | None = None) -> dict:
     """Chat call constrained to return a single JSON object.
 
-    Truncation retry (found auditing exp32): a caller-supplied `max_tokens`
-    is a guess, and callers with an unbounded free-
-    form field in their own prompt (e.g. observation_adapter._judge's
-    `reasoning` field, deliberately left unconstrained so prompt-wording
-    changes don't risk judge accuracy -- see that call site's own
-    docstring) can genuinely blow past it, especially on a Groq-exhausted
-    fallback to a DIFFERENT model with different verbosity tendencies than
-    what the budget was tuned against (exactly what happened live: a
-    `_judge` call truncated right after "groq pool exhausted, used
-    gemini"). Previously this silently returned `{"_parse_error": True,
-    "_raw": raw}`, which every downstream `.get(key, default)` read as
-    "nothing confirmed" -- a real, silent false-negative source, not just
-    a logged warning. Now: if the response was cut off because of the
-    token ceiling specifically (`finish_reason == "length"`, NOT a genuine
-    "the model emitted invalid JSON" failure, which retrying the same
-    budget would just repeat) and JSON parsing failed, retry ONCE with
-    `max_tokens` doubled, on the SAME provider path that produced the
-    truncation. Raising the doubled call's own possible truncation isn't
-    retried again (bounded to one extra attempt, same one-retry discipline
-    as every other rate-limit/failover path in this module)."""
+    Truncation retry: if response was cut off by token limit, retry once with doubled tokens.
+    On Groq transient 500/rate-limit failure, seamlessly falls back to available secondary provider."""
     global _last_fallback_reason
     kwargs = dict(temperature=temperature, max_tokens=max_tokens, num_retries=0, timeout=60,
                   response_format={"type": "json_object"}, **_seed_kwargs(seed))
@@ -316,12 +342,13 @@ def chat_json(messages: list[dict], temperature: float = 0.0, max_tokens: int = 
     if active != "groq":
         _last_fallback_reason = None
         model = _model_string(active)
-        resp = litellm.completion(model=model, messages=messages, **kwargs)
+        key_kwargs = _api_key_kwargs(active)
+        resp = litellm.completion(model=model, messages=messages, **key_kwargs, **kwargs)
         result = _parse(resp)
         if "_parse_error" in result and _truncated(resp):
             _logger.warning("chat_json: response truncated at max_tokens=%d -- retrying "
                              "once with max_tokens=%d", max_tokens, max_tokens * 2)
-            resp = litellm.completion(model=model, messages=messages,
+            resp = litellm.completion(model=model, messages=messages, **key_kwargs,
                                        **{**kwargs, "max_tokens": max_tokens * 2})
             result = _parse(resp)
         return result
@@ -336,17 +363,19 @@ def chat_json(messages: list[dict], temperature: float = 0.0, max_tokens: int = 
                                         **{**kwargs, "max_tokens": max_tokens * 2})
             result = _parse(resp)
         return result
-    except _ROTATABLE_ERRORS:
-        if not _gemini_available():
+    except _ROTATABLE_ERRORS as exc:
+        fallback = _available_fallback_provider()
+        if not fallback:
             raise
-        _last_fallback_reason = "chat_json: groq pool exhausted, used gemini"
+        _last_fallback_reason = f"chat_json: groq unavailable ({type(exc).__name__}), used {fallback}"
         _logger.warning(_last_fallback_reason)
-        resp = litellm.completion(model=f"gemini/{_GEMINI_MODEL}", messages=messages, **kwargs)
+        fallback_model = _model_string(fallback)
+        resp = litellm.completion(model=fallback_model, messages=messages, **kwargs)
         result = _parse(resp)
         if "_parse_error" in result and _truncated(resp):
             _logger.warning("chat_json: response truncated at max_tokens=%d -- retrying "
                              "once with max_tokens=%d", max_tokens, max_tokens * 2)
-            resp = litellm.completion(model=f"gemini/{_GEMINI_MODEL}", messages=messages,
+            resp = litellm.completion(model=fallback_model, messages=messages,
                                        **{**kwargs, "max_tokens": max_tokens * 2})
             result = _parse(resp)
         return result
@@ -354,29 +383,27 @@ def chat_json(messages: list[dict], temperature: float = 0.0, max_tokens: int = 
 
 def chat_tools(messages: list[dict], tools: list[dict], temperature: float = 0.3,
                max_tokens: int = 600, seed: int | None = None):
-    """Chat call that may return tool calls. Returns the raw message object
-    so the caller can inspect both `.content` and `.tool_calls` -- LiteLLM's
-    response.choices[0].message already has this exact OpenAI-compatible
-    shape for every provider, Gemini included, so no shim classes are
-    needed here (unlike the retired gemini_client.py)."""
+    """Chat call that may return tool calls."""
     global _last_fallback_reason
     kwargs = dict(tools=tools, tool_choice="auto", temperature=temperature, max_tokens=max_tokens,
                   num_retries=0, timeout=60, **_seed_kwargs(seed))
     active = _resolve_active_provider()
     if active != "groq":
         _last_fallback_reason = None
-        resp = litellm.completion(model=_model_string(active), messages=messages, **kwargs)
+        resp = litellm.completion(model=_model_string(active), messages=messages,
+                                  **_api_key_kwargs(active), **kwargs)
         return resp.choices[0].message
     try:
         resp = _call_with_rotation(f"groq/{_GROQ_MODEL}", messages, **kwargs)
         _last_fallback_reason = None
         return resp.choices[0].message
-    except _ROTATABLE_ERRORS:
-        if not _gemini_available():
+    except _ROTATABLE_ERRORS as exc:
+        fallback = _available_fallback_provider()
+        if not fallback:
             raise
-        _last_fallback_reason = "chat_tools: groq pool exhausted, used gemini"
+        _last_fallback_reason = f"chat_tools: groq unavailable ({type(exc).__name__}), used {fallback}"
         _logger.warning(_last_fallback_reason)
-        resp = litellm.completion(model=f"gemini/{_GEMINI_MODEL}", messages=messages, **kwargs)
+        resp = litellm.completion(model=_model_string(fallback), messages=messages, **kwargs)
         return resp.choices[0].message
 
 
@@ -384,13 +411,16 @@ def active_provider_name() -> str:
     """Public wrapper around `_resolve_active_provider()` -- which provider
     the NEXT chat/chat_json/chat_tools call will actually use, for callers
     that want to log/display it (e.g. observation_adapter._judge()) without
-    reaching into a private helper."""
-    return _resolve_active_provider()
+    reaching into a private helper. For the any-provider override this is
+    the configured model string itself (e.g. "deepseek/deepseek-chat"),
+    which says more than a bare "custom"."""
+    active = _resolve_active_provider()
+    return _model_string(active) if active == "custom" else active
 
 
 def last_fallback_reason() -> str | None:
     """Inspectable record of whether the MOST RECENT chat/chat_json/
-    chat_tools call needed the automatic Groq->Gemini fallback -- None if
+    chat_tools call needed the automatic Groq->other-provider fallback -- None if
     it didn't (either it succeeded on Groq directly, or the provider was
     already gemini)."""
     return _last_fallback_reason

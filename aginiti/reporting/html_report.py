@@ -35,6 +35,7 @@ from aginiti.reporting.markdown_report import (
     _truncate,
     _bucket,
 )
+from aginiti.reporting.technique_descriptions import describe_technique
 
 _STYLE = """
 :root {
@@ -488,6 +489,59 @@ tr:last-child td {
   align-items: center;
   gap: 0.35rem;
 }
+.technique-info {
+  position: relative;
+  display: inline-flex;
+  cursor: help;
+  outline: none;
+}
+.technique-info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+.technique-info:focus-visible .technique-info-icon {
+  outline: 2px solid var(--sev-low-text);
+  outline-offset: 2px;
+}
+.technique-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: -0.5rem;
+  z-index: 20;
+  width: max-content;
+  max-width: min(18rem, 75vw);
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-sm);
+  background: var(--text);
+  color: var(--surface);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.45;
+  white-space: normal;
+  text-align: left;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+.technique-info:hover .technique-tooltip,
+.technique-info:focus .technique-tooltip,
+.technique-info:focus-within .technique-tooltip {
+  visibility: visible;
+  opacity: 1;
+}
 
 .finding-status-bar {
   padding: 0.6rem 1.25rem;
@@ -673,7 +727,8 @@ footer {
     print-color-adjust: exact;
   }
 
-  .pdf-download-btn {
+  .pdf-download-btn,
+  .technique-info {
     display: none;
   }
 
@@ -721,8 +776,19 @@ def _render_finding_card(f: dict, index: int, attack_code: str, redact: bool) ->
     # standalone `aginiti attack <technique>` report doesn't need this
     # (already states its one technique elsewhere, no per-finding key set).
     operator = f.get("operator")
+    technique_desc = describe_technique(operator)
+    # Focusable (tabindex) rather than hover-only, so the explanation is
+    # also reachable by keyboard and by tapping on touch screens.
+    technique_info_html = (
+        f'<span class="technique-info" tabindex="0" role="note" aria-label="{_esc(technique_desc)}">'
+        f'<span class="technique-info-icon" aria-hidden="true">i</span>'
+        f'<span class="technique-tooltip" aria-hidden="true">{_esc(technique_desc)}</span>'
+        f'</span>'
+        if technique_desc else ""
+    )
     operator_chip_html = (
-        f'<span class="finding-operator-chip"><strong>Technique:</strong> {_esc(operator)}</span>'
+        f'<span class="finding-operator-chip"><strong>Technique:</strong> {_esc(operator)}'
+        f'{technique_info_html}</span>'
         if operator else ""
     )
 

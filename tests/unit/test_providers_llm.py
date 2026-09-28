@@ -186,7 +186,7 @@ def test_chat_falls_back_to_gemini_when_groq_pool_exhausted_by_bad_request_error
     result = provider_llm.chat([{"role": "user", "content": "hi"}])
 
     assert result == "gemini-said-hi"
-    assert provider_llm.last_fallback_reason() == "chat: groq pool exhausted, used gemini"
+    assert provider_llm.last_fallback_reason() == "chat: groq unavailable (BadRequestError), used gemini"
 
 
 def test_groq_model_default_is_not_the_dead_llama_string():
@@ -225,7 +225,7 @@ def test_chat_falls_back_to_gemini_when_groq_pool_exhausted(monkeypatch):
     result = provider_llm.chat([{"role": "user", "content": "hi"}])
 
     assert result == "gemini-said-hi"
-    assert provider_llm.last_fallback_reason() == "chat: groq pool exhausted, used gemini"
+    assert provider_llm.last_fallback_reason() == "chat: groq unavailable (RateLimitError), used gemini"
 
 
 def test_chat_json_falls_back_to_gemini_when_groq_pool_exhausted(monkeypatch):
@@ -240,7 +240,7 @@ def test_chat_json_falls_back_to_gemini_when_groq_pool_exhausted(monkeypatch):
     result = provider_llm.chat_json([{"role": "user", "content": "hi"}])
 
     assert result == {"ok": True}
-    assert provider_llm.last_fallback_reason() == "chat_json: groq pool exhausted, used gemini"
+    assert provider_llm.last_fallback_reason() == "chat_json: groq unavailable (RateLimitError), used gemini"
 
 
 def test_chat_tools_falls_back_to_gemini_when_groq_pool_exhausted(monkeypatch):
@@ -257,7 +257,7 @@ def test_chat_tools_falls_back_to_gemini_when_groq_pool_exhausted(monkeypatch):
     result = provider_llm.chat_tools([{"role": "user", "content": "hi"}], tools=[])
 
     assert result is sentinel_message
-    assert provider_llm.last_fallback_reason() == "chat_tools: groq pool exhausted, used gemini"
+    assert provider_llm.last_fallback_reason() == "chat_tools: groq unavailable (RateLimitError), used gemini"
 
 
 def test_no_fallback_reason_recorded_when_groq_succeeds_directly(monkeypatch):
@@ -415,3 +415,42 @@ class TestMultiProviderAutoDetection:
         result = provider_llm.chat_tools([{"role": "user", "content": "hi"}], tools=[])
 
         assert result is sentinel_message
+
+
+# ---------------------------------------------------------------------------
+# Any-provider override (AGINITI_LLM_MODEL / AGINITI_LLM_API_KEY)
+# ---------------------------------------------------------------------------
+def test_any_provider_override_routes_every_call_shape_to_that_model(monkeypatch):
+    monkeypatch.setenv("AGINITI_LLM_MODEL", "deepseek/deepseek-chat")
+    monkeypatch.setenv("AGINITI_LLM_API_KEY", "ds-key")
+    calls = []
+
+    def fake_completion(model, messages, **kwargs):
+        calls.append((model, kwargs.get("api_key")))
+        return _fake_response('{"ok": true}')
+
+    monkeypatch.setattr(litellm, "completion", fake_completion)
+    provider_llm.chat([{"role": "user", "content": "hi"}])
+    provider_llm.chat_json([{"role": "user", "content": "hi"}])
+    provider_llm.chat_tools([{"role": "user", "content": "hi"}], tools=[])
+
+    # Outranks the GROQ_API_KEY the autouse fixture sets.
+    assert calls == [("deepseek/deepseek-chat", "ds-key")] * 3
+    assert provider_llm.active_provider_name() == "deepseek/deepseek-chat"
+
+
+def test_any_provider_override_without_key_lets_litellm_find_it(monkeypatch):
+    """Keyless local models (e.g. ollama/*) and providers whose key is
+    already in their own standard env var: no api_key is passed at all."""
+    monkeypatch.setenv("AGINITI_LLM_MODEL", "ollama/llama3")
+    seen = {}
+
+    def fake_completion(model, messages, **kwargs):
+        seen.update(kwargs, model=model)
+        return _fake_response("ok")
+
+    monkeypatch.setattr(litellm, "completion", fake_completion)
+    provider_llm.chat([{"role": "user", "content": "hi"}])
+
+    assert seen["model"] == "ollama/llama3"
+    assert "api_key" not in seen

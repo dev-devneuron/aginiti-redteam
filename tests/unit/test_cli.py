@@ -728,3 +728,25 @@ class TestCmdReport:
 
         fn.assert_called_once()
         assert f"Wrote {output_path}" in capsys.readouterr().out
+
+
+class TestResolveModelAnyProviderOverride:
+    def test_override_is_the_default_ahead_of_builtin_keys(self, monkeypatch):
+        from aginiti.cli import _resolve_model
+        monkeypatch.setenv("GEMINI_API_KEY", "gem-key")
+        monkeypatch.setenv("AGINITI_LLM_MODEL", "deepseek/deepseek-chat")
+        monkeypatch.setenv("AGINITI_LLM_API_KEY", "ds-key")
+        assert _resolve_model(None) == ("deepseek/deepseek-chat", "ds-key")
+
+    def test_explicit_model_on_override_provider_uses_override_key(self, monkeypatch):
+        from aginiti.cli import _resolve_model
+        monkeypatch.setenv("AGINITI_LLM_MODEL", "deepseek/deepseek-chat")
+        monkeypatch.setenv("AGINITI_LLM_API_KEY", "ds-key")
+        assert _resolve_model("deepseek/deepseek-reasoner") == ("deepseek/deepseek-reasoner", "ds-key")
+
+    def test_keyless_override_resolves_with_empty_key(self, monkeypatch):
+        from aginiti.cli import _resolve_model
+        for var in ("GEMINI_API_KEY", "OPENAI_API_KEY", "GROQ_API_KEY", "ANTHROPIC_API_KEY", "MISTRAL_API_KEY"):
+            monkeypatch.delenv(var, raising=False)
+        monkeypatch.setenv("AGINITI_LLM_MODEL", "ollama/llama3")
+        assert _resolve_model(None) == ("ollama/llama3", "")

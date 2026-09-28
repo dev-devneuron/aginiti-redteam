@@ -32,8 +32,11 @@ import json
 
 from aginiti.core.graph.schema import IMPORTANCE_BUCKET_SPAN, IMPORTANCE_WEIGHT, InsightCategory
 from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.observability import get_logger
 from aginiti.providers.llm import chat_json, warn_if_parse_error
 from aginiti.operators.library import OperatorLibrary
+
+_logger = get_logger("graph.priors")
 
 _VALID_IMPORTANCE = set(IMPORTANCE_WEIGHT)
 
@@ -172,10 +175,14 @@ def seed_target_priors(ssg: SecurityStateGraph, library: OperatorLibrary, target
     # project has used 20-25-operator libraries elsewhere) -- scaling
     # pre-empts that rather than waiting to rediscover the same bug at a
     # bigger scale.
-    verdict = chat_json([
-        {"role": "system", "content": _SYSTEM},
-        {"role": "user", "content": user},
-    ], max_tokens=max(600, 100 * len(candidates)), seed=seed)
+    try:
+        verdict = chat_json([
+            {"role": "system", "content": _SYSTEM},
+            {"role": "user", "content": user},
+        ], max_tokens=max(600, 100 * len(candidates)), seed=seed)
+    except Exception as exc:
+        _logger.warning("seed_target_priors: LLM call failed (%s: %s).", type(exc).__name__, exc)
+        return 0
     warn_if_parse_error(verdict, "seed_target_priors")
 
     priorities = verdict.get("priorities", {})

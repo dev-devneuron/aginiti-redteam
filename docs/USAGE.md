@@ -598,6 +598,7 @@ part of the published CLI):**
 | `GEMINI_API_KEY` | Attacker/judge LLM (Gemini via LiteLLM) |
 | `GROQ_API_KEY` | Attacker/judge LLM (Groq via LiteLLM) — also SECRET's recommended optimizer provider |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | Attacker/judge LLM, respective providers |
+| `AGINITI_LLM_MODEL` / `AGINITI_LLM_API_KEY` | Any provider LiteLLM supports: a full `provider/model` string (e.g. `deepseek/deepseek-chat`) plus its key. Takes priority over the provider keys above for the judge/planner, `aginiti attack`, and every `aginiti scan` deep-attack operator. The key may be omitted for keyless local models (e.g. `ollama/llama3`) or when it is already in that provider's own standard env var. |
 | `IKEA_OPERATOR_LLM_PROVIDER` etc. | Per-attack operator defaults, read at import time by `deep_attack_operators.py` — set *before* importing it, or use `--model` |
 | `SECRET_OPERATOR_OPTIMIZER_LLM_PROVIDER` / `MIA_OPERATOR_SHADOW_LLM_PROVIDER` | Only matters for `aginiti scan`/the campaign engine (not `aginiti attack`, which has its own `--optimizer-model`). Prefers Groq for these two specific roles (see the SECRET FAQ entry below for why), but ONLY if `GROQ_API_KEY` is actually set — falls back to your primary attacker/judge model otherwise, it never requires a Groq key. Set explicitly to force a specific model for just this role. |
 

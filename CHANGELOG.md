@@ -11,6 +11,43 @@ changes.
 
 ### Added
 
+- HTML report: an info icon on each finding's Technique chip shows a
+  one-sentence, plain-language explanation of that technique on hover
+  (or keyboard focus/tap); the Markdown report prints the same sentence
+  under the technique name. Descriptions live in
+  `aginiti/reporting/technique_descriptions.py` and cover every operator
+  `aginiti scan --target` can run (enforced by a test).
+- Any-LLM-provider support: `AGINITI_LLM_MODEL` (a LiteLLM
+  `provider/model` string) + `AGINITI_LLM_API_KEY` route the judge,
+  planner, `aginiti attack` and all `aginiti scan` deep-attack operators
+  to any provider LiteLLM supports. Both quickstart scripts now offer this
+  after the Groq/OpenAI/Gemini prompts (with examples), and check the
+  configured LLM answers before starting the scan.
+
+### Fixed
+
+- `quickstart.ps1`: the health check polled `http://localhost`, which on
+  Windows tries IPv6 first and stalls ~2s against the IPv4-only target --
+  longer than the probe timeout -- so every probe failed and the script
+  shut down a healthy target after ~3 minutes. Both scripts now use
+  `127.0.0.1` for the health check and scan target, and fail fast if the
+  target process exits during startup.
+- `quickstart.sh`: under `curl ... | bash` in WSL, the `netstat.exe` port
+  check consumed the rest of the piped script, so it exited silently
+  after installing. The script body is now wrapped in `main()`, prompts
+  read from `/dev/tty`, `.env` loading works on macOS's bash 3.2, and a
+  Python >= 3.10 check and pre-seed failure message were added.
+- `aginiti scan` now points all four deep-attack operators (SPE included,
+  previously missed by `--model`) at the resolved model when no
+  per-operator override is set, instead of a hardcoded Gemini default
+  that failed for users without a Gemini key.
+- LLM resilience: the Groq path retries transient 5xx/timeout/connection
+  errors with backoff and falls back to any configured provider (not only
+  Gemini); priors/insight passes degrade gracefully on LLM errors; a
+  single failed judge call is recorded as unconfirmed, but three
+  consecutive judge failures abort the scan rather than reporting
+  unevaluated steps as clean.
+
 - `quickstart.sh` (macOS/Linux/WSL) and `quickstart.ps1` (Windows
   PowerShell) -- one-command demo scripts that create/reuse an isolated
   venv, install `aginiti-redteam[demo-target]`, pre-seed the local ONNX

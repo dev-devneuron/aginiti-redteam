@@ -31,6 +31,8 @@ import json
 from pathlib import Path
 from typing import Optional
 
+from aginiti.reporting.technique_descriptions import describe_technique
+
 # OWASP LLM Top 10 (2025) mapping, keyed by LeakFinding.attack_type. DRA
 # (Data Reconstruction Attack) extracts sensitive content from a RAG store,
 # which is squarely LLM06:2025. SECRET (a second DRA technique) shares the
@@ -341,6 +343,9 @@ def _render_finding(f: dict, index: int, attack_code: str, redact: bool = False)
     operator = f.get("operator")
     if operator:
         lines.append(f"**Attack technique (operator):** `{operator}`")
+        technique_desc = describe_technique(operator)
+        if technique_desc:
+            lines.append(f"**What this technique does:** {technique_desc}")
     lines.extend([
         f"**Remediation (recommended fix):** {f.get('recommendation', '')}",
         f"**Target response (complete reply):** {full_response_display}",

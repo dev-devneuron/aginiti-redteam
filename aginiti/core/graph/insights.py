@@ -53,8 +53,11 @@ from aginiti.core.observation_adapter import KEY_DESCRIPTIONS
 from aginiti.core.graph.queries import latest_claims, unexplored_frontier
 from aginiti.core.graph.schema import Claim, ClaimStatus, Insight, InsightCategory
 from aginiti.core.graph.ssg import SecurityStateGraph
+from aginiti.core.observability import get_logger
 from aginiti.providers.llm import chat_json, warn_if_parse_error
 from aginiti.operators.library import ClaimEffect, Operator, OperatorLibrary
+
+_logger = get_logger("graph.insights")
 
 # Split into a base (the three-category instructions, unchanged) and a JSON-
 # shape suffix, so run_reasoning_pass() below can reuse the exact same
@@ -368,10 +371,14 @@ def synthesize_insights(ssg: SecurityStateGraph, target_name: str,
     # confidence + alternative_explanations + evidence_still_missing) simply
     # needs more headroom than the smaller judge-style calls this client was
     # originally tuned for.
-    verdict = chat_json([
-        {"role": "system", "content": _SYSTEM},
-        {"role": "user", "content": user},
-    ], max_tokens=2000, seed=seed)
+    try:
+        verdict = chat_json([
+            {"role": "system", "content": _SYSTEM},
+            {"role": "user", "content": user},
+        ], max_tokens=2000, seed=seed)
+    except Exception as exc:
+        _logger.warning("synthesize_insights: LLM call failed (%s: %s).", type(exc).__name__, exc)
+        return []
     warn_if_parse_error(verdict, "synthesize_insights")
 
     candidates = unexplored_frontier(ssg, library, executed_ids=executed_ids) if library is not None else []
@@ -469,10 +476,14 @@ def run_reasoning_pass(ssg: SecurityStateGraph, target_name: str, library: Opera
     # live-diagnosed truncation bug this fixes; this call requests the SAME
     # multi-insight shape plus two extra optional fields (updated_summary,
     # branch_signal), so needs at least as much headroom.
-    verdict = chat_json([
-        {"role": "system", "content": _SYSTEM_BASE + _JSON_SHAPE_WITH_BELIEF},
-        {"role": "user", "content": user},
-    ], max_tokens=2000, seed=seed)
+    try:
+        verdict = chat_json([
+            {"role": "system", "content": _SYSTEM_BASE + _JSON_SHAPE_WITH_BELIEF},
+            {"role": "user", "content": user},
+        ], max_tokens=2000, seed=seed)
+    except Exception as exc:
+        _logger.warning("run_reasoning_pass: LLM call failed (%s: %s).", type(exc).__name__, exc)
+        return ReasoningPassResult()
     warn_if_parse_error(verdict, "run_reasoning_pass")
 
     candidates = unexplored_frontier(ssg, library, executed_ids=executed_ids)

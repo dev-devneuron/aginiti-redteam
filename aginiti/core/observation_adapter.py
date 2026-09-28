@@ -11,6 +11,7 @@ letting the SSG "see" ground truth would invalidate the whole exercise.
 """
 from __future__ import annotations
 
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass, field
@@ -25,6 +26,16 @@ from aginiti.core.observability import get_logger
 from aginiti.operators.library import ClaimEffect, Operator
 
 _logger = get_logger("observation_adapter")
+
+# A single failed judge call (one odd response tripping a provider's
+# content filter, a brief outage the provider layer's own retry/fallback
+# couldn't ride out) is recorded as unconfirmed so one bad call can't kill
+# a long scan. But a judge that keeps failing means nothing is being
+# evaluated at all, and a report built on that would read as "target is
+# clean" -- so this many failures IN A ROW re-raises instead.
+_MAX_CONSECUTIVE_JUDGE_FAILURES = 3
+_judge_failures_lock = threading.Lock()
+_consecutive_judge_failures = 0
 
 _LOG_TRUNCATE_CHARS = 160
 
@@ -356,6 +367,7 @@ def _build_candidates(operator: Operator) -> list[dict]:
 
 
 def _judge(operator: Operator, raw_signal: str, seed: int | None = None) -> dict:
+    global _consecutive_judge_failures
     candidates = _build_candidates(operator)
 
     system = (
@@ -412,10 +424,32 @@ def _judge(operator: Operator, raw_signal: str, seed: int | None = None) -> dict
     # additive change). Scales for a richer future operator library (more
     # candidate effects per operator) rather than waiting to rediscover
     # this same bug at a larger scale.
-    verdict = chat_json([
-        {"role": "system", "content": system},
-        {"role": "user", "content": user},
-    ], max_tokens=max(500, 120 * len(candidates)), seed=seed)
+    try:
+        verdict = chat_json([
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ], max_tokens=max(500, 120 * len(candidates)), seed=seed)
+    except Exception as exc:
+        with _judge_failures_lock:
+            _consecutive_judge_failures += 1
+            failures = _consecutive_judge_failures
+            if failures >= _MAX_CONSECUTIVE_JUDGE_FAILURES:
+                _consecutive_judge_failures = 0
+        if failures >= _MAX_CONSECUTIVE_JUDGE_FAILURES:
+            _logger.error("_judge: %d consecutive LLM evaluation failures -- aborting rather than "
+                          "reporting unevaluated steps as clean.", failures)
+            raise
+        _logger.warning("_judge: LLM evaluation failed (%s: %s). Treating this step as unconfirmed "
+                        "(%d/%d consecutive failures before aborting).", type(exc).__name__, exc,
+                        failures, _MAX_CONSECUTIVE_JUDGE_FAILURES)
+        verdict = {
+            "confirmed_effect_ids": [],
+            "details": {},
+            "reasoning": f"Judge evaluation skipped due to LLM provider error ({type(exc).__name__})",
+        }
+    else:
+        with _judge_failures_lock:
+            _consecutive_judge_failures = 0
     warn_if_parse_error(verdict, "observation_adapter._judge")
     if "confirmed_effect_ids" not in verdict:
         verdict["confirmed_effect_ids"] = []
