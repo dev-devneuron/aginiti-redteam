@@ -619,13 +619,23 @@ def _cmd_scan(args: argparse.Namespace) -> None:
     # first provider key found) only fills in operators the user hasn't
     # configured individually -- without this, those operators fell back to
     # a hardcoded Gemini default and failed for anyone without a Gemini key.
-    model, _ = _resolve_model(args.model)
-    for env_var in ("IKEA_OPERATOR_LLM_PROVIDER", "SECRET_OPERATOR_LLM_PROVIDER",
-                    "MIA_OPERATOR_LLM_PROVIDER", "SPE_OPERATOR_LLM_PROVIDER"):
-        if args.model:
-            os.environ[env_var] = model
-        else:
-            os.environ.setdefault(env_var, model)
+    # With no --model and no key found at all, nothing is filled in here:
+    # auto-detection is best-effort, and a scan with no usable LLM still
+    # fails loudly at its first judge call, exactly as before.
+    if args.model:
+        model: Optional[str] = _resolve_model(args.model)[0]
+    else:
+        try:
+            model = _resolve_model(None)[0]
+        except SystemExit:
+            model = None
+    if model:
+        for env_var in ("IKEA_OPERATOR_LLM_PROVIDER", "SECRET_OPERATOR_LLM_PROVIDER",
+                        "MIA_OPERATOR_LLM_PROVIDER", "SPE_OPERATOR_LLM_PROVIDER"):
+            if args.model:
+                os.environ[env_var] = model
+            else:
+                os.environ.setdefault(env_var, model)
 
     # Deliberately NO --deep-attack-queries-style flag here: `aginiti scan`
     # keeps each deep-attack Operator's own fixed, small query cap (IKEA
