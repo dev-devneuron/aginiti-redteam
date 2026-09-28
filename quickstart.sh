@@ -50,7 +50,26 @@ echo "========================================================"
 echo "🛡️  Aginiti Red-Team: 1-Minute Automated Assessment Demo"
 echo "========================================================"
 
-# 1. Resolve a Python >= 3.10 executable on the host system
+# 1. Directory Context (Always operate inside 'aginiti-demo' to keep the host environment clean)
+CURRENT_DIR_NAME="$(basename "$PWD")"
+if [ "$CURRENT_DIR_NAME" != "aginiti-demo" ]; then
+    PARENT_DIR="$PWD"
+    DEMO_DIR="$PWD/aginiti-demo"
+    if [ ! -d "$DEMO_DIR" ]; then
+        echo "Creating demo directory: $DEMO_DIR"
+        mkdir -p "$DEMO_DIR"
+    fi
+
+    # If .env exists in parent and not in demo dir, copy it over
+    if [ -f "$PARENT_DIR/.env" ] && [ ! -f "$DEMO_DIR/.env" ]; then
+        cp "$PARENT_DIR/.env" "$DEMO_DIR/.env"
+    fi
+
+    cd "$DEMO_DIR"
+    echo "Entered demo directory: $PWD"
+fi
+
+# 2. Resolve a Python >= 3.10 executable on the host system
 SYS_PYTHON=""
 for candidate in python3 python; do
     if command -v "$candidate" >/dev/null 2>&1 && \
@@ -64,7 +83,7 @@ if [ -z "$SYS_PYTHON" ]; then
     exit 1
 fi
 
-# 2. Check or Prompt for API Keys
+# 3. Check or Prompt for API Keys
 load_env
 
 if ! llm_configured; then
@@ -113,7 +132,7 @@ if ! llm_configured; then
     fi
 fi
 
-# 3. Virtual Environment Selection (Handles Linux/WSL/macOS vs Windows Git-Bash)
+# 4. Virtual Environment Selection (Handles Linux/WSL/macOS vs Windows Git-Bash)
 OS_TYPE="$(uname -s)"
 VENV_DIR=".venv"
 
@@ -149,6 +168,8 @@ echo "      (First-time run downloads ~150MB of wheel dependencies; please wait.
 
 if [ -f "pyproject.toml" ]; then
     "$PY_CMD" -m pip install --prefer-binary -e ".[demo-target]" </dev/null
+elif [ -f "../pyproject.toml" ]; then
+    "$PY_CMD" -m pip install --prefer-binary -e "..[demo-target]" </dev/null
 else
     "$PY_CMD" -m pip install --prefer-binary "aginiti-redteam[demo-target]" </dev/null
 fi
