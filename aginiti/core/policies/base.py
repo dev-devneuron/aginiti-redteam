@@ -24,7 +24,14 @@ _RISK_ORDER = {RiskTier.LOW: 0, RiskTier.MEDIUM: 1, RiskTier.HIGH: 2, RiskTier.D
 def satisfies_constraints(operator: Operator, mission: Mission, budget_remaining: int) -> bool:
     if _RISK_ORDER[operator.risk_tier] > _RISK_ORDER[mission.risk_threshold]:
         return False
-    if operator.cost_prompts > budget_remaining:
+    # An operator that can run a reduced slice of itself (deep attacks with
+    # a tunable query budget -- see Operator.min_cost_prompts) stays
+    # eligible down to its minimum, not its full declared cost. For every
+    # other operator effective_min_cost_prompts == cost_prompts, so this is
+    # the exact same hard cap as before. ObservationAdapter._execute_deep_
+    # attack caps such a run to the budget actually left, so being eligible
+    # below full cost never overshoots the budget.
+    if operator.effective_min_cost_prompts > budget_remaining:
         return False
     if "no_destructive_actions" in mission.constraints and operator.risk_tier == RiskTier.DESTRUCTIVE:
         return False

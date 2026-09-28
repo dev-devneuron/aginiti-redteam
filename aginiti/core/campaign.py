@@ -9,6 +9,8 @@ that varies.
 """
 from __future__ import annotations
 
+import functools
+import inspect
 from dataclasses import dataclass, field
 
 from aginiti.core.observation_adapter import ExecutionResult, ObservationAdapter
@@ -26,6 +28,24 @@ from aginiti.core.policies.aginiti_policy import AginitiPolicy
 from aginiti.core.policies.base import Policy
 
 _logger = get_logger("campaign")
+
+
+@functools.lru_cache(maxsize=None)
+def _execute_accepts_budget_remaining(execute_func) -> bool:
+    """Whether an adapter's ``execute`` takes a ``budget_remaining`` kwarg.
+    Cached per function object -- the check is pure reflection over a fixed
+    signature, so it never needs recomputing for the same adapter type."""
+    try:
+        params = inspect.signature(execute_func).parameters
+    except (TypeError, ValueError):
+        return False
+    return "budget_remaining" in params or any(
+        p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+    )
+
+
+def _adapter_accepts_budget_remaining(adapter) -> bool:
+    return _execute_accepts_budget_remaining(adapter.execute)
 
 
 def _default_demo_agent(seed: int | None):
@@ -317,7 +337,19 @@ def run_campaign(mission: Mission, library: OperatorLibrary, agent: BaseAdapter 
             chosen.meta["decision_trace"] = trace.render()
 
         claims_before = len(ssg.claims)  # anchor for the belief-state diff below
-        result = adapter.execute(chosen.operator, ssg, agent, seed=seed)
+        # budget_remaining lets a reducible deep attack (Operator.min_cost_
+        # prompts) run only the slice the remaining budget can pay for and
+        # be charged exactly that, instead of overshooting -- see
+        # ObservationAdapter._execute_deep_attack. Passed only when the
+        # adapter's execute() accepts it (the real ObservationAdapter does):
+        # older/custom adapters and lightweight test doubles keep their
+        # original signature and are unaffected, since only reducible
+        # deep-attack operators ever consult it and those run through
+        # ObservationAdapter.
+        exec_kwargs = {"seed": seed}
+        if _adapter_accepts_budget_remaining(adapter):
+            exec_kwargs["budget_remaining"] = mission.budget - prompts_used
+        result = adapter.execute(chosen.operator, ssg, agent, **exec_kwargs)
         prompts_used += result.cost_prompts
         operators_executed.append(chosen.operator.id)  # full history, every execution -- never deduped
         if chosen.operator.kind == "deep_attack":

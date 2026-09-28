@@ -541,3 +541,53 @@ class TestJailbreakArtifact:
         assert artifact.p_e_star == "prompt"
         assert artifact.curriculum_weak_p_e is None
         assert artifact.curriculum_iterations_used is None
+
+    def test_deflected_defaults_false(self):
+        artifact = JailbreakArtifact(
+            p_e_star="prompt", score=0.7, target_identity="http://x",
+            iterations_used=2, used_curriculum=False,
+            optimizer_provider="p", evaluator_provider="p",
+            seed_prompt=DEFAULT_EXTRACTION_INSTRUCTION, n_cand=3, alpha=0.85,
+            optimized_at="2026-08-09T00:00:00+00:00",
+        )
+        assert artifact.deflected is False
+
+    def test_loads_from_old_cached_json_without_deflected_field(self):
+        # An artifact JSON written before `deflected` existed must still
+        # rehydrate via JailbreakArtifact(**cached) -- the field is
+        # defaulted precisely so a stale cache entry doesn't crash.
+        old_cached = {
+            "p_e_star": "prompt", "score": 0.7, "target_identity": "http://x",
+            "iterations_used": 2, "used_curriculum": False,
+            "optimizer_provider": "p", "evaluator_provider": "p",
+            "seed_prompt": DEFAULT_EXTRACTION_INSTRUCTION, "n_cand": 3, "alpha": 0.85,
+            "optimized_at": "2026-08-09T00:00:00+00:00",
+        }
+        artifact = JailbreakArtifact(**old_cached)
+        assert artifact.deflected is False
+
+
+class TestOptimizeMarksDeflection:
+    def test_score_zero_run_is_flagged_deflected(self, monkeypatch, tmp_path):
+        opt = _make_optimizer()
+        _redirect_cache(monkeypatch, tmp_path)
+        monkeypatch.setattr(
+            opt, "_run_algorithm1",
+            MagicMock(return_value=("refused prompt", 0.0, 3, [(0.0, "refused prompt")])),
+        )
+        with patch.object(AgentEndpoint, "check_reachable", return_value=True):
+            artifact = opt.optimize()
+        assert artifact.deflected is True
+        # score=0.0 artifacts are never cached (see optimize()'s guard).
+        assert not list(tmp_path.glob("*.json"))
+
+    def test_positive_score_run_is_not_deflected(self, monkeypatch, tmp_path):
+        opt = _make_optimizer()
+        _redirect_cache(monkeypatch, tmp_path)
+        monkeypatch.setattr(
+            opt, "_run_algorithm1",
+            MagicMock(return_value=("good prompt", 0.6, 1, [(0.6, "good prompt")])),
+        )
+        with patch.object(AgentEndpoint, "check_reachable", return_value=True):
+            artifact = opt.optimize()
+        assert artifact.deflected is False

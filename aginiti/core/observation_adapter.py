@@ -507,7 +507,7 @@ class ObservationAdapter:
             )
 
     def execute(self, operator: Operator, ssg: SecurityStateGraph, agent: BaseAdapter,
-                seed: int | None = None) -> ExecutionResult:
+                seed: int | None = None, budget_remaining: int | None = None) -> ExecutionResult:
         # Phase 2 Slice D (plans/phase2-operator-wrapping.md): a deep-attack
         # operator (IKEA/SECRET/MIA/... wrapped as an Operator) runs an
         # entirely different execution shape -- a whole BaseAttack subclass
@@ -517,7 +517,7 @@ class ObservationAdapter:
         # slice) falls through to the original pipeline completely
         # unchanged.
         if operator.kind == "deep_attack":
-            return self._execute_deep_attack(operator, ssg, agent, seed)
+            return self._execute_deep_attack(operator, ssg, agent, seed, budget_remaining)
 
         # render_prompt substitutes in specifics already learned about the
         # target (e.g. a name/salary pulled from an earlier confirmed claim)
@@ -666,7 +666,8 @@ class ObservationAdapter:
         )
 
     def _execute_deep_attack(self, operator: Operator, ssg: SecurityStateGraph, agent: BaseAdapter,
-                              seed: int | None = None) -> ExecutionResult:
+                              seed: int | None = None,
+                              budget_remaining: int | None = None) -> ExecutionResult:
         """Runs a deep attack (IKEA/SECRET/MIA/... — Phase 2 Slice D,
         plans/phase2-operator-wrapping.md) wrapped as one Operator.
         Deliberately calls `attack.execute_black_box(...)` directly, never
@@ -691,6 +692,32 @@ class ObservationAdapter:
         BaseAttack subclass takes an externally-supplied seed today."""
         exec_id = next_id("exec")
 
+        # Reduced-run capping: when the planner kept a reducible deep attack
+        # (Operator.min_cost_prompts set) eligible below its full
+        # cost_prompts, run only the slice the remaining budget can pay for,
+        # and charge exactly that -- so being eligible below full cost never
+        # overshoots the campaign budget. Only reducible operators declaring
+        # a runtime `max_queries` knob are affected (currently IKEA, whose
+        # cost_prompts == max_queries, so scaling the knob to the budget is
+        # exact); every other operator charges its full declared cost with
+        # its kwargs untouched, exactly as before. budget_remaining is None
+        # for every non-campaign caller (the adaptive engines, understanding
+        # loop, tests), which also leaves this path off.
+        attack_kwargs = operator.attack_kwargs
+        charged_cost = operator.cost_prompts
+        if (budget_remaining is not None
+                and operator.min_cost_prompts is not None
+                and "max_queries" in operator.attack_kwargs
+                and budget_remaining < operator.cost_prompts):
+            allocated = max(budget_remaining, operator.effective_min_cost_prompts)
+            attack_kwargs = {**operator.attack_kwargs, "max_queries": allocated}
+            charged_cost = allocated
+            _logger.info(
+                "deep_attack operator=%s running reduced: max_queries=%d "
+                "(budget_remaining=%d, full cost_prompts=%d)",
+                operator.id, allocated, budget_remaining, operator.cost_prompts,
+            )
+
         # Agent-type guard (Open Question 6, approved: graceful runtime
         # failure, not planner-visible via preconditions). A deep-attack
         # operator needs the shared AgentEndpoint HTTPAgentAdapter exposes
@@ -704,7 +731,7 @@ class ObservationAdapter:
                 f".endpoint (e.g. HTTPAgentAdapter) -- got {type(agent).__name__}, which "
                 f"has none. Runtime-guard failure, not a crash."
             )
-            return self._deep_attack_failure_result(operator, exec_id, ssg, agent, reasoning)
+            return self._deep_attack_failure_result(operator, exec_id, ssg, agent, reasoning, charged_cost)
 
         try:
             attack = operator.attack_factory(endpoint)
@@ -712,7 +739,7 @@ class ObservationAdapter:
             # discipline as _send(): a caller-authored attack_factory failing is a
             # target/config-side problem, not a reason to crash the campaign.
             reasoning = f"attack_factory raised {type(e).__name__}: {e}"
-            return self._deep_attack_failure_result(operator, exec_id, ssg, agent, reasoning)
+            return self._deep_attack_failure_result(operator, exec_id, ssg, agent, reasoning, charged_cost)
 
         # Wall-clock timeout guard (design doc requirement — not the
         # original 4-field Operator extension, added at implementation
@@ -727,7 +754,7 @@ class ObservationAdapter:
         # running and may still make real target/LLM calls.
         try:
             with ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(attack.execute_black_box, **operator.attack_kwargs)
+                future = pool.submit(attack.execute_black_box, **attack_kwargs)
                 try:
                     findings: list[LeakFinding] = future.result(timeout=operator.attack_timeout_seconds)
                 except FuturesTimeoutError:
@@ -742,10 +769,10 @@ class ObservationAdapter:
                         f"attack.execute_black_box timed out after "
                         f"{operator.attack_timeout_seconds:.0f}s"
                     )
-                    return self._deep_attack_failure_result(operator, exec_id, ssg, agent, reasoning)
+                    return self._deep_attack_failure_result(operator, exec_id, ssg, agent, reasoning, charged_cost)
         except Exception as e:  # noqa: BLE001 -- same backstop discipline as _send()
             reasoning = f"attack.execute_black_box raised {type(e).__name__}: {e}"
-            return self._deep_attack_failure_result(operator, exec_id, ssg, agent, reasoning)
+            return self._deep_attack_failure_result(operator, exec_id, ssg, agent, reasoning, charged_cost)
 
         summary = _deep_attack_summary(findings)
         ssg.record_fact(exec_id, "response_text", {"text": summary})
@@ -757,7 +784,7 @@ class ObservationAdapter:
         # pair here.
         ssg.record_fact(exec_id, "deep_attack_execution", {
             "operator_id": operator.id,
-            "attack_kwargs": operator.attack_kwargs,
+            "attack_kwargs": attack_kwargs,
             "finding_count": len(findings),
             "confirmed_count": sum(1 for f in findings if f.confirmed),
         })
@@ -826,7 +853,7 @@ class ObservationAdapter:
             confirmed_effects=confirmed_effects_detail,
             overall_success=overall_success,
             ground_truth_mission_achieved=agent.ground_truth_mission_achieved(),
-            cost_prompts=operator.cost_prompts,
+            cost_prompts=charged_cost,
             reasoning=f"deep attack execution: {len(findings)} finding(s) "
                       f"({sum(1 for f in findings if f.confirmed)} confirmed)",
             prompt_sent=f"[deep_attack via {operator.id}]",
@@ -836,14 +863,17 @@ class ObservationAdapter:
 
     @staticmethod
     def _deep_attack_failure_result(operator: Operator, exec_id: str, ssg: SecurityStateGraph,
-                                     agent: BaseAdapter, reasoning: str) -> ExecutionResult:
+                                     agent: BaseAdapter, reasoning: str,
+                                     charged_cost: int | None = None) -> ExecutionResult:
         """Shared failure path for `_execute_deep_attack` — same accounting
         discipline as a normal operator's synthetic-response path: a Fact
         is still recorded (this failure genuinely happened, worth an audit
         trail), `operator_stats` still counts it (as a failure, so the
         planner's one-shot-per-operator/failure-evidence machinery sees it
-        happened), and `cost_prompts` is still charged (the campaign
-        attempted this step)."""
+        happened), and cost is still charged (the campaign attempted this
+        step). `charged_cost` is the reduced-run allocation when the caller
+        capped the attack to a short remaining budget; None falls back to
+        the operator's full declared cost (every pre-reduced-run caller)."""
         raw_signal = f"[Aginiti: deep attack execution failed -- {reasoning}]"
         ssg.record_fact(exec_id, "response_text", {"text": raw_signal})
         ssg.record_operator_execution(operator.id, success=False)
@@ -856,7 +886,7 @@ class ObservationAdapter:
             confirmed_effects=[],
             overall_success=False,
             ground_truth_mission_achieved=agent.ground_truth_mission_achieved(),
-            cost_prompts=operator.cost_prompts,
+            cost_prompts=charged_cost if charged_cost is not None else operator.cost_prompts,
             reasoning=reasoning,
             prompt_sent=f"[deep_attack via {operator.id}]",
             tool_trace=[],
