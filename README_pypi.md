@@ -75,7 +75,22 @@ irm https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/quickst
 
 ---
 
-### Option B: Step-by-Step Manual Commands
+### 🎯 Option B: 1-Click Setup for Custom Targets & Deep Attacks
+Setting up an environment to test your own AI agent or run specific attack techniques? Run our automated environment provisioner:
+
+**macOS / Linux**
+```bash
+curl -sSL https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/setup.sh | bash
+```
+
+**Windows (PowerShell)**
+```powershell
+irm https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/setup.ps1 | iex
+```
+
+---
+
+### 🛠️ Option C: Step-by-Step Manual Commands
 
 #### 1. Start a Practice Target (Optional)
 Launch a local target agent seeded with multi-domain corporate records (HR, IT, DevSecOps, Vendor Invoices):

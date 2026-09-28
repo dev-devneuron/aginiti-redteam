@@ -25,7 +25,7 @@ Point it at any AI chatbot, RAG assistant, tool-calling agent, or multi-agent sy
 
 ## ⚡ Quick Start: Assess an Agent in 60 Seconds
 
-### Option A: 1-Click Automated Demo (Recommended)
+### Option A: 1-Click Automated Demo (Hardened Practice Target)
 Run our automated quickstart script to initialize an environment, launch the hardened demo target in the background, run a full 50-query assessment across all 47 operators, open the interactive HTML report, and cleanly shut down the server when finished:
 
 **macOS / Linux**
@@ -42,8 +42,37 @@ irm https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/quickst
 
 ---
 
-### Option B: Step-by-Step Manual Setup
-Prefer manual control? Run the assessment step-by-step:
+### Option B: 1-Click Setup for Custom Targets & Deep Attacks (Your Own Agent)
+Testing your own live AI agent, chatbot, or RAG pipeline? Run our automated environment setup script. It auto-provisions Python >= 3.10 if needed, creates `.venv`, configures `.env` (with an option to skip and fill keys later), pre-seeds local embedding models, and installs `aginiti-redteam`:
+
+**macOS / Linux**
+```bash
+curl -sSL https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/setup.sh | bash
+```
+*(Or clone the repo and run `./setup.sh`)*
+
+**Windows (PowerShell)**
+```powershell
+irm https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/setup.ps1 | iex
+```
+*(Or clone the repo and run `.\setup.ps1`)*
+
+Once setup finishes, activate the environment and point Aginiti at your target:
+```bash
+# macOS / Linux: source .venv/bin/activate
+# Windows: .venv\Scripts\activate
+
+# Scan your own target agent:
+aginiti scan --target https://your-agent.example.com/api/chat --tier full_assessment
+
+# Or run targeted research-backed attacks:
+aginiti attack ikea --target https://your-agent.example.com/api/chat --topic "sensitive records"
+```
+
+---
+
+### Option C: Step-by-Step Manual Setup
+Prefer manual control from scratch? Run the setup step-by-step:
 
 ```
 Manual Setup Flow
