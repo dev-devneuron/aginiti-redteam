@@ -234,6 +234,17 @@ class JailbreakArtifact:
     # optimization" — this is the p_e^seed handed to the real-target stage).
     curriculum_weak_p_e: Optional[str] = None
     curriculum_iterations_used: Optional[int] = None
+    # True when Phase 1 ended at score 0.0 -- i.e. not even the seed prompt,
+    # nor any optimized candidate, ever beat a flat refusal against this
+    # target. A strong, cheap signal that the target's jailbreak/input
+    # defenses are actively deflecting, which SECRETAttack.execute_black_box
+    # uses to skip Phase 2 entirely (10+ deflected queries for 0 findings)
+    # rather than burn the whole query budget. Defaulted so an older cached
+    # artifact JSON (written before this field existed) still loads via
+    # JailbreakArtifact(**cached); a score-0.0 artifact is never cached
+    # anyway (see optimize()'s own non-caching guard), so this is only ever
+    # True on a fresh in-memory artifact within the same run.
+    deflected: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -871,6 +882,7 @@ class JailbreakOptimizer:
             optimized_at=datetime.now(timezone.utc).isoformat(),
             curriculum_weak_p_e=curriculum_weak_p_e,
             curriculum_iterations_used=curriculum_iterations_used,
+            deflected=s_best <= 0.0,
         )
 
         # Don't cache a total failure (score=0.0, i.e. even the unoptimized

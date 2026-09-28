@@ -790,6 +790,17 @@ def deep_attack_operators() -> list[Operator]:
             # "declared cost, the campaign attempted this step" convention every
             # operator in this codebase already follows).
             cost_prompts=ikea_cfg.max_queries,
+            # IKEA's whole cost IS its max_queries (no fixed setup phase), so
+            # a reduced run is just a smaller max_queries -- it stays eligible
+            # when only a few prompts of budget remain, rather than being
+            # hard-excluded while the tail budget goes to a less-useful
+            # operator that happens to fit. _execute_deep_attack caps the run
+            # to the budget actually left. Deliberately NOT set on SECRET/MIA/
+            # SPE: SECRET has a fixed Phase-1 optimizer cost that a naive
+            # max_queries cut would overshoot, MIA/SPE have no runtime query
+            # knob at all (SPE always sends exactly 3), so they can only run
+            # whole -- their effective minimum stays cost_prompts.
+            min_cost_prompts=3,
             # MEDIUM, not HIGH or DESTRUCTIVE: IKEA is a genuine, active compromise
             # ATTEMPT (matches jailbreak_dan_style's own MEDIUM tier for the same
             # reason) but never modifies/destroys target state -- it only reads via

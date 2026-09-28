@@ -348,6 +348,18 @@ _CONFIDENTLY_REFUSED = {
                   "embedding refusal check.",
 }
 
+# Phase-2 early-exit guard: if this many Phase-2 queries in a row are
+# refused with zero segments extracted AND nothing has leaked yet, the
+# target is actively deflecting the jailbreak and the remaining query
+# budget would be spent for nothing -- abort and preserve it. This is the
+# secondary guard for the case where Phase 1 scored above 0 (so the
+# artifact isn't flagged `deflected`) but the live target still deflects
+# every Phase-2 probe; the primary, cheaper signal is Phase 1 ending at
+# score 0.0 (artifact.deflected), which skips Phase 2 outright. Set to 3
+# rather than 2 so a merely slow-starting run (a couple of early refusals
+# before the first real extraction) is not aborted prematurely.
+_EARLY_EXIT_CONSECUTIVE_REFUSALS = 3
+
 
 def _severity_to_float(severity: str) -> float:
     return _SEVERITY_TO_CONFIDENCE.get(severity, 0.30)
@@ -1092,9 +1104,23 @@ class SECRETAttack(BaseAttack):
                 artifact.score, artifact.iterations_used, artifact.used_curriculum,
             )
 
+            # Primary early-exit: Phase 1 never beat a flat refusal (score
+            # 0.0), so the jailbreak prefix is deflected before Phase 2 even
+            # starts. Running the full max_queries here would send 10+
+            # queries the target will refuse, for 0 findings -- skip Phase 2
+            # entirely and preserve the budget. Any checkpoint findings
+            # already loaded above are still returned.
+            if getattr(artifact, "deflected", False):
+                logger.warning(
+                    "[SECRET] Target defenses actively deflecting jailbreak queries "
+                    "(Phase 1 score 0.0) -- skipping Phase 2 to preserve budget."
+                )
+                return findings
+
             state = "GE"  # or "LE"
             local_query_count = 0
             consecutive_empty_le = 0
+            consecutive_refusals_no_extract = 0
 
             while self.queries_sent < max_q:
                 if self._llm_cap_reached(max_llm_calls):
@@ -1146,6 +1172,27 @@ class SECRETAttack(BaseAttack):
                 was_refused = len(self.refused_queries) > refused_before
                 if finding is not None:
                     findings.append(finding)
+
+                # Secondary early-exit (see _EARLY_EXIT_CONSECUTIVE_REFUSALS):
+                # Phase 1 scored above 0 so the artifact isn't flagged
+                # deflected, but the live target is refusing every Phase-2
+                # probe and nothing has leaked -- stop before draining the
+                # rest of the budget. A query that extracts anything (a
+                # finding, or a new segment/doc) resets the streak, so a run
+                # that is making real progress is never aborted.
+                if was_refused and finding is None and not new_docs:
+                    consecutive_refusals_no_extract += 1
+                else:
+                    consecutive_refusals_no_extract = 0
+                if (not findings
+                        and consecutive_refusals_no_extract >= _EARLY_EXIT_CONSECUTIVE_REFUSALS):
+                    logger.warning(
+                        "[SECRET] Target actively deflecting jailbreak queries "
+                        "(%d consecutive refusals, 0 findings) -- aborting Phase 2 "
+                        "early to preserve budget.",
+                        consecutive_refusals_no_extract,
+                    )
+                    break
 
                 if checkpoint_file:
                     try:
