@@ -5,7 +5,29 @@ Write-Host "========================================================" -Foregroun
 Write-Host "🛡️  Aginiti Red-Team: 1-Minute Automated Assessment Demo" -ForegroundColor Cyan
 Write-Host "========================================================" -ForegroundColor Cyan
 
-# 1. API Keys Check
+# 1. Directory Context (Always operate inside 'aginiti-demo' to keep the host environment clean)
+$currentDirName = Split-Path -Leaf (Get-Location)
+if ($currentDirName -ne "aginiti-demo") {
+    $parentDir = Get-Location
+    $parentEnv = Join-Path $parentDir ".env"
+    $demoDir = Join-Path $parentDir "aginiti-demo"
+
+    if (-not (Test-Path $demoDir)) {
+        Write-Host "Creating demo directory: $demoDir" -ForegroundColor Cyan
+        New-Item -ItemType Directory -Path $demoDir -Force | Out-Null
+    }
+
+    # If .env exists in the parent directory and not in aginiti-demo, copy it over
+    $targetEnv = Join-Path $demoDir ".env"
+    if ((Test-Path $parentEnv) -and -not (Test-Path $targetEnv)) {
+        Copy-Item -Path $parentEnv -Destination $targetEnv
+    }
+
+    Set-Location $demoDir
+    Write-Host "Entered demo directory: $(Get-Location)`n" -ForegroundColor DarkGray
+}
+
+# 2. API Keys Check
 function Import-DotEnv {
     if (Test-Path .env) {
         Get-Content .env | ForEach-Object {
@@ -64,7 +86,7 @@ if (-not (Test-LlmConfigured)) {
     }
 }
 
-# 2. Virtual Environment & Install
+# 3. Virtual Environment & Install
 if (-not (Test-Path .venv)) {
     Write-Host "`n[1/4] Creating virtual environment (.venv)..." -ForegroundColor Green
     python -m venv .venv
@@ -79,6 +101,8 @@ Write-Host "      (First-time run downloads ~150MB of wheel dependencies; please
 
 if (Test-Path pyproject.toml) {
     & $venvPython -m pip install --prefer-binary -e ".[demo-target]"
+} elseif (Test-Path "..\pyproject.toml") {
+    & $venvPython -m pip install --prefer-binary -e "..[demo-target]"
 } else {
     & $venvPython -m pip install --prefer-binary "aginiti-redteam[demo-target]"
 }
