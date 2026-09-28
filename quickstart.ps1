@@ -86,10 +86,84 @@ if (-not (Test-LlmConfigured)) {
     }
 }
 
-# 3. Virtual Environment & Install
+# 3. Resolve or Auto-Provision Python >= 3.10
+function Resolve-PythonExecutable {
+    # Check if a standalone runtime was previously provisioned in this directory
+    $localPy = Join-Path (Get-Location) ".python_runtime\python\python.exe"
+    if (Test-Path $localPy) {
+        return $localPy
+    }
+
+    # Check system Python candidates (python, py launcher, python3)
+    $candidates = @("python", "py -3.12", "py -3.11", "py -3.10", "py -3", "python3")
+    foreach ($cand in $candidates) {
+        try {
+            $cmd = $cand.Split(" ")[0]
+            $cArgs = if ($cand.Contains(" ")) { $cand.Substring($cmd.Length + 1).Split(" ") } else { @() }
+            $testArgs = $cArgs + @("-c", "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)")
+            $proc = Start-Process -FilePath $cmd -ArgumentList $testArgs -PassThru -NoNewWindow -Wait -ErrorAction SilentlyContinue
+            if ($proc.ExitCode -eq 0) {
+                $resolvedPath = & $cmd ($cArgs + @("-c", "import sys; print(sys.executable)")) 2>$null
+                if ($resolvedPath -and (Test-Path $resolvedPath.Trim())) {
+                    return $resolvedPath.Trim()
+                }
+            }
+        } catch {}
+    }
+
+    # Check common standard Windows Python installation paths
+    $commonPaths = @(
+        "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe",
+        "$env:LOCALAPPDATA\Programs\Python\Python311\python.exe",
+        "$env:LOCALAPPDATA\Programs\Python\Python310\python.exe",
+        "C:\Program Files\Python312\python.exe",
+        "C:\Program Files\Python311\python.exe",
+        "C:\Program Files\Python310\python.exe"
+    )
+    foreach ($p in $commonPaths) {
+        if (Test-Path $p) {
+            try {
+                $proc = Start-Process -FilePath $p -ArgumentList "-c", "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" -PassThru -NoNewWindow -Wait -ErrorAction SilentlyContinue
+                if ($proc.ExitCode -eq 0) {
+                    return $p
+                }
+            } catch {}
+        }
+    }
+
+    # Auto-provision standalone Python 3.12 if not found or system version < 3.10
+    Write-Host "`n⚠️  No Python >= 3.10 detected on system." -ForegroundColor Yellow
+    Write-Host "📥  Downloading portable standalone Python 3.12 runtime (~25MB)..." -ForegroundColor Cyan
+
+    $runtimeDir = Join-Path (Get-Location) ".python_runtime"
+    if (-not (Test-Path $runtimeDir)) {
+        New-Item -ItemType Directory -Path $runtimeDir -Force | Out-Null
+    }
+
+    $tarUrl = "https://github.com/astral-sh/python-build-standalone/releases/download/20241016/cpython-3.12.7+20241016-x86_64-pc-windows-msvc-install_only.tar.gz"
+    $tarPath = Join-Path $runtimeDir "python.tar.gz"
+
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    Invoke-WebRequest -Uri $tarUrl -OutFile $tarPath
+
+    Write-Host "📦  Extracting Python runtime..." -ForegroundColor Cyan
+    tar -xzf $tarPath -C $runtimeDir
+    Remove-Item $tarPath -Force -ErrorAction SilentlyContinue
+
+    if (Test-Path $localPy) {
+        Write-Host "✅  Standalone Python 3.12 ready.`n" -ForegroundColor Green
+        return $localPy
+    }
+
+    throw "Could not find or install Python >= 3.10. Please install Python from https://www.python.org/downloads/ and re-run."
+}
+
+$sysPython = Resolve-PythonExecutable
+
+# 4. Virtual Environment & Install
 if (-not (Test-Path .venv)) {
     Write-Host "`n[1/4] Creating virtual environment (.venv)..." -ForegroundColor Green
-    python -m venv .venv
+    & $sysPython -m venv .venv
 }
 
 $venvPython = Join-Path (Get-Location) ".venv\Scripts\python.exe"

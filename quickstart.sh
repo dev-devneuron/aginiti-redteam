@@ -69,17 +69,81 @@ if [ "$CURRENT_DIR_NAME" != "aginiti-demo" ]; then
     echo "Entered demo directory: $PWD"
 fi
 
-# 2. Resolve a Python >= 3.10 executable on the host system
-SYS_PYTHON=""
-for candidate in python3 python; do
-    if command -v "$candidate" >/dev/null 2>&1 && \
-       "$candidate" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' </dev/null >/dev/null 2>&1; then
-        SYS_PYTHON="$candidate"
-        break
+# 2. Resolve or Auto-Provision Python >= 3.10
+resolve_sys_python() {
+    # Check if a standalone runtime was previously provisioned in this directory
+    local local_py="$PWD/.python_runtime/python/bin/python3"
+    if [ -x "$local_py" ]; then
+        echo "$local_py"
+        return 0
     fi
-done
+
+    # Check system python candidates
+    local candidate
+    for candidate in python3.13 python3.12 python3.11 python3.10 python3 python; do
+        if command -v "$candidate" >/dev/null 2>&1 && \
+           "$candidate" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' </dev/null >/dev/null 2>&1; then
+            command -v "$candidate"
+            return 0
+        fi
+    done
+
+    # Auto-provision standalone Python 3.12 if not found or system version < 3.10
+    echo "" >&2
+    echo "⚠️  No Python >= 3.10 detected on system." >&2
+    echo "📥  Downloading portable standalone Python 3.12 runtime (~25MB)..." >&2
+
+    local runtime_dir="$PWD/.python_runtime"
+    mkdir -p "$runtime_dir"
+
+    local os_type arch tar_name
+    os_type="$(uname -s)"
+    arch="$(uname -m)"
+
+    if [ "$os_type" = "Darwin" ]; then
+        if [ "$arch" = "arm64" ] || [ "$arch" = "aarch64" ]; then
+            tar_name="cpython-3.12.7+20241016-aarch64-apple-darwin-install_only.tar.gz"
+        else
+            tar_name="cpython-3.12.7+20241016-x86_64-apple-darwin-install_only.tar.gz"
+        fi
+    else
+        # Linux / WSL
+        if [ "$arch" = "aarch64" ] || [ "$arch" = "arm64" ]; then
+            tar_name="cpython-3.12.7+20241016-aarch64-unknown-linux-gnu-install_only.tar.gz"
+        else
+            tar_name="cpython-3.12.7+20241016-x86_64-unknown-linux-gnu-install_only.tar.gz"
+        fi
+    fi
+
+    local url="https://github.com/astral-sh/python-build-standalone/releases/download/20241016/${tar_name}"
+    local tar_path="$runtime_dir/python.tar.gz"
+
+    if command -v curl >/dev/null 2>&1; then
+        curl -sSL "$url" -o "$tar_path" >&2
+    elif command -v wget >/dev/null 2>&1; then
+        wget -qO "$tar_path" "$url" >&2
+    else
+        echo "❌ Error: curl or wget is required to download Python runtime." >&2
+        exit 1
+    fi
+
+    echo "📦  Extracting Python runtime..." >&2
+    tar -xzf "$tar_path" -C "$runtime_dir"
+    rm -f "$tar_path"
+
+    if [ -x "$local_py" ]; then
+        echo "✅  Standalone Python 3.12 ready." >&2
+        echo "$local_py"
+        return 0
+    fi
+
+    echo "❌ Error: Failed to provision Python runtime. Please install Python >= 3.10 (e.g. sudo apt install python3 python3-venv) and try again." >&2
+    exit 1
+}
+
+SYS_PYTHON="$(resolve_sys_python)"
 if [ -z "$SYS_PYTHON" ]; then
-    echo "❌ Error: Python 3.10 or newer is required but was not found in PATH."
+    echo "❌ Error: Python >= 3.10 could not be resolved or provisioned."
     exit 1
 fi
 
