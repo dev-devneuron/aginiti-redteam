@@ -94,24 +94,35 @@ function Resolve-PythonExecutable {
         return $localPy
     }
 
-    # Check system Python candidates (python, py launcher, python3)
-    $candidates = @("python", "py -3.12", "py -3.11", "py -3.10", "py -3", "python3")
-    foreach ($cand in $candidates) {
+    function Test-Candidate($cmd, $argsList) {
         try {
-            $cmd = $cand.Split(" ")[0]
-            $cArgs = if ($cand.Contains(" ")) { $cand.Substring($cmd.Length + 1).Split(" ") } else { @() }
-            $testArgs = $cArgs + @("-c", "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)")
-            $proc = Start-Process -FilePath $cmd -ArgumentList $testArgs -PassThru -NoNewWindow -Wait -ErrorAction SilentlyContinue
-            if ($proc.ExitCode -eq 0) {
-                $resolvedPath = & $cmd ($cArgs + @("-c", "import sys; print(sys.executable)")) 2>$null
-                if ($resolvedPath -and (Test-Path $resolvedPath.Trim())) {
-                    return $resolvedPath.Trim()
+            $checkScript = 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'
+            $res = & $cmd @($argsList + @("-c", $checkScript)) 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                $path = & $cmd @($argsList + @("-c", "import sys; print(sys.executable)")) 2>$null
+                if ($path -and (Test-Path $path.Trim())) {
+                    return $path.Trim()
                 }
             }
         } catch {}
+        return $null
     }
 
-    # Check common standard Windows Python installation paths
+    # 1. Test standard command-line candidates
+    $candList = @(
+        @{ cmd = "python"; args = @() },
+        @{ cmd = "py"; args = @("-3.12") },
+        @{ cmd = "py"; args = @("-3.11") },
+        @{ cmd = "py"; args = @("-3.10") },
+        @{ cmd = "py"; args = @("-3") },
+        @{ cmd = "python3"; args = @() }
+    )
+    foreach ($cand in $candList) {
+        $found = Test-Candidate $cand.cmd $cand.args
+        if ($found) { return $found }
+    }
+
+    # 2. Check common standard Windows Python installation paths
     $commonPaths = @(
         "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe",
         "$env:LOCALAPPDATA\Programs\Python\Python311\python.exe",
@@ -122,16 +133,12 @@ function Resolve-PythonExecutable {
     )
     foreach ($p in $commonPaths) {
         if (Test-Path $p) {
-            try {
-                $proc = Start-Process -FilePath $p -ArgumentList "-c", "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" -PassThru -NoNewWindow -Wait -ErrorAction SilentlyContinue
-                if ($proc.ExitCode -eq 0) {
-                    return $p
-                }
-            } catch {}
+            $found = Test-Candidate $p @()
+            if ($found) { return $found }
         }
     }
 
-    # Auto-provision standalone Python 3.12 if not found or system version < 3.10
+    # 3. Auto-provision standalone Python 3.12 if not found or system version < 3.10
     Write-Host "`n⚠️  No Python >= 3.10 detected on system." -ForegroundColor Yellow
     Write-Host "📥  Downloading portable standalone Python 3.12 runtime (~25MB)..." -ForegroundColor Cyan
 
@@ -144,7 +151,17 @@ function Resolve-PythonExecutable {
     $tarPath = Join-Path $runtimeDir "python.tar.gz"
 
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    Invoke-WebRequest -Uri $tarUrl -OutFile $tarPath
+    $oldProgress = $ProgressPreference
+    $ProgressPreference = 'SilentlyContinue'
+    try {
+        if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
+            & curl.exe -sSL "$tarUrl" -o "$tarPath"
+        } else {
+            Invoke-WebRequest -Uri $tarUrl -OutFile $tarPath -UseBasicParsing
+        }
+    } finally {
+        $ProgressPreference = $oldProgress
+    }
 
     Write-Host "📦  Extracting Python runtime..." -ForegroundColor Cyan
     tar -xzf $tarPath -C $runtimeDir
