@@ -9,7 +9,20 @@ changes.
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-09-29
+
 ### Added
+
+- 1-Click Custom Target & Attack Setup (`setup.sh` and `setup.ps1`):
+  zero-prerequisite Python >= 3.10 auto-provisioning, automated virtual
+  environment creation, interactive API key prompt with skip option to
+  edit `.env` later, and package & ONNX embedding pre-seeding.
+- Standalone GHCR Docker workflow (`docker/docker-compose.yml`): pulls
+  prebuilt public images (`ghcr.io/dev-devneuron/aginiti-redteam:latest`)
+  with zero local Python or git checkout needed.
+- Automated Docker CI/CD publishing workflow (`.github/workflows/docker-publish.yml`).
+- Developer Docker Development Fleet (`docker compose up -d` under repo root)
+  for containerized testing and benchmark evaluations.
 
 - Dynamic budgeting for reducible deep attacks: `Operator.min_cost_prompts`
   (with an `effective_min_cost_prompts` property clamped to `cost_prompts`)
