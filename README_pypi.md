@@ -75,7 +75,42 @@ irm https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/quickst
 
 ---
 
-### Option B: Step-by-Step Manual Commands
+### 🎯 Option B: 1-Click Setup for Custom Targets & Deep Attacks
+Setting up an environment to test your own AI agent or run specific attack techniques? Run our automated environment provisioner:
+
+**macOS / Linux**
+```bash
+curl -sSL https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/setup.sh | bash
+```
+
+**Windows (PowerShell)**
+```powershell
+irm https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/setup.ps1 | iex
+```
+
+---
+
+### 🐳 Option C: Zero-Python Docker Workflow (Prebuilt GHCR Images)
+Run everything via prebuilt Docker containers without installing Python:
+
+```bash
+# Download compose file and start demo agent:
+curl -O https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/docker/docker-compose.yml
+echo 'GROQ_API_KEY="gsk_..."' > .env
+docker compose up -d
+
+# Run scan (results save to ./results/ on your host):
+docker compose run --rm cli aginiti scan --target http://demo-target:8001 --tier full_assessment --budget 30
+
+# Or scan your own custom target:
+docker compose run --rm cli aginiti scan --target https://your-agent.example.com/api/chat
+
+docker compose down
+```
+
+---
+
+### 🛠️ Option D: Step-by-Step Manual Commands
 
 #### 1. Start a Practice Target (Optional)
 Launch a local target agent seeded with multi-domain corporate records (HR, IT, DevSecOps, Vendor Invoices):

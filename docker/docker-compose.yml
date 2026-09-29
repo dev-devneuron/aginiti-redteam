@@ -1,64 +1,35 @@
 # End-user Docker workflow for the aginiti-redteam CLI -- run everything
-# (the practice target agent AND the attacks/scans) with no local Python,
-# pip, or venv at all, and no Windows onnxruntime/chromadb native-binary
-# issues (see docker/Dockerfile's own header for why). Two services, built
-# from that one shared image:
+# (the practice target agent AND the attacks/scans) with zero local Python,
+# pip, or venv at all.
 #
-#   demo-target  A long-running FastAPI target agent to try Aginiti against
-#                (aginiti-demo-target --port 8001). Default profile -- a
-#                plain `docker compose up` starts this and only this, same
-#                "never fires an LLM-cost attack by accident" philosophy the
-#                repo-root docker-compose.yml already establishes for its
-#                own "attack" profile.
-#   cli          One-shot `aginiti scan`/`attack`/`report` invocations.
-#                Behind the "cli" profile (so a bare `docker compose up`
-#                never tries to start it with no command) -- always invoked
-#                explicitly with `run`, which also starts its declared
-#                dependencies first.
+# Pulls the prebuilt public image from GitHub Container Registry (ghcr.io).
+# No repo clone or Docker build required.
 #
-# Usage (run from this docker/ directory):
+# Usage (run in any directory containing this docker-compose.yml):
 #
-#   docker compose up -d              # start the practice target on :8001
-#   docker compose run --rm cli aginiti scan --target http://demo-target:8001 \
-#       --tier data_leakage --budget 15
-#   docker compose run --rm cli aginiti attack spe --target http://demo-target:8001
-#   docker compose down               # stop and remove everything
+#   1. Download compose file:
+#      curl -O https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/docker/docker-compose.yml
 #
-# Already have your own target agent instead of the practice one? Skip
-# `docker compose up` entirely and just point --target at your own
-# HTTP-reachable URL (it doesn't need to be reachable FROM inside the
-# container via the "demo-target" service name -- use whatever URL/hostname
-# is actually reachable from wherever your target runs):
+#   2. (Optional) Set your API key in a local .env:
+#      echo 'GROQ_API_KEY="gsk_..."' > .env
 #
-#   docker compose run --rm cli aginiti scan --target https://your-agent.example.com --budget 15
+#   3. Start the practice target:
+#      docker compose up -d
 #
-# findings.json/aginiti_assessment_report.{md,html} land in a fresh,
-# timestamped results/<run>/ subdirectory of THIS directory on the host
-# (the `cli` service bind-mounts it to /workspace, its working directory --
-# same results/ layout the README describes for a plain local install).
-# The container has no browser of its own to auto-open the HTML
-# report in -- the CLI's own auto-open (see --no-open-report) fails
-# gracefully there with a one-line "could not auto-open" notice rather than
-# crashing, so nothing extra is needed here; open the file from the HOST
-# afterward instead, the same way the README shows for a plain local
-# install (Start-Process/open/xdg-open). Pass --no-open-report yourself if
-# you'd rather skip straight past that notice.
+#   4. Run scan against demo target:
+#      docker compose run --rm cli aginiti scan --target http://demo-target:8001 --tier full_assessment --budget 30
 #
-# .env (in THIS docker/ directory, or symlink/copy your repo-root one here)
-# supplies your LLM API key to both services via env_file -- copy
-# ../.env.example to .env here and fill in at least one key before running
-# an actual attack (demo-target itself needs no key).
+#   5. Or run scan against your own live agent:
+#      docker compose run --rm cli aginiti scan --target https://your-agent.example.com/api/chat
+#
+#   6. Stop practice target when finished:
+#      docker compose down
 
 name: aginiti-redteam-cli
 
 services:
   demo-target:
-    build: .
-    image: aginiti-redteam-cli:latest
-    # required: false (Docker Compose v2.24+ spec) -- demo-target itself
-    # needs no API key at all, so it must start fine even before you've
-    # created a .env here yet. `cli` (below) has the identical need for
-    # its own key-dependent subcommands, so gets the same treatment.
+    image: ghcr.io/dev-devneuron/aginiti-redteam:latest
     env_file:
       - path: .env
         required: false
@@ -74,22 +45,12 @@ services:
     restart: unless-stopped
 
   cli:
-    # No separate `build:` -- references the SAME image demo-target builds,
-    # same reason the repo-root docker-compose.yml's own comment gives for
-    # its reference_agent_blackbox/everyone-else split: two services each
-    # declaring `build:` against the same tag race to write it in parallel
-    # and can fail outright. Run `docker compose build` once (or bring
-    # `demo-target` up first) on a fresh checkout before using `cli`.
-    image: aginiti-redteam-cli:latest
+    image: ghcr.io/dev-devneuron/aginiti-redteam:latest
     env_file:
       - path: .env
         required: false
     working_dir: /workspace
     volumes:
       - .:/workspace
-    # Deliberately no `command:` here -- `docker compose run --rm cli
-    # <whatever aginiti subcommand>` supplies it per invocation (see the
-    # usage examples in this file's own header comment). A bare
-    # `docker compose up` never starts this service at all, both because it
-    # has no default command to run and because of the profile gate below.
     profiles: ["cli"]
+

@@ -25,7 +25,7 @@ Point it at any AI chatbot, RAG assistant, tool-calling agent, or multi-agent sy
 
 ## ⚡ Quick Start: Assess an Agent in 60 Seconds
 
-### Option A: 1-Click Automated Demo (Recommended)
+### Option A: 1-Click Automated Demo (Hardened Practice Target)
 Run our automated quickstart script to initialize an environment, launch the hardened demo target in the background, run a full 50-query assessment across all 47 operators, open the interactive HTML report, and cleanly shut down the server when finished:
 
 **macOS / Linux**
@@ -42,8 +42,62 @@ irm https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/quickst
 
 ---
 
-### Option B: Step-by-Step Manual Setup
-Prefer manual control? Run the assessment step-by-step:
+### Option B: 1-Click Setup for Custom Targets & Deep Attacks (Your Own Agent)
+Testing your own live AI agent, chatbot, or RAG pipeline? Run our automated environment setup script. It auto-provisions Python >= 3.10 if needed, creates `.venv`, configures `.env` (with an option to skip and fill keys later), pre-seeds local embedding models, and installs `aginiti-redteam`:
+
+**macOS / Linux**
+```bash
+curl -sSL https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/setup.sh | bash
+```
+*(Or clone the repo and run `./setup.sh`)*
+
+**Windows (PowerShell)**
+```powershell
+irm https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/setup.ps1 | iex
+```
+*(Or clone the repo and run `.\setup.ps1`)*
+
+Once setup finishes, activate the environment and point Aginiti at your target:
+```bash
+# macOS / Linux: source .venv/bin/activate
+# Windows: .venv\Scripts\activate
+
+# Scan your own target agent:
+aginiti scan --target https://your-agent.example.com/api/chat --tier full_assessment
+
+# Or run targeted research-backed attacks:
+aginiti attack ikea --target https://your-agent.example.com/api/chat --topic "sensitive records"
+```
+
+---
+
+### Option C: Zero-Python Docker Workflow (Prebuilt GHCR Images)
+Prefer running in an isolated container without installing Python, dependencies, or cloning the repository? Use our prebuilt public image from GitHub Container Registry:
+
+```bash
+# 1. Download the standalone compose file:
+curl -O https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/docker/docker-compose.yml
+
+# 2. (Optional) Set your API key in a local .env:
+echo 'GROQ_API_KEY="gsk_..."' > .env
+
+# 3. Start the practice target in the background:
+docker compose up -d
+
+# 4. Run a scan against the demo target (results save to ./results/ in your current directory):
+docker compose run --rm cli aginiti scan --target http://demo-target:8001 --tier data_leakage --budget 20
+
+# Or point it directly at your own live target agent URL:
+docker compose run --rm cli aginiti scan --target https://your-agent.example.com/api/chat --tier full_assessment
+
+# 5. Stop everything when finished:
+docker compose down
+```
+
+---
+
+### Option D: Step-by-Step Manual Setup
+Prefer manual control from scratch? Run the setup step-by-step:
 
 ```
 Manual Setup Flow
@@ -219,39 +273,6 @@ aginiti report --input results/<run_dir>/findings.json
 
 ---
 
-## 🐳 Prefer Docker? (Zero Local Python)
-
-If you don't have Python installed or want an isolated Linux container setup:
-
-1. Clone the repo and enter the docker folder:
-```bash
-git clone https://github.com/dev-devneuron/aginiti-redteam.git
-cd aginiti-redteam/docker
-```
-
-2. Start the practice target in the background:
-```bash
-docker compose up -d
-```
-
-3. Run a scan inside the container (results save to your local folder):
-```bash
-docker compose run --rm cli aginiti scan --target http://demo-target:8001 --tier data_leakage --budget 20
-```
-
-4. Stop everything when you're finished:
-```bash
-docker compose down
-```
-
-### Which Setup Should You Choose?
-| Setup Method | Best For | Advantages |
-| :--- | :--- | :--- |
-| **`pip install`** | Python Developers, Security Researchers | Fastest start, 0 repo checkout, native CLI speed. |
-| **`docker compose`** | DevOps, CI/CD Pipelines, Non-Python Users | 100% isolated Linux environment, zero local Python dependencies. |
-
----
-
 ## 📁 Repository Architecture
 
 ```text
@@ -277,8 +298,7 @@ aginiti-redteam/
 
 Follow this setup if you want to inspect source code, develop new attack operators, or run benchmarks.
 
-### 1. Clone & Install in Editable Mode
-Run all lines together, in order:
+### Method 1: Local Virtual Environment
 
 **macOS / Linux**
 ```bash
@@ -288,6 +308,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev,benchmarks]"
 cp .env.example .env
+pytest tests/ -q
 ```
 
 **Windows (PowerShell)**
@@ -298,11 +319,26 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -e ".[dev,benchmarks]"
 copy .env.example .env
+pytest tests/ -q
 ```
 
-### 2. Run the Offline Test Suite
+### Method 2: Docker Development Fleet (Zero Local Python)
+
+If you prefer developing inside an isolated Docker container without installing Python dependencies on your host:
+
 ```bash
-pytest tests/ -v
+git clone https://github.com/dev-devneuron/aginiti-redteam.git
+cd aginiti-redteam
+cp .env.example .env
+
+# Build and launch the developer test fleet and seeded reference agents:
+docker compose up -d
+
+# Run the full unit test suite inside the container:
+docker compose run --rm reference_agent_blackbox pytest tests/ -q
+
+# Run benchmark evaluations inside the container:
+docker compose run --rm reference_agent_blackbox python -m benchmarks.scaled_evals.runner
 ```
 
 ### 3. Run Campaigns Directly from Source
