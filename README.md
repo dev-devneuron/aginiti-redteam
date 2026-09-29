@@ -105,10 +105,10 @@ echo 'GROQ_API_KEY="gsk_..."' > .env
 docker compose up -d
 
 # 4. Run a scan against the demo target (results save to ./results/ in your current directory):
-docker compose run --rm cli aginiti scan --target http://demo-target:8001 --tier data_leakage --budget 20
+docker compose run --rm cli aginiti scan --target http://demo-target:8001 --tier full_assessment --budget 50
 
 # Or point it directly at your own live target agent URL:
-docker compose run --rm cli aginiti scan --target https://your-agent.example.com/api/chat --tier full_assessment
+docker compose run --rm cli aginiti scan --target https://your-agent.example.com/api/chat --tier data_leakage --budget 30
 
 # 5. Stop everything when finished:
 docker compose down
