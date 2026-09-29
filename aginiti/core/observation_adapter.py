@@ -774,6 +774,17 @@ class ObservationAdapter:
             reasoning = f"attack.execute_black_box raised {type(e).__name__}: {e}"
             return self._deep_attack_failure_result(operator, exec_id, ssg, agent, reasoning, charged_cost)
 
+        # Dynamic budget recycling: a deep attack that exits early (e.g.
+        # SECRET skipping Phase 2 after its jailbreak is deflected) sends far
+        # fewer target queries than its declared cost_prompts. Charge only
+        # what it actually sent so the unspent budget returns to the campaign
+        # for other operators, never MORE than the (already budget-capped)
+        # charged_cost, and never zero for a step that did run. Attacks that
+        # expose no usable counter keep the declared cost, unchanged.
+        actual_queries = _actual_queries_consumed(attack, findings)
+        if actual_queries is not None:
+            charged_cost = max(1, min(charged_cost, actual_queries))
+
         summary = _deep_attack_summary(findings)
         ssg.record_fact(exec_id, "response_text", {"text": summary})
         # Supplementary structured Fact (additive, beyond the response_text
@@ -891,6 +902,41 @@ class ObservationAdapter:
             prompt_sent=f"[deep_attack via {operator.id}]",
             tool_trace=[],
         )
+
+
+def _actual_queries_consumed(attack, findings: list[LeakFinding]) -> int | None:
+    """Best-effort count of target queries a deep attack ACTUALLY sent this
+    run, for dynamic budget recycling in `_execute_deep_attack`. Returns
+    ``None`` when the attack exposes no usable counter, so the caller keeps
+    the declared cost unchanged (backward-compatible for any attack that
+    doesn't track this).
+
+    Counters differ per attack, so this reads whichever are present:
+      - SECRET: ``phase1_target_query_count`` (jailbreak-optimizer probes)
+        + ``queries_sent`` (Phase-2 CFT probes). On an early exit that skips
+        Phase 2, this is the ~6-7 Phase-1 probes, NOT zero -- charging the
+        real figure, not an over-optimistic 1.
+      - IKEA and other findings-emitting attacks with no ``queries_sent``:
+        one target query per finding plus one per refused query
+        (``refused_queries``) -- exactly the probes it put on the wire.
+    """
+    total = 0
+    counted = False
+    phase1 = getattr(attack, "phase1_target_query_count", None)
+    if isinstance(phase1, int):
+        total += phase1
+        counted = True
+    queries_sent = getattr(attack, "queries_sent", None)
+    if isinstance(queries_sent, int):
+        total += queries_sent
+        counted = True
+    if counted:
+        return total
+    # No explicit send-counter (e.g. IKEA): infer from what reached the wire.
+    refused = getattr(attack, "refused_queries", None)
+    if isinstance(refused, list):
+        return len(findings) + len(refused)
+    return None
 
 
 def _deep_attack_summary(findings: list[LeakFinding]) -> str:

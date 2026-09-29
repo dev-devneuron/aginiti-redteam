@@ -9,6 +9,23 @@ changes.
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-09-29
+
+### Added
+
+- Dynamic budget recycling on deep-attack early exits: `ObservationAdapter._execute_deep_attack`
+  now charges the actual query count consumed (`_actual_queries_consumed`) rather than
+  blindly burning the full declared static `cost_prompts`. When SECRET Phase 1 deflects and skips
+  Phase 2, it charges only the ~7 Phase 1 probes instead of 16, automatically returning the ~9
+  saved queries back to `budget_remaining` for the campaign planner to select additional attack operators.
+- Fresh anchor generation for IKEA automated scans: `ikea_sensitive_data_exfiltration`
+  now generates fresh starting anchors by default (`force_refresh=True`), preventing stale multi-day
+  on-disk caches from locking in weak keyword draws while preserving LLM sampling creativity for TRDM.
+- Automated update checking in Quick Start & Setup scripts: added `--upgrade` flag to `pip install`
+  in `quickstart.sh`, `quickstart.ps1`, `setup.sh`, and `setup.ps1` so existing environments
+  automatically pull the latest PyPI release on re-execution.
+- Accelerated standalone Python auto-provisioning and cleaned up executable candidate probing in PowerShell scripts.
+
 ## [0.3.4] - 2026-09-29
 
 ### Added

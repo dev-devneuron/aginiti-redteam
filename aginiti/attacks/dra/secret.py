@@ -684,6 +684,13 @@ class SECRETAttack(BaseAttack):
         self._llm_call_count: int = 0
         self.refused_queries: list[dict] = []
         self.queries_sent: int = 0
+        # Target queries the Phase-1 jailbreak optimizer sent on the LAST
+        # execute_black_box run (0 when Phase 1 was served from cache, so it
+        # made no live calls that run). Kept on the instance so the campaign
+        # can charge SECRET for the queries it ACTUALLY sent -- Phase 1's
+        # calls plus `queries_sent` (Phase 2) -- rather than the full
+        # declared cost, when a defense-aware early exit skips Phase 2.
+        self.phase1_target_query_count: int = 0
         self.ge_events: int = 0
         self.le_steps: int = 0
         self._extracted_segments: list[str] = []
@@ -835,6 +842,10 @@ class SECRETAttack(BaseAttack):
             endpoint_kwargs=self._endpoint_kwargs,
         )
         artifact = optimizer.optimize(force_refresh=force_refresh)
+        # Record how many live target queries Phase 1 actually sent this run
+        # (0 if optimize() returned a cached artifact). Used by the campaign
+        # to charge SECRET's real query consumption on an early exit.
+        self.phase1_target_query_count = optimizer.target_query_count
         self.jailbreak_artifact = artifact
         return artifact
 
@@ -1045,6 +1056,7 @@ class SECRETAttack(BaseAttack):
         self._llm_call_count = 0
         self.refused_queries = []
         self.queries_sent = 0
+        self.phase1_target_query_count = 0
         self.ge_events = 0
         self.le_steps = 0
         self._extracted_segments = []

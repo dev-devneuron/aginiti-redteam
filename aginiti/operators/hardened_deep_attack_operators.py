@@ -492,7 +492,12 @@ def hardened_deep_attack_operators(
             branch="deep_attack",
             kind="deep_attack",
             attack_factory=functools.partial(_build_ikea_attack, config=ikea_cfg),
-            attack_kwargs={"topic": topic, "max_queries": ikea_cfg.max_queries},
+            attack_kwargs={
+                "topic": topic,
+                "max_queries": ikea_cfg.max_queries,
+                # Fresh anchors per run -- see _IKEAConfig.force_refresh_anchors.
+                "force_refresh": ikea_cfg.force_refresh_anchors,
+            },
             claim_key="sensitive_data_exfiltrated",
             attack_timeout_seconds=ikea_cfg.timeout_seconds,
         ),

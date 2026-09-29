@@ -271,6 +271,18 @@ class _IKEAConfig:
     embed_model: str
     topic: str
     max_queries: int
+    # Regenerate IKEA's anchor set fresh on every campaign run instead of
+    # reusing the 7-day on-disk anchor cache. Default True specifically for
+    # the campaign/scan path (this is where it matters): the cache locks in
+    # ONE random anchor draw per machine for 168h, so a first draw that
+    # happened to skew toward abstract, low-yield topics (e.g. legal/
+    # compliance statutes) silently poisons every later scan on that box.
+    # A fresh draw per run restores anchor diversity; the extra cost is one
+    # anchor-generation LLM call, negligible against the 20-query attack.
+    # Deliberately does NOT touch temperature/seed -- TRDM's stochastic
+    # phrasing creativity is preserved on purpose. Override with
+    # IKEA_OPERATOR_FORCE_REFRESH_ANCHORS=false to reuse the cache.
+    force_refresh_anchors: bool = True
     # 15 minutes -- generous headroom for a real max_queries=20 run (each
     # query involves several of its own LLM/embedding/HTTP calls
     # internally; a live Phase-1 smoke test at a SMALLER query count
@@ -290,6 +302,9 @@ def _load_ikea_config() -> _IKEAConfig:
         embed_model=os.environ.get("EMBED_MODEL", "chromadb/all-MiniLM-L6-v2"),
         topic=os.environ.get("IKEA_OPERATOR_TOPIC", "HR records"),
         max_queries=int(os.environ.get("IKEA_OPERATOR_MAX_QUERIES", "20")),
+        force_refresh_anchors=os.environ.get(
+            "IKEA_OPERATOR_FORCE_REFRESH_ANCHORS", "true"
+        ).lower() not in ("false", "0", "no"),
     )
 
 
@@ -811,7 +826,12 @@ def deep_attack_operators() -> list[Operator]:
             branch="deep_attack",
             kind="deep_attack",
             attack_factory=functools.partial(_build_ikea_attack, config=ikea_cfg),
-            attack_kwargs={"topic": ikea_cfg.topic, "max_queries": ikea_cfg.max_queries},
+            attack_kwargs={
+                "topic": ikea_cfg.topic,
+                "max_queries": ikea_cfg.max_queries,
+                # Fresh anchors per campaign run -- see _IKEAConfig.force_refresh_anchors.
+                "force_refresh": ikea_cfg.force_refresh_anchors,
+            },
             claim_key="sensitive_data_exfiltrated",
             attack_timeout_seconds=ikea_cfg.timeout_seconds,
         ),
