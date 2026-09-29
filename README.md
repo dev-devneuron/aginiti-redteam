@@ -42,8 +42,8 @@ irm https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/quickst
 
 ---
 
-### Option B: 1-Click Setup for Custom Targets & Deep Attacks (Your Own Agent)
-Testing your own live AI agent, chatbot, or RAG pipeline? Run our automated environment setup script. It auto-provisions Python >= 3.10 if needed, creates `.venv`, configures `.env` (with an option to skip and fill keys later), pre-seeds local embedding models, and installs `aginiti-redteam`:
+### Option B: 1-Click Setup for Custom Targets & Deep Attacks
+Setting up an environment to test your own AI agent or run specific attack techniques against custom or practice targets? Run our automated environment setup script. It auto-provisions Python >= 3.10 if needed, creates `.venv`, configures `.env` (with an option to skip and fill keys later), pre-seeds local embedding models, and installs `aginiti-redteam`:
 
 **macOS / Linux**
 ```bash
@@ -57,16 +57,36 @@ irm https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/setup.p
 ```
 *(Or clone the repo and run `.\setup.ps1`)*
 
-Once setup finishes, activate the environment and point Aginiti at your target:
+Once setup finishes, activate the environment:
 ```bash
-# macOS / Linux: source .venv/bin/activate
-# Windows: .venv\Scripts\activate
+# macOS / Linux:
+source .venv/bin/activate
 
-# Scan your own target agent:
+# Windows (PowerShell):
+.\.venv\Scripts\Activate.ps1
+```
+
+#### Run against your own live target agent:
+```bash
+# Autonomous multi-turn campaign:
 aginiti scan --target https://your-agent.example.com/api/chat --tier full_assessment
 
-# Or run targeted research-backed attacks:
-aginiti attack ikea --target https://your-agent.example.com/api/chat --topic "sensitive records"
+# Or execute specific deep-attack research modules directly:
+aginiti attack ikea --target https://your-agent.example.com/api/chat --topic "confidential records"
+aginiti attack secret --target https://your-agent.example.com/api/chat --domain "financial credentials"
+aginiti attack spe --target https://your-agent.example.com/api/chat
+```
+
+#### Or practice customized attacks against the local demo agent:
+```bash
+# Terminal 1: Launch the practice agent with all 5 defense layers enabled:
+aginiti-demo-target --port 8001 --hardened
+
+# Terminal 2: Run targeted deep attacks or custom scans against it:
+aginiti attack ikea --target http://127.0.0.1:8001 --topic "HR records" --queries 20
+aginiti attack secret --target http://127.0.0.1:8001 --domain "HR records"
+aginiti attack spe --target http://127.0.0.1:8001
+aginiti scan --target http://127.0.0.1:8001 --tier data_leakage --budget 30
 ```
 
 ---
