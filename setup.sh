@@ -228,7 +228,7 @@ if [ -f "pyproject.toml" ]; then
 elif [ -f "../pyproject.toml" ]; then
     "$PY_CMD" -m pip install --prefer-binary -e "..[demo-target]" </dev/null
 else
-    "$PY_CMD" -m pip install --prefer-binary "aginiti-redteam[demo-target]" </dev/null
+    "$PY_CMD" -m pip install --prefer-binary --upgrade "aginiti-redteam[demo-target]" </dev/null
 fi
 
 # Pre-seed ChromaDB vector store & download ONNX embeddings ahead of time

@@ -162,7 +162,7 @@ if (Test-Path pyproject.toml) {
 } elseif (Test-Path "..\pyproject.toml") {
     & $venvPython -m pip install --prefer-binary -e "..[demo-target]"
 } else {
-    & $venvPython -m pip install --prefer-binary "aginiti-redteam[demo-target]"
+    & $venvPython -m pip install --prefer-binary --upgrade "aginiti-redteam[demo-target]"
 }
 
 # Pre-seed ChromaDB vector store & download ONNX embeddings ahead of time
