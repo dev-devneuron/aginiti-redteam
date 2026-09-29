@@ -21,6 +21,8 @@ env/
 aginiti-demo/
 aginiti-demo*/
 .claude/
+docs/*PRESENTATION*.md
+docs/*presentation*.md
 
 # Testing / coverage
 .pytest_cache/
