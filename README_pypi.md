@@ -76,7 +76,7 @@ irm https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/quickst
 ---
 
 ### 🎯 Option B: 1-Click Setup for Custom Targets & Deep Attacks
-Setting up an environment to test your own AI agent or run specific attack techniques? Run our automated environment provisioner:
+Setting up an environment to test your own AI agent or run specific attack techniques against custom or practice targets? Run our automated environment provisioner:
 
 **macOS / Linux**
 ```bash
@@ -86,6 +86,17 @@ curl -sSL https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/s
 **Windows (PowerShell)**
 ```powershell
 irm https://raw.githubusercontent.com/dev-devneuron/aginiti-redteam/main/setup.ps1 | iex
+```
+
+Once setup finishes, activate the environment (`source .venv/bin/activate` or `.\.venv\Scripts\Activate.ps1`):
+
+```bash
+# 1. Scan your own target agent:
+aginiti scan --target https://your-agent.example.com/api/chat --tier full_assessment
+
+# 2. Or practice attacks against the local hardened demo target:
+# Terminal 1: aginiti-demo-target --port 8001 --hardened
+# Terminal 2: aginiti attack ikea --target http://127.0.0.1:8001 --topic "HR records"
 ```
 
 ---
